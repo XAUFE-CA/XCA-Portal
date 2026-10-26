@@ -13,3 +13,16 @@
 | AI | Artificial Intelligence（人工智能） | 正文写 AI |
 | UTF-8 | Unicode Transformation Format 8 | 文件编码写 UTF-8 |
 | LF | Line Feed（换行符） | 文件行尾写 LF |
+
+## 工具与文件格式
+
+| 术语 | 全称或解释 | 使用约束 |
+| --- | --- | --- |
+| Lint | 代码静态检查 | 与格式检查分别记录结果 |
+| SQLite | 嵌入式数据库 | 连接器的包名写 `better-sqlite3` |
+| CSS | Cascading Style Sheets | 保留官方大写 |
+| HTML | HyperText Markup Language | 保留官方大写 |
+| JSON | JavaScript Object Notation | 保留官方大写 |
+| YAML | YAML Ain't Markup Language | 保留官方大写 |
+| SVG | Scalable Vector Graphics | 保留官方大写 |
+| CI | Continuous Integration（持续集成） | 只描述实际执行的检查 |

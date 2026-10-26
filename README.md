@@ -16,6 +16,7 @@
   <a href="https://vuejs.org"><img alt="Vue" src="https://img.shields.io/badge/Vue-interface-3dd6a6?style=flat&amp;labelColor=132134&amp;logo=vue.js&amp;logoColor=f4f8fc"></a>
   <a href="https://www.typescriptlang.org"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-language-8c9bff?style=flat&amp;labelColor=132134&amp;logo=typescript&amp;logoColor=f4f8fc"></a>
   <a href="https://bun.sh"><img alt="Bun" src="https://img.shields.io/badge/Bun-runtime-38bdf8?style=flat&amp;labelColor=132134&amp;logo=bun&amp;logoColor=f4f8fc"></a>
+  <a href="https://biomejs.dev"><img alt="Biome" src="https://img.shields.io/badge/Biome-tooling-60a5fa?style=flat&amp;labelColor=132134&amp;logo=biome&amp;logoColor=f4f8fc"></a>
 </p>
 
 </div>
@@ -31,7 +32,7 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 | 应用框架 | [Nuxt](https://nuxt.com)、[Vue](https://vuejs.org) |
 | 开发语言 | [TypeScript](https://www.typescriptlang.org) |
 | 内容管理 | [Nuxt Content](https://content.nuxt.com) |
-| 开发工具 | [Bun](https://bun.sh) |
+| 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、Prettier |
 
 ## 开发
 
@@ -41,6 +42,15 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 bun install
 bun run dev
 ```
+
+## 检查
+
+| 命令 | 用途 |
+| --- | --- |
+| `bun run format:check` | 检查格式与 import 顺序 |
+| `bun run lint` | 检查代码问题 |
+
+格式与检查约定见 [工程质量契约](docs/architecture/engineering-quality.md)。
 
 ## 构建与预览
 

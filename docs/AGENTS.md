@@ -7,6 +7,8 @@
 ```text
 docs/
   AGENTS.md               本文件：职责、行文与验证
+  architecture/
+    engineering-quality.md  格式、Lint 与验证责任
   terminology/
     README.md             术语入口与维护方式
     terms.md              品牌与缩写对照
@@ -18,6 +20,7 @@ docs/
 
 - 全局协作和修改约束只维护在根 `AGENTS.md`。
 - 项目定位、主要技术、基本开发命令与贡献入口只维护在根 README。
+- 格式工具、Lint 与验证责任只维护在 [工程质量契约](architecture/engineering-quality.md)。
 - 品牌与缩写解释只维护在 [术语表](terminology/terms.md)。
 - 文档只描述当前提交包含的事实。提议与采用后的接口分别维护，不能把计划写成当前能力。
 
@@ -36,6 +39,6 @@ docs/
 
 ## 格式与验证
 
-文件使用 UTF-8、LF、末尾换行，标题、段落、列表和表格之间留空行。按实际采用的工具配置检查格式；当前提交没有格式脚本时，记录所用工具与配置，不虚构仓库命令。
+文件使用 UTF-8、LF、末尾换行，标题、段落、列表和表格之间留空行。Markdown 使用 Prettier，写完运行 `bun run format:check`，代码改动另运行 `bun run lint`。格式和 Lint 分别记录结果，工具职责见工程质量契约。
 
 检查全部内部链接及片段目标，并人工核对正文提到的命令、路径和能力是否在候选提交中存在。没有进入候选提交的文件不能补足链接目标；工作区中存在不代表提交中存在。

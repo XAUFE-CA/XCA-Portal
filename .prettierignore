@@ -1,0 +1,21 @@
+# Dependencies and generated Nuxt/build output
+node_modules/
+.output/
+.data/
+.nuxt/
+.nitro/
+.cache/
+dist/
+
+# Generated logs
+logs/
+*.log
+
+# Package-manager generated lockfile
+bun.lock
+
+# Local environment and editor state
+.env
+.env.*
+.fleet/
+.idea/
