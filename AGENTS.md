@@ -11,18 +11,19 @@ app/
 docs/
   AGENTS.md               文档职责、行文与验证
   architecture/
-    engineering-quality.md  格式、Lint 与验证责任
+    engineering-quality.md  门禁、预算与验证责任
   terminology/
     README.md             术语入口与维护方式
     terms.md              品牌与缩写对照
 public/                   初始静态资产
+scripts/                  门禁聚合、预算、文档链接、静态导入检查与治理测试
 ```
 
-根文件职责：`package.json` 定义依赖和命令，`bun.lock` 固定安装结果，`nuxt.config.ts` 配置 Nuxt，`tsconfig.json` 配置类型入口，`.gitignore` 排除本地产物，README 提供项目和运行入口。格式工具配置位于 `biome.json`、`.prettierrc.json` 与 `.prettierignore`，编码及行尾约定由 `.editorconfig` 和 `.gitattributes` 维护。
+根文件职责：`package.json` 定义依赖和命令，`bun.lock` 固定安装结果，`nuxt.config.ts` 配置 Nuxt，`tsconfig.json` 配置应用类型入口，`tsconfig.quality.json` 配置治理脚本类型检查，`.gitignore` 排除本地产物，README 提供项目和运行入口。格式工具配置位于 `biome.json`、`.prettierrc.json` 与 `.prettierignore`，编码及行尾约定由 `.editorconfig` 和 `.gitattributes` 维护。
 
-扩展去向：功能代码遵循该阶段采用的应用结构，公共正文与静态资产分别按其事实来源维护；现行接口文档进 `docs/`，术语解释进 `docs/terminology/`。增加目录时同步本节，不预设未采用的模块结构。
+扩展去向：功能代码遵循该阶段采用的应用结构，公共正文与静态资产分别按其事实来源维护；治理脚本进 `scripts/` 并接入适用门禁，现行接口文档进 `docs/`，术语解释进 `docs/terminology/`。增加目录时同步本节，不预设未采用的模块结构。
 
-格式、Lint 与验证责任见 [工程质量契约](docs/architecture/engineering-quality.md)。
+门禁、预算与验证责任见 [工程质量契约](docs/architecture/engineering-quality.md)。
 
 ## 修改与验证
 

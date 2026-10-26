@@ -1,0 +1,9 @@
+{
+  "limits": {
+    "source": [300, 500],
+    "css": [400, 600],
+    "test": [400, 700],
+    "function": [60, 100]
+  },
+  "exceptions": {}
+}

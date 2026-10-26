@@ -30,6 +30,49 @@ Biome 启用 Vue 的实验性 HTML 格式化，关闭 Markdown 与 YAML 格式�
 
 格式命令使用 `biome check` 的 formatter 与 assist 能力，并关闭 Lint；`biome format` 不执行 import assist。格式检查通过不能作为 Lint 通过的证据。
 
+## 门禁与执行
+
+命令定义维护在 [package.json](../../package.json)，门禁顺序维护在 [聚合器](../../scripts/run-gates.ts)。
+
+| 命令 | 行为 |
+| --- | --- |
+| `bun run check:fast` | 格式、Lint、预算、文档链接、静态导入、应用类型、治理类型与单测 |
+| `bun run check` | 快速门禁全部通过后执行生产构建 |
+| `bun run check:budgets` | 检查文件、函数与文档内容量 |
+| `bun run check:docs` | 检查 Markdown 仓库内链接的文件目标 |
+| `bun run check:architecture` | 检查应用的静态导入解析与循环 |
+| `bun run typecheck` | 应用类型检查 |
+| `bun run test` | 治理单元测试与命令行回归 |
+
+快速门禁单项失败后继续执行其余项，结束时汇总全部失败；有失败时不继续生产构建。治理脚本自身由 [tsconfig.quality.json](../../tsconfig.quality.json) 严格检查，不能只检查应用类型。Lint 无 error 为通过，Lint 诊断与预算审查提示实时输出，格式通过不能替代 Lint。
+
+## 代码和文档预算
+
+阈值与例外维护在 [预算配置](../../scripts/quality-budgets.json)，实现见 [预算检查](../../scripts/check-budgets.ts)。
+
+| 对象 | SHOULD 审查 | MUST 超限说明 |
+| --- | --: | --: |
+| TS、JS、Vue | 300 行 | 500 行 |
+| CSS | 400 行 | 600 行 |
+| 测试文件 | 400 行 | 700 行 |
+| 函数与方法 | 60 行 | 100 行 |
+| 根 AGENTS | 200 行 | 250 行 |
+| 子目录 AGENTS | 100 行 | 120 行 |
+| 其他 Markdown | 500 行 | 不设行数硬限 |
+| Markdown 内容量 | 6000 单位 | 12000 单位 |
+
+CRLF 归一为 LF，末尾换行不额外计空行，空行和注释计入行数。每个 Han 字符或连续的非 Han 字母、数字、下划线计为一个内容单位，代码、链接与表格按原文计算。函数通过 TypeScript AST 识别，Vue 只提取 script；外层函数包含嵌套函数，名称与同名遍历序号共同标识预算项。
+
+范围由 Git 已跟踪与未忽略的未跟踪文件决定。依赖和生成物通过既有忽略规则排除，`.agents/` 不参与预算。软超限输出 REVIEW，由审查者核对职责、复杂度与重复实现，不为了行数拆文件。硬超限必须登记原因与当前精确上限，后续增长重新审查；不得通过提高阈值或排除手写文件隐藏问题。当前配置没有功能预算例外。
+
+## 静态检查及局限
+
+[静态导入检查](../../scripts/check-architecture.ts) 扫描 app 中 TS、Vue 模块并排除 `.test.ts`，读取 import、export-from 及字面量 import()/require()，解析相对路径和 `~/`、`@/` 别名，验证资源查询路径，报告无法解析的本地导入与循环。实现复用 [源码分析](../../scripts/source-analysis.ts)，不引入依赖图框架。
+
+此检查只分析显式静态路径，不解析 Nuxt 自动导入或运行时拼接的路径，不验证第三方包导出、运行时生命周期或功能分层。功能分层规则随对应能力引入，不能将当前通过写成终端或其他功能的边界验证。
+
+[文档链接检查](../../scripts/check-docs.ts) 跳过围栏、行内代码、外部协议和片段，核对文件目标存在；不检查片段有效性、外链连通性或 Markdown 全部语法。内部片段和正文事实仍由人工核对。当前应用保持初始入口，治理测试使用自建临时文件，不依赖后续页面、翻译或字体。
+
 ## 修改与审查
 
 - Lint 必须无 error，warning 与 info 保留可见，并在交付说明中解释与本次改动相关的诊断。

@@ -26,3 +26,5 @@
 | YAML | YAML Ain't Markup Language | 保留官方大写 |
 | SVG | Scalable Vector Graphics | 保留官方大写 |
 | CI | Continuous Integration（持续集成） | 只描述实际执行的检查 |
+| AST | Abstract Syntax Tree（抽象语法树） | 用于说明静态源码分析 |
+| CRLF | Carriage Return + Line Feed | 统计前归一为 LF |

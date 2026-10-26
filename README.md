@@ -47,8 +47,9 @@ bun run dev
 
 | 命令 | 用途 |
 | --- | --- |
-| `bun run format:check` | 检查格式与 import 顺序 |
-| `bun run lint` | 检查代码问题 |
+| `bun run check` | 检查与生产构建 |
+| `bun run check:fast` | 检查，不含构建 |
+| `bun run test` | 单元测试 |
 
 格式与检查约定见 [工程质量契约](docs/architecture/engineering-quality.md)。
 

@@ -10,7 +10,14 @@
     "postinstall": "nuxt prepare",
     "format": "biome check --write --linter-enabled=false . && prettier --write \"**/*.{md,yml,yaml}\"",
     "format:check": "biome check --linter-enabled=false . && prettier --check \"**/*.{md,yml,yaml}\"",
-    "lint": "biome lint ."
+    "lint": "biome lint .",
+    "typecheck": "nuxt typecheck",
+    "test": "bun test scripts",
+    "check:budgets": "bun scripts/check-budgets.ts",
+    "check:docs": "bun scripts/check-docs.ts",
+    "check:architecture": "bun scripts/check-architecture.ts",
+    "check:fast": "bun scripts/run-gates.ts --fast",
+    "check": "bun scripts/run-gates.ts"
   },
   "dependencies": {
     "@nuxt/content": "^3.16.1",
@@ -22,7 +29,10 @@
   "devDependencies": {
     "@biomejs/biome": "2.6.2",
     "prettier": "3.9.10",
-    "prettier-plugin-markdown-compact-tables": "1.0.0"
+    "prettier-plugin-markdown-compact-tables": "1.0.0",
+    "typescript": "6.0.3",
+    "@types/bun": "^1.4.4",
+    "vue-tsc": "^3.3.13"
   },
   "packageManager": "bun@1.4.4"
 }
