@@ -31,9 +31,9 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 | --- | --- |
 | 应用框架 | [Nuxt](https://nuxt.com)、[Vue](https://vuejs.org) |
 | 开发语言 | [TypeScript](https://www.typescriptlang.org) |
-| 界面组件 | Neoverse-UI |
 | 内容管理 | [Nuxt Content](https://content.nuxt.com) |
-| 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、Prettier |
+| 界面组件 | Neoverse-UI |
+| 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、Prettier、Playwright |
 
 ## 开发
 
@@ -44,24 +44,16 @@ bun install
 bun run dev
 ```
 
-## 检查
+## 检查与构建
 
 | 命令 | 用途 |
 | --- | --- |
 | `bun run check` | 检查与生产构建 |
-| `bun run check:fast` | 检查，不含构建 |
 | `bun run test` | 单元测试 |
-| `bun run test:e2e` | 构建与浏览器回归 |
-
-格式与检查约定见 [工程质量契约](docs/architecture/engineering-quality.md)。
-
-## 构建与预览
-
-| 命令 | 用途 |
-| --- | --- |
 | `bun run build` | 生产构建 |
-| `bun run generate` | 静态生成 |
 | `bun run preview` | 预览构建产物 |
+
+详细的环境、检查与维护说明见 [工程质量契约](docs/architecture/engineering-quality.md)。
 
 ## 参与贡献
 
@@ -74,4 +66,4 @@ bun run dev
 
 ## 许可
 
-许可与复用说明见 [组织默认许可](https://github.com/XAUFE-CA/.github#许可与复用)。
+沿用 [组织默认许可](https://github.com/XAUFE-CA/.github#许可与复用)：代码以 MIT 发布（见 [LICENSE](./LICENSE)），文字内容以 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 发布，复用与改编须署名 XAUFE-CA（XCA 计算机学社）并注明修改。自托管字体遵循上游 SIL OFL 1.1（见 [字体许可证](public/fonts/OFL.txt)）。

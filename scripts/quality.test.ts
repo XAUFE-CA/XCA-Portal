@@ -6,6 +6,7 @@ import { budgetFailure, fileLimits, inBudgetScope } from "./check-budgets";
 import { extractLinks, isExternalLink } from "./check-docs";
 import { GATES, tail } from "./run-gates";
 import {
+  boundaryViolation,
   cycles,
   documentUnits,
   functions,
@@ -133,4 +134,26 @@ test("import resolution checks isolated aliases, directory indexes, queries and 
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
+});
+
+test("terminal core and commands reject framework, host and reverse dependencies", () => {
+  const core = "app/features/terminal/core/session.ts";
+  const command = "app/features/terminal/commands/site.ts";
+  for (const target of [
+    "vue",
+    "@neoverse-ui/vue",
+    "child_process",
+    "node:fs",
+    "app/features/terminal/commands/index.ts",
+  ])
+    expect(boundaryViolation(core, target)).toBe(true);
+  for (const target of [
+    "@neoverse-ui/vue",
+    "node:child_process",
+    "app/components/site/SiteHeader.vue",
+    "app/features/terminal/presentation/timing.ts",
+  ])
+    expect(boundaryViolation(command, target)).toBe(true);
+  expect(boundaryViolation(core, "app/i18n/index.ts")).toBe(false);
+  expect(boundaryViolation(command, "app/features/terminal/core/types.ts")).toBe(false);
 });

@@ -1,4 +1,5 @@
 import { statSync } from "node:fs";
+import { isBuiltin } from "node:module";
 import { dirname, resolve } from "node:path";
 import ts from "typescript";
 
@@ -101,4 +102,24 @@ export function cycles(graph: Map<string, string[]>): string[] {
   }
   for (const path of graph.keys()) visit(path);
   return failures;
+}
+
+export function boundaryViolation(path: string, target: string): boolean {
+  if (!path.startsWith("app/features/terminal/")) return false;
+  if ((path.includes("/core/") || path.includes("/commands/")) && isBuiltin(target)) return true;
+  if (path.includes("/core/")) {
+    return (
+      /^(vue|@vue\/|@neoverse-ui\/|#app|#imports|node:|bun)/.test(target) ||
+      (target.startsWith("app/") &&
+        !/^(app\/features\/terminal\/(core\/|branding\/|config\.ts)|app\/i18n\/|app\/config\/)/.test(
+          target,
+        ))
+    );
+  }
+  return (
+    path.includes("/commands/") &&
+    /^(vue|@vue\/|@neoverse-ui\/|#app|#imports|node:|bun)|^app\/(pages|components|composables)\/|\/terminal\/(components|presentation)\//.test(
+      target,
+    )
+  );
 }

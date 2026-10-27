@@ -1,0 +1,26 @@
+/* Noto Sans SC serves UI text; terminal text uses self-hosted WOFF2 subsets with Maple metrics.
+   界面文本使用 Noto Sans SC，终端文本使用保留 Maple 度量的自托管 WOFF2 子集。 */
+@font-face {
+  font-family: "Maple Mono NF CN";
+  src: url("../fonts/maple-mono-nf-cn-regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+/* Completion hints use Maple's designed italic glyphs rather than a synthetic slant.
+   补全提示使用 Maple 设计的斜体字形，而非合成倾斜。 */
+@font-face {
+  font-family: "Maple Mono NF CN";
+  src: url("../fonts/maple-mono-nf-cn-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+:root {
+  --neoverse-font-family-sans:
+    "Noto Sans SC Variable", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", ui-sans-serif,
+    system-ui, sans-serif;
+  --neoverse-font-family-code: var(--neoverse-font-family-code-maple);
+  --neoverse-font-family-mono: var(--neoverse-font-family-code);
+  --xca-terminal-font: var(--neoverse-font-family-code);
+}

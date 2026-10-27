@@ -1,6 +1,11 @@
+<script setup lang="ts">
+const { locale, t } = useSiteLocale();
+useHead(() => ({ htmlAttrs: { lang: locale.value }, title: t("home.title") }));
+</script>
+
 <template>
-  <div>
-    <NuxtRouteAnnouncer />
-    <NuxtWelcome />
-  </div>
+  <NuxtRouteAnnouncer />
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>

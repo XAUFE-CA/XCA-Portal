@@ -1,0 +1,569 @@
+/* Portal layout and intro choreography; terminal material and typography belong to Neoverse-UI.
+   门户布局与开场编排，终端材质与排版归 Neoverse-UI 所有。 */
+.xca-terminal-hero {
+  --xca-terminal-expanded-inset: clamp(var(--neoverse-space-4), 4vw, var(--neoverse-space-12));
+  position: relative;
+  padding-top: clamp(var(--neoverse-space-8), 4vw, var(--neoverse-space-18));
+  padding-bottom: clamp(var(--neoverse-space-14), 7vw, var(--neoverse-space-24));
+}
+.xca-terminal-hero__heading {
+  position: relative;
+  margin-inline: auto;
+  max-width: var(--neoverse-layout-reading-wide-width);
+  text-align: center;
+}
+.xca-terminal-hero__heading h1 {
+  margin: 0;
+  font-size: var(--neoverse-typography-display-md-size);
+  font-family: var(--neoverse-typography-display-font-family);
+  font-weight: var(--neoverse-typography-display-md-weight);
+  letter-spacing: var(--neoverse-typography-display-md-letter-spacing);
+  line-height: var(--neoverse-typography-display-md-line-height);
+}
+.xca-terminal-title {
+  display: grid;
+}
+.xca-terminal-title__text,
+.xca-terminal-title__sizing {
+  grid-area: 1 / 1;
+  align-self: center;
+}
+.xca-terminal-title__sizing {
+  visibility: hidden;
+  pointer-events: none;
+}
+.xca-terminal-title__accent {
+  color: var(--neoverse-color-accent-primary);
+  margin-inline-start: var(--neoverse-space-1);
+}
+.xca-terminal-title__letter--punctuation {
+  letter-spacing: var(--neoverse-letter-spacing-normal);
+}
+.xca-terminal-title__letter {
+  position: relative;
+  visibility: hidden;
+}
+.xca-terminal-title__letter--visible {
+  visibility: visible;
+}
+.xca-terminal-title__letter--cursor::after {
+  content: "";
+  position: absolute;
+  left: var(--xca-title-cursor-left, 100%);
+  top: var(--xca-title-cursor-top, 50%);
+  height: var(--xca-title-cursor-height, 1em);
+  transform: translateY(-50%);
+  border-inline-start: var(--neoverse-border-width-thin) solid currentColor;
+  visibility: visible;
+}
+.xca-terminal-title__letter--cursor-before::after {
+  left: 0;
+}
+.xca-terminal-title__letter--paused::after {
+  animation: xca-terminal-title-cursor calc(var(--neoverse-motion-duration-expressive) * 2.5)
+    step-end infinite;
+}
+@keyframes xca-terminal-title-cursor {
+  50% {
+    opacity: 0;
+  }
+}
+.xca-terminal-hero__subtitle {
+  margin: var(--neoverse-space-6) auto 0;
+  color: var(--neoverse-color-text-secondary);
+  font-size: var(--neoverse-typography-body-lg-size);
+  line-height: var(--neoverse-line-height-relaxed);
+}
+.xca-terminal-anchor {
+  width: min(100%, var(--neoverse-layout-reading-wide-width));
+  height: clamp(calc(var(--neoverse-space-28) * 4), 38vw, calc(var(--neoverse-space-32) * 4));
+  margin: clamp(var(--neoverse-space-6), 2.8vw, var(--neoverse-space-10)) auto 0;
+  position: relative;
+  z-index: var(--neoverse-layout-layer-sticky);
+}
+.xca-terminal-window {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  transition: opacity var(--neoverse-motion-duration-standard)
+    var(--neoverse-motion-easing-standard);
+}
+.xca-terminal-screen {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: inherit;
+  /* An optional image is set by the background command; the default is unset.
+     可选图片由 background 命令设置，默认未设置。 */
+  background-image: var(--xca-terminal-background-image);
+  background-size: cover;
+  background-position: center;
+  cursor: text;
+}
+.xca-terminal-transcript {
+  flex: 1 1 auto;
+  max-height: none;
+}
+.xca-terminal-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--neoverse-space-2);
+}
+.xca-terminal-banner,
+.xca-terminal-brand-probe {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: clip;
+  margin: 0 0 var(--neoverse-space-6);
+  padding: 0;
+  /* Welcome to XCA is the portal's brand artwork; preserve its original typography.
+     Welcome to XCA 是门户品牌视觉，须保留其原有排版。 */
+  font:
+    var(--neoverse-font-weight-regular) var(--neoverse-font-size-xs) /
+    var(--neoverse-line-height-snug) var(--xca-terminal-font);
+  font-size: calc(var(--neoverse-font-size-xs) * var(--xca-terminal-banner-scale, 1));
+  white-space: pre;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
+  letter-spacing: 0;
+  color: var(--neoverse-color-accent-primary);
+}
+/* Brand-only neon ink; the same transcript node carries it through the intro.
+   仅品牌使用的霓虹着色，开场中由同一 transcript 节点延续。 */
+@supports (background-clip: text) {
+  .xca-terminal-banner {
+    background-image: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--neoverse-color-cyan-300) 85%, var(--neoverse-color-text-primary)),
+      color-mix(
+          in srgb,
+          var(--neoverse-color-accent-primary) 80%,
+          var(--neoverse-color-text-primary)
+        )
+        48%,
+      color-mix(
+        in srgb,
+        var(--neoverse-color-accent-tertiary) 85%,
+        var(--neoverse-color-text-primary)
+      )
+    );
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(
+        0 0 0.2em color-mix(in srgb, var(--neoverse-color-accent-primary) 40%, transparent)
+      )
+      drop-shadow(
+        0 0 0.55em color-mix(in srgb, var(--neoverse-color-accent-tertiary) 25%, transparent)
+      );
+  }
+}
+@media (forced-colors: active) {
+  .xca-terminal-banner {
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+    filter: none;
+  }
+}
+.xca-terminal-line {
+  white-space: pre-wrap;
+}
+.xca-terminal-line + .xca-terminal-line {
+  margin-top: var(--neoverse-space-1);
+}
+.xca-terminal-links {
+  display: flex;
+  gap: var(--neoverse-space-5);
+  flex-wrap: wrap;
+  padding-block: var(--neoverse-space-3);
+}
+.xca-terminal-prompt {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  transition: opacity var(--neoverse-motion-duration-standard)
+    var(--neoverse-motion-easing-standard);
+}
+.xca-terminal-prompt__busy {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+.xca-terminal-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--neoverse-space-3);
+}
+.xca-terminal-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Surrounding content enters while boot.content brings the terminal home.
+   周边内容入场的同时，boot.content 把终端带回原位。 */
+.xca-terminal-hero__heading,
+.site-header-wrap,
+.site-footer {
+  transition:
+    opacity var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-standard)
+    var(--xca-reveal-delay, 0ms),
+    transform var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-emphasized)
+    var(--xca-reveal-delay, 0ms);
+}
+.site-header-wrap {
+  --xca-reveal-delay: 0ms;
+}
+.xca-terminal-hero__heading {
+  --xca-reveal-delay: calc(var(--neoverse-motion-duration-standard) * 0.5);
+}
+.site-footer {
+  --xca-reveal-delay: calc(var(--neoverse-motion-duration-standard) * 3);
+}
+/* First paint: head bootstrap gate blocks a finished-page flash; final anchor keeps layout space.
+   首帧：head 内的引导门禁阻止完成态页面闪现，末位锚点保留布局空间。 */
+html[data-xca-intro="pending"] .site-header-wrap,
+html[data-xca-intro="pending"] .site-footer,
+html[data-xca-intro="pending"] .xca-terminal-hero__heading {
+  opacity: 0;
+}
+/* The document rail overlays the viewport; a scrollbar gutter would clip Aurora Glass surfaces.
+   文档滚动条覆盖视口，预留原生滚动条槽位会裁掉极光玻璃表面。 */
+/* A document rail must not intercept the full-screen boot or focused terminal.
+   文档滚动条不得拦截全屏启动或聚焦终端。 */
+html[data-xca-intro="pending"] .xca-document-scrollbar,
+html[data-xca-intro="running"] .xca-document-scrollbar,
+body:has(.xca-terminal-hero--focused) > .xca-document-scrollbar {
+  visibility: hidden;
+}
+.xca-terminal-hero--intro {
+  z-index: var(--neoverse-layout-layer-overlay);
+}
+.xca-terminal-hero__intro-backdrop {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  background: var(--neoverse-color-surface-canvas);
+  opacity: 1;
+  transition: opacity var(--neoverse-motion-duration-expressive)
+    var(--neoverse-motion-easing-standard);
+}
+.xca-terminal-hero--docking .xca-terminal-hero__intro-backdrop {
+  opacity: 0;
+}
+.xca-terminal-hero--intro .xca-terminal-anchor {
+  z-index: 1;
+}
+.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing) .xca-terminal-hero__heading {
+  opacity: 0;
+  transform: translateY(var(--neoverse-motion-distance-mid));
+  pointer-events: none;
+}
+.xca-terminal-window--intro {
+  transition: none;
+  will-change: transform;
+  transform-origin: center center;
+}
+body:has(.xca-terminal-hero--intro) {
+  overflow: hidden;
+}
+.site-shell:has(.xca-terminal-hero--revealing) .site-header-wrap,
+.site-shell:has(.xca-terminal-hero--revealing) .site-footer {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.site-shell:has(.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing)) .site-header-wrap,
+.site-shell:has(.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing)) .site-footer {
+  opacity: 0;
+  transform: translateY(var(--neoverse-motion-distance-mid));
+  pointer-events: none;
+}
+.site-shell:has(.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing)) .site-header-wrap {
+  transform: translateY(calc(var(--neoverse-motion-distance-mid) * -1));
+}
+/* Linux-style typed boot and ASCII printer share one origin; neither remounts TerminalSession.
+   仿 Linux 的打字启动与 ASCII 打印共用同一原点，两者都不重挂载 TerminalSession。 */
+.xca-terminal-screen {
+  position: relative;
+}
+.xca-terminal-intro-output {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 1;
+  overflow: hidden;
+  transition: opacity var(--neoverse-motion-duration-standard)
+    var(--neoverse-motion-easing-standard);
+}
+.xca-terminal-bootlog {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: repeat(6, minmax(1lh, auto)) auto;
+  align-content: start;
+  gap: var(--neoverse-space-2);
+  font-size: var(--neoverse-typography-body-sm-size);
+  line-height: var(--neoverse-line-height-relaxed);
+}
+.xca-terminal-screen--brand .xca-terminal-intro-output,
+.xca-terminal-screen--dock .xca-terminal-intro-output,
+.xca-terminal-screen--reveal .xca-terminal-intro-output {
+  opacity: 0;
+}
+.xca-terminal-bootlog__line {
+  display: grid;
+  grid-template-columns: 9ch minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 1ch;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  animation: xca-terminal-print-line var(--neoverse-motion-duration-fast)
+    var(--neoverse-motion-easing-standard) both;
+}
+.xca-terminal-bootlog__status {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
+}
+.xca-terminal-bootlog__status::before,
+.xca-terminal-bootlog__status::after {
+  position: absolute;
+  top: 0;
+}
+.xca-terminal-bootlog__status::before {
+  content: "[";
+  left: 0;
+}
+.xca-terminal-bootlog__status::after {
+  content: "]";
+  right: 0;
+}
+.xca-terminal-boot-progress {
+  grid-row: 7;
+  display: flex;
+  align-items: center;
+  gap: 2ch;
+  width: max-content;
+  max-width: 100%;
+  margin-top: var(--neoverse-space-2);
+  font: inherit;
+  color: var(--neoverse-terminal-muted);
+}
+.xca-terminal-boot-progress__track {
+  white-space: pre;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
+}
+.xca-terminal-boot-progress__fill {
+  color: var(--neoverse-color-status-success);
+}
+.xca-terminal-boot-progress__head {
+  color: var(--neoverse-color-accent-primary);
+}
+.xca-terminal-boot-progress__value {
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--neoverse-color-accent-primary);
+}
+.xca-terminal-welcome-brand {
+  color: var(--neoverse-color-text-primary);
+}
+.xca-terminal-welcome-hint {
+  color: var(--neoverse-color-accent-primary);
+}
+@keyframes xca-terminal-print-line {
+  from {
+    opacity: 0;
+    transform: translateY(var(--neoverse-motion-distance-near));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.xca-terminal-transcript {
+  transition: opacity var(--neoverse-motion-duration-standard)
+    var(--neoverse-motion-easing-standard);
+}
+.xca-terminal-screen--logo .xca-terminal-transcript,
+.xca-terminal-screen--handoff .xca-terminal-transcript,
+.xca-terminal-screen--boot .xca-terminal-transcript,
+.xca-terminal-screen--logo .xca-terminal-prompt,
+.xca-terminal-screen--handoff .xca-terminal-prompt,
+.xca-terminal-screen--boot .xca-terminal-prompt,
+.xca-terminal-screen--brand .xca-terminal-prompt,
+.xca-terminal-screen--dock .xca-terminal-prompt {
+  opacity: 0;
+  visibility: hidden;
+}
+.xca-terminal-screen--reveal .xca-terminal-transcript:not(.xca-terminal-transcript--hidden),
+.xca-terminal-screen--reveal .xca-terminal-prompt {
+  visibility: visible;
+}
+.xca-terminal-hero--focused {
+  z-index: var(--neoverse-layout-layer-modal);
+}
+.xca-terminal-hero--focused .xca-terminal-window {
+  position: fixed;
+  z-index: 1;
+  inset: var(--xca-terminal-expanded-inset);
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+.xca-terminal-hero--focused .xca-terminal-anchor {
+  z-index: 1;
+}
+body:has(.xca-terminal-hero--focused) {
+  overflow: hidden;
+}
+html[data-xca-intro="pending"] .xca-terminal-window {
+  opacity: 0;
+}
+html[data-xca-intro="running"] .xca-terminal-window {
+  opacity: 1;
+}
+html[data-xca-intro="running"] .xca-terminal-hero--logo .xca-terminal-window {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* At laptop-height desktop viewports, avoid a scrollbar caused by decorative bottom space.
+   在笔记本高度的桌面视口下，避免装饰性底部留白撑出文档滚动条。 */
+@media (min-width: 52rem) and (max-height: 60rem) {
+  .xca-terminal-hero {
+    padding-bottom: var(--neoverse-space-6);
+  }
+}
+
+@media (max-width: 52rem) {
+  .xca-terminal-hero {
+    padding-top: var(--neoverse-space-16);
+  }
+  .xca-terminal-anchor {
+    height: calc(var(--neoverse-space-32) * 4);
+  }
+  .xca-terminal-toolbar__session {
+    display: none;
+  }
+}
+@media (max-width: 38rem) {
+  .xca-terminal-hero {
+    padding-top: var(--neoverse-space-12);
+    padding-bottom: var(--neoverse-space-14);
+  }
+  .xca-terminal-hero__subtitle {
+    font-size: var(--neoverse-font-size-sm);
+  }
+  .xca-terminal-anchor {
+    margin-top: var(--neoverse-space-9);
+  }
+  .xca-terminal-anchor {
+    height: min(calc(var(--neoverse-space-29) * 4), 65svh);
+    min-height: calc(var(--neoverse-space-23) * 4 + var(--neoverse-space-2));
+  }
+  .xca-terminal-banner,
+  .xca-terminal-brand-probe {
+    font-size: var(--neoverse-font-size-2xs);
+  }
+  .xca-terminal-statusbar span:last-child {
+    max-width: 60%;
+    text-align: right;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-terminal-title__letter {
+    visibility: visible;
+  }
+  .xca-terminal-title__letter--cursor::after {
+    display: none;
+  }
+  .xca-terminal-hero__intro-backdrop,
+  .xca-terminal-hero__heading,
+  .site-header-wrap,
+  .site-footer {
+    transition: none;
+  }
+}
+
+/* Historical command spacing and product-specific alternate screens.
+   历史命令间距与产品专属备选界面。 */
+.xca-terminal-command {
+  margin: var(--neoverse-space-4) 0 var(--neoverse-space-2);
+}
+.xca-terminal-brand-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+.xca-terminal-transcript--hidden {
+  visibility: hidden;
+}
+.xca-terminal-application {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: var(--neoverse-space-3);
+}
+.xca-terminal-application__output {
+  flex: 1;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.xca-terminal-interaction {
+  flex-shrink: 0;
+  max-height: 70%;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding-block: var(--neoverse-space-3);
+}
+.xca-terminal-menu {
+  display: grid;
+  gap: var(--neoverse-space-2);
+  margin-block: var(--neoverse-space-3);
+}
+.xca-terminal-menu__item {
+  justify-content: space-between;
+}
+.xca-terminal-interaction__input {
+  display: flex;
+  align-items: center;
+  gap: var(--neoverse-space-3);
+  margin-block: var(--neoverse-space-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-terminal-window,
+  .xca-terminal-transcript,
+  .xca-terminal-prompt,
+  .xca-terminal-intro-output,
+  .xca-terminal-bootlog {
+    transition: none;
+  }
+  .xca-terminal-bootlog__line {
+    animation: none;
+  }
+}

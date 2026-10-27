@@ -1,0 +1,200 @@
+/* World-space brand geometry; surface material comes from public Neoverse glass roles.
+   世界空间品牌几何，表面材质取自公开的 Neoverse 玻璃角色。 */
+.xca-ca-intro {
+  --xca-road-edge: color-mix(
+    in srgb,
+    var(--neoverse-material-glass-elevated-edge-highlight) 65%,
+    var(--neoverse-color-accent-primary)
+  );
+  position: fixed;
+  inset: 0;
+  z-index: var(--neoverse-layout-layer-sticky);
+  pointer-events: none;
+  color: var(--neoverse-color-text-primary);
+}
+.xca-ca-intro__aura {
+  position: absolute;
+  inset: -12%;
+  opacity: 0;
+  background:
+    radial-gradient(
+      ellipse 46% 38% at 50% 56%,
+      color-mix(in srgb, var(--neoverse-color-accent-primary) 16%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 62% 36% at 16% 78%,
+      color-mix(in srgb, var(--neoverse-color-accent-secondary) 14%, transparent),
+      transparent
+    ),
+    radial-gradient(ellipse 60% 52% at 86% 22%, var(--neoverse-color-ambient-ice), transparent);
+}
+.xca-ca-intro__viewport {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  perspective: 900px;
+  perspective-origin: 50% 50%;
+}
+.xca-ca-intro__camera {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  visibility: hidden;
+}
+.xca-ca-intro[data-journey] .xca-ca-intro__camera {
+  visibility: visible;
+}
+.xca-ca-intro__mark,
+.xca-ca-intro__travel {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+.xca-ca-intro__mark {
+  left: -627px;
+  top: -627px;
+  width: 1254px;
+  height: 1254px;
+}
+.xca-ca-intro__mesh {
+  --xca-mesh-road-color: color-mix(
+    in srgb,
+    var(--neoverse-color-surface-canvas) 80%,
+    var(--neoverse-color-accent-primary)
+  );
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  visibility: hidden;
+}
+.xca-ca-intro[data-mark-renderer="mesh"]:is(
+    [data-journey="approach"],
+    [data-journey="cruise"],
+    [data-journey="retreat"]
+  )
+  .xca-ca-intro__mesh {
+  visibility: visible;
+}
+.xca-ca-intro__front,
+.xca-ca-intro__depth {
+  position: absolute;
+  inset: 0;
+}
+.xca-ca-intro__front svg,
+.xca-ca-intro__depth svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.xca-ca-intro__depth {
+  opacity: 0;
+  color: color-mix(
+    in srgb,
+    var(--neoverse-color-text-primary) calc(var(--xca-depth-light) * 1%),
+    var(--neoverse-color-text-secondary)
+  );
+}
+.xca-ca-intro__front path {
+  fill-opacity: 0;
+  stroke: currentColor;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.xca-ca-intro[data-mark-renderer="mesh"] .xca-ca-intro__front path {
+  fill: transparent;
+}
+.xca-ca-intro__rib {
+  position: absolute;
+  opacity: 0;
+}
+.xca-ca-intro__content {
+  position: absolute;
+  left: var(--xca-sign-left);
+  top: var(--xca-sign-top);
+  width: var(--xca-sign-width);
+  height: var(--xca-sign-height);
+  box-sizing: border-box;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--neoverse-space-4);
+  padding: var(--neoverse-space-8) var(--neoverse-space-10);
+  background: linear-gradient(
+    145deg,
+    color-mix(
+      in srgb,
+      var(--neoverse-color-surface-canvas) 94%,
+      var(--neoverse-color-accent-primary)
+    ),
+    var(--neoverse-color-surface-canvas)
+  );
+  border: var(--neoverse-border-width-thin) solid var(--xca-road-edge);
+  border-radius: var(--neoverse-radius-lg);
+  color: var(--neoverse-color-text-primary);
+  box-shadow: var(--neoverse-shadow-md);
+}
+.xca-ca-intro__content::before,
+.xca-ca-intro__content::after {
+  content: "";
+  position: absolute;
+  inset-block: var(--neoverse-space-4);
+  width: var(--neoverse-space-2);
+  border-block: var(--neoverse-border-width-thin) solid var(--neoverse-color-text-secondary);
+  border-radius: var(--neoverse-radius-sm);
+}
+.xca-ca-intro__content::before {
+  left: var(--neoverse-space-4);
+}
+.xca-ca-intro__content::after {
+  right: var(--neoverse-space-4);
+}
+.xca-ca-intro__content-heading,
+.xca-ca-intro__content-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--neoverse-space-6);
+}
+.xca-ca-intro__content-brand {
+  color: var(--neoverse-color-accent-secondary);
+  font-size: var(--neoverse-font-size-xl);
+}
+.xca-ca-intro__content-index {
+  font-family: var(--neoverse-font-family-code-maple);
+  font-size: var(--neoverse-font-size-xl);
+  color: var(--neoverse-color-text-secondary);
+}
+.xca-ca-intro__content strong {
+  font-size: var(--neoverse-typography-display-md-size);
+  line-height: var(--neoverse-line-height-snug);
+}
+.xca-ca-intro__content code {
+  font-family: var(--neoverse-font-family-code-maple);
+  font-size: var(--neoverse-font-size-3xl);
+  white-space: nowrap;
+}
+.xca-ca-intro__content-footer {
+  padding-top: var(--neoverse-space-4);
+  border-top: var(--neoverse-border-width-thin) solid var(--xca-road-edge);
+}
+.xca-ca-intro__content-footer code {
+  font-size: var(--neoverse-font-size-2xl);
+  color: var(--neoverse-color-text-secondary);
+}
+.xca-ca-intro__content-arrow {
+  width: 40px;
+  height: 40px;
+  fill: none;
+  stroke: var(--neoverse-color-accent-primary);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

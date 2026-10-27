@@ -5,5 +5,22 @@
     "test": [400, 700],
     "function": [60, 100]
   },
-  "exceptions": {}
+  "exceptions": {
+    "app/features/terminal/presentation/useTerminalPresentation.ts:useTerminalPresentation#1": {
+      "ceiling": 402,
+      "reason": "2026-10-27: One presentation lifecycle owns cancellation, docking and shared-renderer refresh; nested helper bodies count in the factory. Exact current function size is 402 lines, reduced from the stale 459-line allowance."
+    },
+    "app/composables/useSiteTheme.ts:useSiteTheme#1": {
+      "ceiling": 118,
+      "reason": "Theme preference composable includes nested transition, cancellation and cleanup helpers; retain one state owner and reduced-motion behavior. Baseline 2026-10-23; ceiling covers 2026-10-26 bilingual comments."
+    },
+    "app/features/terminal/components/TerminalHost.vue": {
+      "ceiling": 506,
+      "reason": "2026-10-26: bilingual comments add one Chinese line under each English comment; no code or markup growth. Existing terminal host remains one lifecycle owner."
+    },
+    "tests/e2e/terminal-visual-acceptance.spec.ts:verifyTerminalThemes#1": {
+      "ceiling": 106,
+      "reason": "2026-10-25: Named terminal theme regression retains draft, focus, scroll and all existing snapshots. Shared screenshot and color probes remove duplication; ceiling reduced from 108 to 106."
+    }
+  }
 }

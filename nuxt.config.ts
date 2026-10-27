@@ -56,7 +56,20 @@ export default defineNuxtConfig({
         }
       : {}),
   },
-  css: ["@neoverse-ui/vue/index.css", "@neoverse-ui/tailwind/prose.css"],
+  css: [
+    "@neoverse-ui/vue/index.css",
+    "@neoverse-ui/tailwind/prose.css",
+    "~/assets/css/fonts.css",
+    "~/assets/css/main.css",
+    "~/assets/css/terminal.css",
+  ],
   devtools: { enabled: true },
   typescript: { strict: true },
+  app: {
+    head: {
+      meta: [{ name: "color-scheme", content: "light dark" }],
+      script: [{ src: "/intro-gate.js", tagPosition: "head" }],
+      link: [{ rel: "icon", type: "image/svg+xml", href: "/brand/ca-mark.svg" }],
+    },
+  },
 });

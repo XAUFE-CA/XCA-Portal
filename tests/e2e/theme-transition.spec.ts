@@ -1,0 +1,182 @@
+import { expect, type Page, test } from "@playwright/test";
+import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
+
+async function openLightPage(page: Page, path = "/") {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("xca-theme")) localStorage.setItem("xca-theme", "light");
+    const native = document.startViewTransition.bind(document);
+    const observations: { duration: string; opacity: number[]; finished: boolean }[] = [];
+    Object.assign(window, { themeTransitions: observations });
+    document.startViewTransition = (update) => {
+      const transition = native(update);
+      const record = { duration: "", opacity: [] as number[], finished: false };
+      observations.push(record);
+      void transition.ready.then(
+        () => {
+          record.duration = getComputedStyle(
+            document.documentElement,
+            "::view-transition-new(root)",
+          ).animationDuration;
+          const sample = () => {
+            if (record.finished) return;
+            record.opacity.push(
+              Number(
+                getComputedStyle(document.documentElement, "::view-transition-new(root)").opacity,
+              ),
+            );
+            requestAnimationFrame(sample);
+          };
+          sample();
+        },
+        () => undefined,
+      );
+      void transition.finished.then(
+        () => {
+          record.finished = true;
+        },
+        () => {
+          record.finished = true;
+        },
+      );
+      return transition;
+    };
+  });
+  await page.goto(path);
+  if (path === "/") {
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
+  }
+  await expect(page.getByRole("radio", { name: "浅色", exact: true })).toBeChecked();
+}
+
+async function settled(page: Page, theme: string) {
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await expect(page.locator("html")).not.toHaveAttribute("data-neoverse-theme-view-transitioning");
+  await expect(page.locator("html")).not.toHaveAttribute("data-neoverse-theme-transitioning");
+  expect(await page.evaluate(() => localStorage.getItem("xca-theme"))).toBe(theme);
+}
+
+test("header theme changes crossfade the whole page using shared motion", async ({ page }) => {
+  await openLightPage(page);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { themeTransitions: unknown[] }).themeTransitions.length,
+    ),
+  ).toBe(0);
+  for (const [label, theme] of [
+    ["深色", "dark"],
+    ["浅色", "light"],
+  ] as const) {
+    await page.getByRole("radio", { name: label, exact: true }).click();
+    await settled(page, theme);
+    const transition = await page.evaluate(() => {
+      // The init script records these observations on the page's window.
+      // 初始化脚本将这些观测记录在页面 window 上。
+      const observedWindow = window as unknown as {
+        themeTransitions: { duration: string; opacity: number[] }[];
+      };
+      const latest = observedWindow.themeTransitions.at(-1);
+      if (!latest) throw new Error("Theme transition observation is missing");
+      return latest;
+    });
+    expect(parseFloat(transition.duration)).toBeGreaterThan(0);
+    expect(transition.opacity.some((opacity) => opacity > 0 && opacity < 1)).toBe(true);
+  }
+});
+
+test("rapid switches settle on the latest choice and preserve terminal input", async ({ page }) => {
+  await openLightPage(page, "/");
+  const input = page.locator("#xca-command-input");
+  await input.fill("echo keep this draft");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.evaluate(async () => {
+    for (const label of ["深色", "浅色", "深色"]) {
+      const control = [
+        ...document.querySelectorAll<HTMLElement>(".site-theme-control [role=radio]"),
+      ].find((el) => el.textContent?.trim() === label);
+      if (!control) throw new Error(`Theme control is missing: ${label}`);
+      control.click();
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    }
+  });
+  await settled(page, "dark");
+  await expect(page.getByRole("radio", { name: "深色", exact: true })).toBeChecked();
+  await expect(input).toHaveValue("echo keep this draft");
+  await input.fill("xca theme light");
+  await input.press("Enter");
+  await settled(page, "light");
+  await expect(page.locator(".xca-terminal-line").last()).toHaveText(
+    zh["command.themeChanged"].replace("{theme}", zh["theme.light"]),
+  );
+  expect(errors).toEqual([]);
+});
+
+test("reduced motion switches immediately without a view transition", async ({ page }) => {
+  await openLightPage(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("radio", { name: "深色", exact: true }).click();
+  await settled(page, "dark");
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { themeTransitions: unknown[] }).themeTransitions.length,
+    ),
+  ).toBe(0);
+});
+
+test("without View Transitions the shared semantic colors interpolate", async ({ page }) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(document, "startViewTransition", {
+      value: undefined,
+      configurable: true,
+    }),
+  );
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await page.addInitScript(() => localStorage.setItem("xca-theme", "light"));
+  await page.goto("/");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "浅色", exact: true })).toBeChecked();
+  const colors = await page.evaluate(async () => {
+    const shell = document.querySelector(".site-shell");
+    if (!shell) throw new Error("Site shell is missing");
+    const result = [getComputedStyle(shell).backgroundColor];
+    const dark = [
+      ...document.querySelectorAll<HTMLElement>(".site-theme-control [role=radio]"),
+    ].find((el) => el.textContent?.trim() === "深色");
+    if (!dark) throw new Error("Dark theme control is missing");
+    dark.click();
+    while (document.documentElement.hasAttribute("data-neoverse-theme-transitioning")) {
+      await new Promise(requestAnimationFrame);
+      result.push(getComputedStyle(shell).backgroundColor);
+    }
+    result.push(getComputedStyle(shell).backgroundColor);
+    return result;
+  });
+  expect(colors.at(-1)).not.toBe(colors[0]);
+  expect(new Set(colors).size).toBeGreaterThan(3);
+  await settled(page, "dark");
+});
+
+test("system mode resolves correctly and restoration does not animate", async ({ page }) => {
+  await openLightPage(page);
+  await page.getByRole("radio", { name: "深色", exact: true }).click();
+  await settled(page, "dark");
+  await page.getByRole("radio", { name: "系统", exact: true }).click();
+  await settled(page, "system");
+  const background = await page
+    .locator(".site-shell")
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { themeTransitions: unknown[] }).themeTransitions.length,
+    ),
+  ).toBe(0);
+  expect(
+    await page.locator(".site-shell").evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).toBe(background);
+});

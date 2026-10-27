@@ -1,0 +1,364 @@
+/* XCA layout and semantic structure; Neoverse-UI owns colors, materials, geometry and motion.
+   XCA 负责布局与语义结构，颜色、材质、几何与动效归 Neoverse-UI 所有。 */
+:root {
+  font-family: var(--neoverse-font-family-sans);
+  background: var(--neoverse-color-surface-canvas);
+  color: var(--neoverse-color-text-primary);
+  scroll-behavior: smooth;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+::selection {
+  background: var(--neoverse-color-accent-soft);
+}
+/* Fallback for plain page elements; shared components own their focus presentation.
+   普通页面元素的兜底样式，共享组件负责自身的焦点呈现。 */
+@layer base {
+  :focus-visible {
+    outline: var(--neoverse-focus-ring-width) solid var(--neoverse-color-focus-ring);
+    outline-offset: var(--neoverse-focus-ring-offset);
+  }
+}
+
+.site-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+  background: var(--neoverse-color-surface-canvas);
+  color: var(--neoverse-color-text-primary);
+}
+.site-atmosphere {
+  position: absolute;
+  inset: 0 0 auto;
+  height: min(var(--neoverse-layout-reading-wide-width), 105svh);
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 86% 16%, var(--neoverse-color-ambient-ice), transparent 52%),
+    radial-gradient(ellipse at 7% 78%, var(--neoverse-color-ambient-mint), transparent 55%);
+  opacity: 0.6;
+}
+/* A soft, expansive light field instead of literal technology motifs; ambient tokens carry alpha.
+   用柔和开阔的光场替代直白的技术符号，环境令牌本身已含透明度。 */
+.site-atmosphere--home {
+  height: max(100svh, min(var(--neoverse-layout-reading-wide-width), 105svh));
+  opacity: 1;
+  background: transparent;
+  --xca-atmosphere-ice: color-mix(
+    in srgb,
+    var(--neoverse-color-accent-primary) var(--neoverse-effect-alpha-medium),
+    transparent
+  );
+  --xca-atmosphere-mint: color-mix(
+    in srgb,
+    var(--neoverse-color-accent-secondary) var(--neoverse-effect-alpha-medium),
+    transparent
+  );
+  --xca-atmosphere-violet: color-mix(
+    in srgb,
+    var(--neoverse-color-accent-tertiary) var(--neoverse-effect-alpha-soft),
+    transparent
+  );
+}
+.site-atmosphere__light,
+.site-atmosphere__depth {
+  position: absolute;
+  inset: 0;
+}
+.site-atmosphere__light {
+  background:
+    radial-gradient(ellipse 60% 64% at 106% 18%, var(--xca-atmosphere-ice), transparent 85%),
+    radial-gradient(ellipse 54% 62% at -10% 74%, var(--xca-atmosphere-mint), transparent 88%),
+    radial-gradient(ellipse 70% 38% at 50% 108%, var(--xca-atmosphere-ice), transparent 90%);
+}
+.site-atmosphere__depth {
+  background:
+    radial-gradient(ellipse 65% 54% at 82% 94%, var(--xca-atmosphere-violet), transparent 90%),
+    radial-gradient(ellipse 66% 28% at 50% 96%, var(--xca-atmosphere-mint), transparent 94%);
+  mask-image: linear-gradient(to bottom, transparent 15%, black 85%);
+}
+@media (max-width: 52rem) {
+  .site-atmosphere__light {
+    opacity: 0.8;
+  }
+}
+.page-container {
+  width: min(
+    calc(100% - 2 * var(--neoverse-layout-gutter-inline)),
+    var(--neoverse-layout-page-max-width)
+  );
+  margin-inline: auto;
+}
+/* Keep the document rail clear of the header and near the viewport edge.
+   让文档滚动条避开页头并贴近视口边缘。 */
+:root .xca-document-scrollbar {
+  top: calc(
+    var(--xca-site-header-height, var(--neoverse-space-22)) +
+    max(var(--neoverse-scrollbar-overlay-inset-block), env(safe-area-inset-top))
+  );
+  right: max(env(safe-area-inset-right), var(--neoverse-scrollbar-overlay-inset-inline));
+}
+.site-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.site-header-wrap {
+  position: sticky;
+  top: 0;
+  z-index: var(--neoverse-layout-layer-sticky);
+  min-height: var(--neoverse-space-22);
+  padding-bottom: var(--neoverse-space-4);
+}
+.site-header {
+  width: 100%;
+  margin-inline: auto;
+  min-height: var(--neoverse-space-18);
+  padding: var(--neoverse-space-2) var(--neoverse-layout-gutter-inline);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--neoverse-space-5);
+  border-radius: var(--neoverse-radius-none);
+  transform: translateY(0);
+  transition:
+    width var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-emphasized),
+    transform var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-emphasized),
+    border-radius var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-standard),
+    padding var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-standard);
+}
+.site-header-wrap--floating .site-header {
+  width: min(
+    calc(100% - 2 * var(--neoverse-layout-gutter-inline)),
+    var(--neoverse-layout-page-max-width)
+  );
+  transform: translateY(var(--neoverse-space-4));
+  border-radius: var(--neoverse-radius-card);
+  padding-inline: var(--neoverse-space-5);
+}
+.site-header__brand {
+  display: flex;
+  align-items: center;
+  justify-self: start;
+  grid-column: 1;
+  grid-row: 1;
+}
+.site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--neoverse-space-4);
+  white-space: nowrap;
+}
+.site-logo__icon {
+  width: var(--neoverse-space-12);
+  height: var(--neoverse-space-12);
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+[data-theme="dark"] .site-logo__icon {
+  filter: invert(1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .site-logo__icon {
+    filter: invert(1);
+  }
+}
+.site-logo__mark,
+.site-logo__name {
+  line-height: var(--neoverse-line-height-snug);
+  text-box: trim-both cap alphabetic;
+}
+.site-logo__mark {
+  color: var(--neoverse-color-text-primary);
+  font-size: var(--neoverse-font-size-2xl);
+  font-weight: var(--neoverse-font-weight-display);
+  letter-spacing: var(--neoverse-typography-display-lg-letter-spacing);
+}
+.site-logo__mark span {
+  color: var(--neoverse-color-accent-primary);
+}
+.site-logo__divider {
+  height: var(--neoverse-space-5);
+  width: var(--neoverse-border-width-thin);
+  background: var(--neoverse-color-border-default);
+}
+.site-logo__name {
+  color: var(--neoverse-color-text-secondary);
+  font-size: var(--neoverse-font-size-md);
+  font-weight: var(--neoverse-font-weight-semibold);
+  letter-spacing: var(--neoverse-letter-spacing-wide);
+}
+.site-navigation {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  justify-content: center;
+  align-items: center;
+  gap: var(--neoverse-space-2);
+}
+.site-menu {
+  display: flex;
+  align-items: center;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+.site-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--neoverse-space-2);
+}
+.site-menu-icon {
+  width: var(--neoverse-space-5);
+  height: var(--neoverse-space-5);
+}
+.site-menu-content {
+  display: grid;
+  gap: var(--neoverse-space-4);
+  inline-size: min(
+    var(--neoverse-layout-sidebar-drawer-width),
+    calc(100vw - 2 * var(--neoverse-space-4) - 2 * var(--neoverse-overlay-padding))
+  );
+}
+.site-menu-navigation {
+  grid-column: auto;
+  grid-row: auto;
+  flex-direction: column;
+  align-items: stretch;
+  padding-bottom: var(--neoverse-space-3);
+  border-bottom: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
+}
+.site-controls {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--neoverse-space-2);
+}
+.site-menu-preferences {
+  grid-column: auto;
+  grid-row: auto;
+  display: grid;
+  justify-self: stretch;
+  justify-content: start;
+  gap: var(--neoverse-space-4);
+}
+.site-preference-group {
+  display: grid;
+  justify-items: start;
+  gap: var(--neoverse-space-2);
+}
+.site-preference-label {
+  margin: 0;
+  color: var(--neoverse-color-text-secondary);
+  font-size: var(--neoverse-font-size-sm);
+}
+.skip-link {
+  position: absolute;
+  left: var(--neoverse-space-4);
+  top: 0;
+  transform: translateY(-200%);
+  padding: var(--neoverse-space-3);
+  background: var(--neoverse-color-surface-overlay);
+  border-radius: var(--neoverse-radius-control);
+}
+.skip-link:focus {
+  transform: none;
+  top: var(--neoverse-space-4);
+  z-index: var(--neoverse-layout-layer-overlay);
+}
+
+.site-footer {
+  margin-top: var(--neoverse-space-12);
+  padding-block: var(--neoverse-space-10);
+  border-top: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--neoverse-space-6);
+  color: var(--neoverse-color-text-muted);
+  font-size: var(--neoverse-font-size-md);
+}
+.site-footer p {
+  margin: 0;
+  line-height: var(--neoverse-line-height-relaxed);
+}
+.site-footer__brand {
+  color: var(--neoverse-color-text-primary);
+  font-weight: var(--neoverse-font-weight-semibold);
+}
+.site-footer__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--neoverse-space-2);
+  align-items: end;
+}
+
+@media (max-width: 70rem) {
+  .site-logo__name,
+  .site-logo__divider {
+    display: none;
+  }
+}
+@media (max-width: 70rem) {
+  .site-header {
+    gap: var(--neoverse-space-3);
+    padding: var(--neoverse-space-3);
+  }
+  .site-header-wrap--floating .site-header {
+    width: calc(100% - 2 * var(--neoverse-space-3));
+    padding-inline: var(--neoverse-space-3);
+    transform: translateY(var(--neoverse-space-2));
+  }
+  .site-header > .site-controls {
+    display: none;
+  }
+}
+@media (max-width: 38rem) {
+  .site-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .site-header > .site-navigation {
+    display: none;
+  }
+  .site-menu {
+    grid-column: 2;
+  }
+  .site-logo {
+    gap: var(--neoverse-space-2);
+  }
+  .site-logo__icon {
+    width: var(--neoverse-space-10);
+    height: var(--neoverse-space-10);
+  }
+  .site-footer {
+    flex-direction: column;
+  }
+  .site-footer__meta {
+    align-items: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header {
+    transition: none;
+  }
+}

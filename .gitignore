@@ -9,9 +9,15 @@ dist
 # Node dependencies
 node_modules
 
-# Logs
+# Logs and generated test artifacts
 logs
 *.log
+test-results/
+playwright-report/
+
+# Upstream font binaries used to regenerate app/assets/fonts subsets
+# (SIL OFL 1.1; see scripts/fonts/build-font-subsets.py)
+fonts-source/
 
 # Misc
 .DS_Store
@@ -23,6 +29,6 @@ logs
 .env.*
 !.env.example
 
-# Generated browser test artifacts
-test-results/
-playwright-report/
+# Python font-tool cache
+__pycache__/
+*.pyc

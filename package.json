@@ -12,14 +12,15 @@
     "format:check": "biome check --linter-enabled=false . && prettier --check \"**/*.{md,yml,yaml}\"",
     "lint": "biome lint .",
     "typecheck": "nuxt typecheck",
-    "test": "bun test scripts",
+    "test": "bun test app scripts",
     "check:budgets": "bun scripts/check-budgets.ts",
     "check:docs": "bun scripts/check-docs.ts",
     "check:architecture": "bun scripts/check-architecture.ts",
     "check:fast": "bun scripts/run-gates.ts --fast",
     "check": "bun scripts/run-gates.ts",
     "ui:sync": "bun scripts/sync-neoverse-ui.ts",
-    "test:e2e": "bun run build && playwright test"
+    "test:e2e": "bun run build && playwright test",
+    "check:terminal": "bun scripts/check-terminal-boundary.ts"
   },
   "dependencies": {
     "@nuxt/content": "^3.16.1",
