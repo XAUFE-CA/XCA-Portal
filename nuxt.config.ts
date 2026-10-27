@@ -1,9 +1,62 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { uiDependencyState } from "./scripts/ui-dependencies";
+
+const manifest = JSON.parse(
+  readFileSync(fileURLToPath(new URL("./package.json", import.meta.url)), "utf8"),
+) as { dependencies?: Record<string, string>; overrides?: Record<string, string> };
+// Local file: dependencies are early-development only; published versions resolve normally.
+// 本地 file: 依赖仅用于早期开发；发布版本按正常包解析。
+const uiState = uiDependencyState(manifest);
+if (uiState === "mixed") throw new Error("Neoverse-UI 依赖不能混用 file: 与发布版本。");
+const localUi = uiState === "local";
+const uiAliases = localUi
+  ? [
+      ...["vue", "tailwind"].map((name) => ({
+        find: `@neoverse-ui/${name}/index.css`,
+        replacement: fileURLToPath(
+          new URL(`../Neoverse-UI/packages/${name}/dist/index.css`, import.meta.url),
+        ),
+      })),
+      ...["vue", "motion", "overlay-runtime", "glass-runtime"].map((name) => ({
+        find: new RegExp(`^@neoverse-ui/${name}$`),
+        replacement: fileURLToPath(
+          new URL(`../Neoverse-UI/packages/${name}/dist/index.js`, import.meta.url),
+        ),
+      })),
+    ]
+  : [];
+
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
-  devtools: { enabled: true },
   modules: ["@nuxt/content"],
-  typescript: {
-    strict: true,
+  // XCA ports start at 3100; keep the Portal development server deterministic.
+  // XCA 端口从 3100 起，保持门户开发服务器端口固定。
+  devServer: { port: 3100 },
+  // Neoverse-UI CSS is already prefixed; Nuxt Autoprefixer misparses its @supports clause.
+  // Neoverse-UI 样式已带前缀；Nuxt 的 Autoprefixer 会误解析其 @supports 子句。
+  postcss: { plugins: { autoprefixer: false } },
+  // Resolve local runtime builds outside node_modules so Vite caches keep dev pages current.
+  // 在 node_modules 外解析本地运行时构建，使已打开的开发页面保持最新。
+  vite: {
+    resolve: {
+      ...(localUi ? { alias: uiAliases } : {}),
+      dedupe: ["vue"],
+    },
+    ...(localUi
+      ? {
+          optimizeDeps: {
+            exclude: [
+              "@neoverse-ui/vue",
+              "@neoverse-ui/motion",
+              "@neoverse-ui/overlay-runtime",
+              "@neoverse-ui/glass-runtime",
+            ],
+          },
+        }
+      : {}),
   },
+  css: ["@neoverse-ui/vue/index.css", "@neoverse-ui/tailwind/prose.css"],
+  devtools: { enabled: true },
+  typescript: { strict: true },
 });

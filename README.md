@@ -31,12 +31,13 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 | --- | --- |
 | 应用框架 | [Nuxt](https://nuxt.com)、[Vue](https://vuejs.org) |
 | 开发语言 | [TypeScript](https://www.typescriptlang.org) |
+| 界面组件 | Neoverse-UI |
 | 内容管理 | [Nuxt Content](https://content.nuxt.com) |
 | 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、Prettier |
 
 ## 开发
 
-安装 [Bun](https://bun.sh) 后运行：
+安装 [Bun](https://bun.sh)，并按 [工程说明](docs/architecture/engineering-quality.md#本地开发与共享依赖) 完成环境准备后运行：
 
 ```sh
 bun install
@@ -50,6 +51,7 @@ bun run dev
 | `bun run check` | 检查与生产构建 |
 | `bun run check:fast` | 检查，不含构建 |
 | `bun run test` | 单元测试 |
+| `bun run test:e2e` | 构建与浏览器回归 |
 
 格式与检查约定见 [工程质量契约](docs/architecture/engineering-quality.md)。
 

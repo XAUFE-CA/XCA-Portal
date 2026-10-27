@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "dev": "bun run ui:sync && nuxt dev --strictPort",
     "generate": "nuxt generate",
-    "preview": "nuxt preview",
+    "preview": "nuxt preview --port 3100 --strictPort",
     "postinstall": "nuxt prepare",
     "format": "biome check --write --linter-enabled=false . && prettier --write \"**/*.{md,yml,yaml}\"",
     "format:check": "biome check --linter-enabled=false . && prettier --check \"**/*.{md,yml,yaml}\"",
@@ -17,14 +17,22 @@
     "check:docs": "bun scripts/check-docs.ts",
     "check:architecture": "bun scripts/check-architecture.ts",
     "check:fast": "bun scripts/run-gates.ts --fast",
-    "check": "bun scripts/run-gates.ts"
+    "check": "bun scripts/run-gates.ts",
+    "ui:sync": "bun scripts/sync-neoverse-ui.ts",
+    "test:e2e": "bun run build && playwright test"
   },
   "dependencies": {
     "@nuxt/content": "^3.16.1",
     "nuxt": "4.6.2",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0",
-    "better-sqlite3": "13.0.3"
+    "better-sqlite3": "13.0.3",
+    "@neoverse-ui/glass-runtime": "file:../Neoverse-UI/packages/glass-runtime",
+    "@neoverse-ui/motion": "file:../Neoverse-UI/packages/motion",
+    "@neoverse-ui/overlay-runtime": "file:../Neoverse-UI/packages/overlay-runtime",
+    "@neoverse-ui/tailwind": "file:../Neoverse-UI/packages/tailwind",
+    "@neoverse-ui/tokens": "file:../Neoverse-UI/packages/tokens",
+    "@neoverse-ui/vue": "file:../Neoverse-UI/packages/vue"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.2",
@@ -32,7 +40,16 @@
     "prettier-plugin-markdown-compact-tables": "1.0.0",
     "typescript": "6.0.3",
     "@types/bun": "^1.4.4",
-    "vue-tsc": "^3.3.13"
+    "vue-tsc": "^3.3.13",
+    "@playwright/test": "^1.64.1"
   },
-  "packageManager": "bun@1.4.4"
+  "packageManager": "bun@1.4.4",
+  "overrides": {
+    "@neoverse-ui/glass-runtime": "file:../Neoverse-UI/packages/glass-runtime",
+    "@neoverse-ui/motion": "file:../Neoverse-UI/packages/motion",
+    "@neoverse-ui/overlay-runtime": "file:../Neoverse-UI/packages/overlay-runtime",
+    "@neoverse-ui/tailwind": "file:../Neoverse-UI/packages/tailwind",
+    "@neoverse-ui/tokens": "file:../Neoverse-UI/packages/tokens",
+    "@neoverse-ui/vue": "file:../Neoverse-UI/packages/vue"
+  }
 }

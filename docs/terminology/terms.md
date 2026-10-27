@@ -28,3 +28,8 @@
 | CI | Continuous Integration（持续集成） | 只描述实际执行的检查 |
 | AST | Abstract Syntax Tree（抽象语法树） | 用于说明静态源码分析 |
 | CRLF | Carriage Return + Line Feed | 统计前归一为 LF |
+| Neoverse-UI | 共享 UI 库 | 包名使用 `@neoverse-ui/*`，正文保留 Neoverse-UI |
+| UI | User Interface（用户界面） | 正文写 UI |
+| token | 共享设计变量 | 使用公开变量，不另建基础设计变量 |
+| E2E | End-to-End（端到端） | 浏览器回归目录保持 `tests/e2e` |
+| Hydration | 客户端接管服务端渲染内容 | 使用标准英文写法 |

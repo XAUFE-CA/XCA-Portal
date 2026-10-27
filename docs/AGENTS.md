@@ -8,7 +8,7 @@
 docs/
   AGENTS.md               本文件：职责、行文与验证
   architecture/
-    engineering-quality.md  门禁、预算与验证责任
+    engineering-quality.md  共享依赖、门禁、预算与验证责任
   terminology/
     README.md             术语入口与维护方式
     terms.md              品牌与缩写对照
@@ -20,7 +20,7 @@ docs/
 
 - 全局协作和修改约束只维护在根 `AGENTS.md`。
 - 项目定位、主要技术、基本开发命令与贡献入口只维护在根 README。
-- 工具、门禁、预算与验证责任只维护在 [工程质量契约](architecture/engineering-quality.md)。
+- 工具、共享依赖、门禁、预算与验证责任只维护在 [工程质量契约](architecture/engineering-quality.md)。
 - 品牌与缩写解释只维护在 [术语表](terminology/terms.md)。
 - 文档只描述当前提交包含的事实。提议与采用后的接口分别维护，不能把计划写成当前能力。
 

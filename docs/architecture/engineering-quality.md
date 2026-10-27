@@ -4,6 +4,27 @@ Status: adopted
 
 格式与 Lint 分别执行并报告。变更作者负责完成适用检查，审查者核对改动范围、工具配置和实际验证结果。源码与命令定义优先于文档描述。
 
+## 本地开发与共享依赖
+
+早期开发需要同级 `../Neoverse-UI` 工作区，先在共享库执行 `bun install --frozen-lockfile --linker hoisted`，再在门户安装依赖。依赖声明以 [package.json](../../package.json) 为准，本地 `file:` 依赖与根级 overrides 共同约束共享包来源，不能混用本地与发布包。依赖来源检查同时读取两处声明，同名 override 不能隐藏另一来源。
+
+```sh
+bun install
+bun run dev
+```
+
+`dev` 先执行 `ui:sync` 再启动 Nuxt。`build`、`generate`、`typecheck` 与 `check` 使用已安装依赖，不隐式同步。修改共享库后先执行 `bun run ui:sync`；包依赖声明变化时先运行 `bun install` 更新锁文件，不能将冻结同步当作锁文件更新。
+
+[同步入口](../../scripts/sync-neoverse-ui.ts) 委托共享库的 `scripts/sync-consumer.ts --consumer <portal>`。先以冻结锁文件刷新本地包，再由共享同步器按依赖顺序构建、同步安装目录和嵌套副本并逐文件核对，内容相同的硬链接不重复复制。门户不维护第二套产物复制脚本。缺少同级同步器时明确失败；改用发布包后同步入口直接返回，不构建同级工作区。
+
+[依赖来源检查](../../scripts/ui-dependencies.ts) 只区分本地、发布和混合来源，不验证发布版本兼容性，也不证明本地路径属于正确工作区；实际路径由共享同步器核对。[来源回归测试](../../scripts/ui-dependencies.test.ts) 覆盖同名 override 与两处声明的冲突。
+
+存在 `file:` 依赖时，[Nuxt 配置](../../nuxt.config.ts) 将共享模块解析到同级构建产物并排除运行模块的依赖预打包，Vue 由门户统一解析。CSS 仅引入共享公开导出，不复制生成样式。共享 CSS 已预编译，因此关闭 Nuxt 对其重复执行的 Autoprefixer 处理，避免误解析其 `@supports` 子句。
+
+开发与预览使用 `3100` 端口和 `strictPort`。启动前检查占用，端口冲突时失败，不终止无关进程或自动换端口。
+
+正式发布前，将 `file:` 依赖及 overrides 改为经过验证的 npm 精确版本，移除本地同步入口和脚本，并删除本地解析配置。仅使同步脚本直接返回不等于完成迁移。复验冻结安装、类型、构建、开发和生产页面后再记录发布包验收；本地同步成功不等于 npm 包或远端 CI 验证通过。
+
 ## 格式工具
 
 | 对象 | 工具与配置 |
@@ -44,7 +65,17 @@ Biome 启用 Vue 的实验性 HTML 格式化，关闭 Markdown 与 YAML 格式�
 | `bun run typecheck` | 应用类型检查 |
 | `bun run test` | 治理单元测试与命令行回归 |
 
-快速门禁单项失败后继续执行其余项，结束时汇总全部失败；有失败时不继续生产构建。治理脚本自身由 [tsconfig.quality.json](../../tsconfig.quality.json) 严格检查，不能只检查应用类型。Lint 无 error 为通过，Lint 诊断与预算审查提示实时输出，格式通过不能替代 Lint。
+快速门禁单项失败后继续执行其余项，结束时汇总全部失败；有失败时不继续生产构建。治理脚本、浏览器配置和测试由 [tsconfig.quality.json](../../tsconfig.quality.json) 严格检查，不能只检查应用类型。Lint 无 error 为通过，Lint 诊断与预算审查提示实时输出，格式通过不能替代 Lint。
+
+## 浏览器回归
+
+相关测试与对应实现同笔提交，不在后续另拆测试提交。测试入口为 `bun run test:e2e`，先构建再执行 Playwright。配置见 [playwright.config.ts](../../playwright.config.ts)，当前 [共享 UI 用例](../../tests/e2e/shared-ui.spec.ts) 检查首页的共享公开 CSS 变量、页面运行错误和 Hydration 警告，覆盖桌面、窄屏、浅色、深色与减少动画；不依赖初始页面文案。
+
+Windows 使用已安装的 Edge，其他平台先执行 `bunx playwright install chromium`。测试预览使用 3102，可显式设置 `XCA_TEST_PORT`。启动前确认端口空闲，不自动换端口，不复用未知服务；测试结束由 Playwright 清理自己启动的预览。构建已经完成时可以直接运行 `bunx playwright test` 复用该产物。
+
+同步入口的分支回归见 [ui-sync.test.ts](../../scripts/ui-sync.test.ts)，使用独立临时目录验证发布包跳过、同名来源冲突和缺失同步器，不执行安装或写入共享库。
+
+本地浏览器功能检查不等于截图、视觉、远端 CI 或发布包验收。新增业务后同步更新相应测试，不为通过当前测试提前引入后续页面和终端。
 
 ## 代码和文档预算
 
