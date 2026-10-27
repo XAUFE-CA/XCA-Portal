@@ -1,5 +1,5 @@
 {
-  "name": "XCA-Portal",
+  "name": "xca-portal",
   "type": "module",
   "private": true,
   "scripts": {
@@ -23,8 +23,8 @@
     "check:terminal": "bun scripts/check-terminal-boundary.ts"
   },
   "dependencies": {
-    "@nuxt/content": "^3.16.1",
-    "nuxt": "4.6.2",
+    "@nuxt/content": "^3.16.2",
+    "nuxt": "4.6.3",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0",
     "better-sqlite3": "13.0.3",
@@ -36,7 +36,7 @@
     "@neoverse-ui/vue": "file:../Neoverse-UI/packages/vue"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.2",
+    "@biomejs/biome": "2.6.3",
     "prettier": "3.9.10",
     "prettier-plugin-markdown-compact-tables": "1.0.0",
     "typescript": "6.0.3",

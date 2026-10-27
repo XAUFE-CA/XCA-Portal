@@ -47,4 +47,4 @@ Status: adopted
 
 视口尺寸改变时结束入场并恢复正常布局。偏好变化、跳过和卸载取消同一组动画、异步任务与绘制；暂停与恢复不创建第二条时间线。
 
-几何与网格单元测试位于终端 presentation；浏览器回归入口为 `tests/e2e/terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`terminal-motion.spec.ts` 与 `hero-typewriter.spec.ts`。检查方式见 [工程质量契约](engineering-quality.md#门禁与执行)，实际通过情况保存在带日期的审计记录中。自动化结果不等同最终视觉验收。
+几何与网格单元测试位于终端 presentation；浏览器回归入口为 `tests/e2e/terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`terminal-motion.spec.ts` 与 `hero-typewriter.spec.ts`。检查方式见 [工程质量契约](engineering-quality.md#分级与执行责任)，实际通过情况保存在带日期的审计记录中。自动化结果不等同最终视觉验收。

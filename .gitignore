@@ -32,3 +32,8 @@ fonts-source/
 # Python font-tool cache
 __pycache__/
 *.pyc
+
+# IDEs
+.codebuddy/*
+.workbuddy/*
+.codeartsdoer/*

@@ -42,4 +42,4 @@ Status: adopted
 
 ## 验证
 
-浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts` 与 `neoverse-integration.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与材质降级。检查方式见 [工程质量契约](engineering-quality.md#门禁与执行)，检查结果与图片验收分别记录。
+浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts` 与 `neoverse-integration.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与材质降级。检查方式见 [工程质量契约](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。

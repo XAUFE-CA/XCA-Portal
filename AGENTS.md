@@ -61,7 +61,7 @@ public/                 静态资产：品牌标识、字体许可证、intro-ga
 
 - **组织对齐**：遵守 [XCA 项目开发与协作规范](https://github.com/XAUFE-CA/.github/blob/main/COLLABORATION.md)：AI Agent 开发与 AI 辅助协作（第 1–2 点）、Git 提交与代码审查合并（第 3–5 点）、Issue/PR 协作与证据真实性（第 6 点）。贡献指南、行为准则、安全说明直接引用 [组织默认社区健康文件](https://github.com/XAUFE-CA/.github)，不在本仓库重复维护或改写。提交信息遵循 Conventional Commits，格式与类型以组织规范第 4 点为准，实质性 AI 参与按第 2 点在 PR 披露。本文件只维护门户项目级补充约束，与组织规范冲突时以其强制性要求为准。
 - **品牌与范围**：官方门户使用既有 XCA 品牌，不发明学社全称，不引入学校官方 Logo 或未经授权资产。当前只提供公开内容，不提前引入登录后端、数据库、管理后台或独立 API 服务，文案不伪造已开放能力。
-- **工具链**：Nuxt 4、Vue 3、严格 TypeScript、Nuxt Content 3。使用 Bun 和现有锁文件，不混入其他包管理器。早期开发使用 Neoverse-UI 本地 `file:` 接入与 `ui:sync`，不直接修补 node_modules、dist 或锁文件复制产物；正式发布改用 npm 精确版本，移除本地别名、同步与 CI 联合检出。不擅改 Nuxt 别名、SSR、PostCSS、端口和共享依赖版本，共享依赖准备见工程质量契约。
+- **工具链**：Nuxt 4、Vue 3、严格 TypeScript、Nuxt Content 3。使用 Bun 和现有锁文件，不混入其他包管理器。早期开发使用 Neoverse-UI 本地 `file:` 接入与 `ui:sync`，不直接修补 node_modules、dist 或锁文件复制产物；正式发布改用 npm 精确版本，移除本地别名、同步与 CI 联合检出。不擅改 Nuxt 别名、SSR、PostCSS、端口和共享依赖版本，CI 联合检出决策见工程质量契约。
 - **分层职责**：页面负责组合，站点组件负责展示，composables/config 负责公共能力，首页轮播语句由独立数据文件维护。终端 Core 保持纯逻辑，不依赖 Vue、DOM、展示层或命令集合。命令通过上下文能力访问服务，不直接操作 DOM、路由或宿主 Shell。`client-session.ts` 是命令和 Session 的装配入口，presentation 负责 Boot/Dock/Reveal，components 负责终端适配，执行与展示生命周期分离。
 - **共享 UI**：优先级为现有 Neoverse-UI 组件 → 公开 token/API → XCA 页面布局与品牌表达。不复制共享 CSS、依赖私有 class/DOM/变量，不在门户建立第二套基础 UI、token、极光玻璃或光标系统。导航、分段控件、输入框及滚动条使用共享默认尺寸和材质，不在消费端放大。颜色、文字、间距、圆角、边框、阴影和动画沿用现有 token，页面几何、图片比例、ASCII 字形可用有依据的局部常量。极光玻璃边缘和毛玻璃归共享运行时，先查接入、层级、生命周期和公开 API。通用缺口登记到共享库 `contracts/component-requests/`，不擅改兄弟仓库。
 - **终端安全与会话**：浏览器白名单解释器，不执行用户系统命令、子进程、eval、动态脚本或读取主机文件，虚拟路径限制在虚拟工作区。单一 Host / Session，入场、展开、重播不得创建多个同步实例。刷新、路由返回、跳过、resize 都有确定终态，不重放副作用。认证必须来自未来真实服务端，前端可用性不是授权。敏感回答不进历史、草稿、输出或日志。
