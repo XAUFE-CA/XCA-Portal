@@ -9,7 +9,7 @@ docs/
   AGENTS.md                     本文件：全仓库行文规则与 docs 结构规范
   terminology/                  术语体系：对照表与翻译规则（入口 terminology/README.md）
   architecture/                 架构契约与现行接口，只描述当前真实情况
-    engineering-quality.md      环境与依赖维护、门禁分级、代码与文档预算
+    engineering-quality.md      环境与依赖维护、门禁分级、代码与文档预算、CI 决策
     fonts.md                    字体角色、资源许可、加载与子集生成
     terminal-extending.md       终端命令、会话、外观与交互扩展接口
     home-intro.md               首页入场、场景绘制、终端交接与中断

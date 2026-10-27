@@ -35,6 +35,7 @@ scripts/                门禁与治理脚本、quality-budgets.json、字体工
 tests/e2e/              随功能提交的 Playwright 用例与 Windows 图片基线
 public/                 静态资产：品牌标识、字体许可证、intro-gate.js
 .agents/notes/          过程材料（审计、计划），其余子目录预留给 skills 等
+.github/                CI 工作流（quality.yml）与 PR 模板
 ```
 
 根目录配置：`package.json` 与 `bun.lock`（依赖与脚本事实来源）、`nuxt.config.ts`（别名、端口、共享库解析）、`playwright.config.ts`（E2E）、`biome.json` 与 `.prettierrc.json`（格式分工）、`tsconfig.quality.json`（治理脚本类型检查）、EditorConfig 与 Git attributes。
@@ -111,4 +112,4 @@ public/                 静态资产：品牌标识、字体许可证、intro-ga
 - 完成前核对 Diff/status，交付修改原因、文件、实际验证结果、失败和遗留风险。
 - 只有明确请求才提交，提交信息按 [组织协作规范](https://github.com/XAUFE-CA/.github/blob/main/COLLABORATION.md#4-git-commit-message-规范) 使用 Conventional Commits。多 Agent 如被授权，先按模块协调文件所有权，不相互覆盖。
 
-相关测试与实现同笔提交，不另拆测试提交。当前提交不包含远端 CI 配置，本地结果不得作为远端检查证据。
+相关测试与实现同笔提交，不另拆测试提交。远端 CI 与 required checks 的配置和结果须分别核验。
