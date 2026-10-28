@@ -18,8 +18,8 @@ interface MarkContext {
 }
 
 /**
- * Fill, extrude and start the camera together after drawing the authoritative mark.
- * 绘制权威标志后，同时填充、挤出并启动相机。
+ * Fill, extrude and start the camera together after drawing the CA mark.
+ * 绘制 CA 标识后，同时填充、挤出并启动相机。
  */
 export async function playIntroMark(context: MarkContext) {
   const { root, terminal, unit, signal, animate, onHandoff } = context;

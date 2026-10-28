@@ -70,7 +70,7 @@ export function completePath(
 ): string[] {
   if (!options.multiple && args.length > 1) return [];
   // Tab ends a file token with a space; do not reoffer that file as the next argument.
-  // Tab 会以空格结束文件标记；不要将同一文件再次作为下一个参数提供。
+  // Tab 会以空格结束文件标记。不要将同一文件再次作为下一个参数提供。
   const completed = new Set(args.slice(0, -1).map((path) => ctx.workspace.resolve(path)));
   return ctx.workspace
     .complete(args.at(-1) ?? "")

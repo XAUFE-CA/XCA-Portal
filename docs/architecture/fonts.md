@@ -8,12 +8,12 @@ Status: adopted
 
 | 角色 | 字体 | 配置 |
 | --- | --- | --- |
-| 页面标题、正文、品牌文字、导航与控件 | `Noto Sans SC Variable` | 公开的 `--neoverse-font-family-sans` |
+| 页面标题、正文、站点文字、导航与控件 | `Noto Sans SC Variable` | 公开的 `--neoverse-font-family-sans` |
 | 终端、代码与等宽编号 | `Maple Mono NF CN` | 公开的 `code`、`mono` 字体角色 |
 
 无衬线字体复用共享库的 OFL 字体声明，从 jsDelivr 加载 `@fontsource-variable/noto-sans-sc` 的子集与可变字重，失败时回退系统字体。具体版本由共享库的字体声明维护。
 
-终端常规与 Italic 均使用自托管 WOFF2 子集，保留上游等宽度量。子集的内部家族名为 `XCA Code Subset`，不使用许可证中的保留名称；CSS 的 `Maple Mono NF CN` 是既有兼容别名，公共 code/mono 字体角色保持不变。补全提示使用真实 Italic 字形。子集外字符按共享回退栈尝试显示，覆盖范围以生成清单和实际字体为准。
+终端常规与 Italic 均使用自托管 WOFF2 子集，保留上游等宽度量。子集的内部家族名为 `XCA Code Subset`，不使用许可证中的保留名称。CSS 的 `Maple Mono NF CN` 是既有兼容别名，公共 code/mono 字体角色保持不变。补全提示使用真实 Italic 字形。子集外字符按共享回退栈尝试显示，覆盖范围以生成清单和实际字体为准。
 
 字体不作为会话外观选项，不恢复字体选择器或替换为整包字体。终端的字宽测量见 [终端扩展接口](terminal-extending.md#背景与字体适配)。
 

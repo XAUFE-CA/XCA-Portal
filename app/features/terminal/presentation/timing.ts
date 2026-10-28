@@ -1,6 +1,6 @@
 /**
- * Narrative pacing, measured in Neoverse-UI expressive-duration units.
- * 叙事节奏，以 Neoverse-UI 表现力时长单位计量。
+ * Intro pacing, measured in Neoverse-UI duration units.
+ * 入场节奏，以 Neoverse-UI 的时长单位计量。
  */
 export const INTRO_PACING = {
   markDraw: 2.8,
@@ -18,8 +18,8 @@ export const INTRO_PACING = {
 export const INTRO_HANDOFF = { start: 0.85, boot: 0.91, arrival: 0.96 } as const;
 export const TERMINAL_EXPAND_UNITS = 0.92;
 /**
- * Text reading cadence; independent of reduced-motion's 1ms spatial effects.
- * 文本阅读节奏；独立于减少动效的 1ms 空间效果。
+ * Text reading interval; independent of reduced-motion's 1ms spatial effects.
+ * 文字阅读间隔。它独立于减少动效的 1ms 空间效果。
  */
 export const INTRO_READING_UNIT_MS = 420;
 

@@ -205,8 +205,8 @@ function draw(
 }
 
 /**
- * One draw call and depth buffer for CA and the road. WAAPI owns all motion.
- * CA 与道路共用一次绘制调用和深度缓冲；所有运动由 WAAPI 驱动。
+ * A sorted transparent city pass precedes the depth-writing scene; WAAPI owns all motion.
+ * 排序后的透明城市先于写入深度的场景绘制。所有运动由 WAAPI 驱动。
  */
 export function mountMarkRenderer(
   root: HTMLElement,

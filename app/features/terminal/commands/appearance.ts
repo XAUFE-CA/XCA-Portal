@@ -3,7 +3,7 @@ import { line, matching, usage } from "./helpers";
 
 /**
  * Background settings remain; terminal typography is permanently Maple Mono NF CN.
- * 背景设置可调整；终端字体固定为 Maple Mono NF CN。
+ * 背景设置可调整。终端字体固定为 Maple Mono NF CN。
  */
 export const appearanceCommands: CommandDefinition[] = [
   {

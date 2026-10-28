@@ -9,7 +9,7 @@ import { expressiveDuration, INTRO_PACING, INTRO_READING_UNIT_MS } from "./timin
 import { useTerminalExpansion } from "./useTerminalExpansion";
 
 // Document-local: client routing keeps the session, a new load replays entry; never use it in SSR.
-// 仅限文档内：客户端路由保留会话，新加载重播入场；绝不在 SSR 中读写。
+// 仅限文档内：客户端路由保留会话，新加载重播入场。绝不在 SSR 中读写。
 let introPlayedInDocument = false;
 const IDENTITY_TRANSFORM = "translateZ(0)";
 function reducedMotion(): boolean {
@@ -64,8 +64,8 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     let frame = 0;
     let stopped = false;
     const delay = Number(animation.effect?.getTiming().delay ?? 0);
-    // WAAPI transforms emit no motion events; invalidate the shared renderer during choreography.
-    // WAAPI 变换不会触发 CSS 运动事件；空间编排移动表面时需刷新共享渲染器。
+    // WAAPI transforms emit no motion events; invalidate the shared renderer during animation.
+    // WAAPI 变换不会触发 CSS 运动事件。动画移动表面时需刷新共享渲染器。
     function paint() {
       if (stopped) return;
       if (
@@ -111,7 +111,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     spatialIntro.value = false;
     const element = frame();
     // Keep the terminal's compositor layer after docking; dropping it snaps the Aurora Glass edge.
-    // 停靠后保留终端所在的合成层；移除变换会使极光玻璃边缘在重栅格化时跳动。
+    // 停靠后让终端保持独立合成层。移除变换会让极光玻璃边缘在重新栅格化时抖动。
     if (element) element.style.transform = IDENTITY_TRANSFORM;
     phase.value = "ready";
     bootLines.value = [];
@@ -165,7 +165,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     } finally {
       signal.removeEventListener("abort", stop);
       // Retain filled effects until handoff/finish; removing them would flash the outline.
-      // 填充效果保留至交接/结束；提前移除会闪现轮廓。
+      // 填充效果保留至交接/结束。提前移除会闪现轮廓。
       if (options.fill !== "both" && options.fill !== "forwards") {
         introAnimations.delete(animation);
         animation.cancel();
@@ -202,7 +202,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
   }
   function initialTransform(element: HTMLElement): string {
     // The final anchor never leaves normal flow, preventing layout shifts while docking.
-    // 最终锚点始终留在常规流中，避免停靠期间产生布局偏移。
+    // 最终锚点始终留在正常文档流中，避免停靠期间产生布局偏移。
     const rect = anchor.value?.getBoundingClientRect() ?? element.getBoundingClientRect();
     const viewport = window.visualViewport;
     const centerX = (viewport?.width ?? window.innerWidth) / 2;
@@ -249,7 +249,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     phase.value = "boot";
     await nextTick();
     // Emitted lines drive scene cues; the progress bar only measures elapsed reading time.
-    // 实际输出的文本行驱动场景提示；进度条仅衡量已用的阅读时间。
+    // 实际输出的文本行驱动场景提示。进度条仅衡量已用的阅读时间。
     await Promise.all([
       (async () => {
         for (const step of BOOT_SEQUENCE) {
@@ -337,7 +337,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     if (introAbort) finishIntro();
     expansion.reset();
     // A reload can restore scroll first; dock against the top anchor so the header never shifts.
-    // 重载可能在入场前恢复滚动位置；以页面顶部锚点停靠，避免页头与主视觉位移。
+    // 重载可能在入场前恢复滚动位置。把终端固定到页面顶部锚点，避免页头与主视觉位移。
     if (!options.explicit) window.scrollTo({ left: 0, top: 0, behavior: "instant" });
     const reduce = reducedMotion() || typeof frame()?.animate !== "function";
     if (reduce && !options.explicit) {
@@ -353,7 +353,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     introAbort = controller;
     const signal = controller.signal;
     // Reduced motion drops spatial effects, but explicit replay still needs readable boot text.
-    // 减少动效会移除空间效果，但显式重播仍需可读的开机文本，而非共用的 1ms 动效令牌。
+    // 减少动效会移除空间效果，但显式重播仍需可读的开机文本，而非共用的 1ms 动效变量。
     const unit = prepareIntro(element, reduce);
     viewportSize = viewportDimensions();
     await nextTick();
@@ -388,7 +388,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     if (size.width === viewportSize.width && size.height === viewportSize.height) return;
     viewportSize = size;
     // A changed projection cannot reuse its old DOM handoff; settle once instead of jumping.
-    // 投影改变后无法沿用旧的 DOM 交接；直接一次性收束，避免几何跳变或重播输出。
+    // 投影变化后旧 DOM 无法继续交接。直接一次归位，避免几何跳变或重复输出。
     if (phase.value !== "ready") finishIntro();
   }
   function onGlobalKeydown(event: KeyboardEvent) {

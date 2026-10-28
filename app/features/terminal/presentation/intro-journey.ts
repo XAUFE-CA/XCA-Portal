@@ -75,8 +75,8 @@ function cameraSamples(markSize: number, terminalHeight: number) {
   const start: Point = [0, 0, distance];
   const end: Point = [x, y, -depth + perspective];
   const target: Point = [x, y, -depth];
-  // Negative X is CA's left; approach there, cross above the middle bar, then fly straight.
-  // 负 X 为 CA 左侧；从该侧接近，越过中间横杠后沿直线向前飞行。
+  // Rise around C to reveal the extrusion, then level out before crossing A's opening.
+  // 绕 C 抬升以揭示挤出厚度，然后在穿过 A 的开口前回正。
   const eyes: Point[] = [
     start,
     start,
@@ -209,7 +209,7 @@ function approachTracks(root: HTMLElement, terminal: HTMLElement) {
 
 /**
  * Visual effects only; the presentation owns their pause, abort and cleanup.
- * 仅负责视觉效果；暂停、中止与清理由呈现层管理。
+ * 仅负责视觉效果。暂停、中止与清理由 presentation 层管理。
  */
 export function createIntroJourney(animate: IntroAnimate) {
   function part(

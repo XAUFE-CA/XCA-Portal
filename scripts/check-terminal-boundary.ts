@@ -36,8 +36,8 @@ for (const [pattern, message] of [
   const source = css.replace(/\b0ms\b/g, "0");
   if (pattern.test(source)) failures.push(`${cssPath}: ${message}`);
 }
-// Geometry is consumer-owned; shared chrome, text and semantic colors are not.
-// 几何属性归消费方所有；共享外框、文本与语义色则不归其所有。
+// Geometry belongs to the portal; shared chrome, text and color variables do not.
+// 几何属性由门户定义。共享外框、文本和颜色变量不能覆盖。
 for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const [, selector, declarations] = block;
   if (selector === undefined || declarations === undefined)

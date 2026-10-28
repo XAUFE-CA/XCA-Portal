@@ -1,6 +1,6 @@
 /**
- * World units follow the authoritative CA SVG's centred 1254-unit viewBox.
- * 世界单位遵循权威 CA SVG 居中的 1254 单位 viewBox。
+ * Scene units follow the CA mark SVG's centred 1254-unit viewBox.
+ * 场景坐标沿用 CA 标识 SVG 居中的 1254 单位 viewBox。
  */
 export const JOURNEY = {
   depth: 14200,

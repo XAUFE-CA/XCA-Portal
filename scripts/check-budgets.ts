@@ -16,8 +16,8 @@ export function fileLimits(path: string, config: BudgetConfig): Limits {
 export function budgetFailure(value: number, hard: number, exception?: Exception): boolean {
   return value > hard && (!exception?.reason.trim() || value > exception.ceiling);
 }
-// Process notes under .agents/ are dated archives; the quality contract keeps them out of budgets.
-// .agents/ 下的过程记录是带日期的存档，质量契约不会将其计入预算。
+// Process notes under .agents/ are dated archives; the quality rules keep them out of budgets.
+// .agents/ 下的过程记录是带日期的存档，质量规则不会将其计入预算。
 export function inBudgetScope(path: string): boolean {
   return (
     /\.(ts|vue|css|js|md)$/.test(path) &&

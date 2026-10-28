@@ -5,8 +5,8 @@ type Manifest = {
 
 export type UiDependencyState = "local" | "published" | "mixed";
 
-// All Neoverse-UI entries must share one source; mixed local and published packages hide drift.
-// 所有 Neoverse-UI 条目必须来源一致；本地与发布包混用会掩盖版本漂移。
+// All Neoverse-UI entries must share one source; mixed local and published packages hide version mismatch.
+// 所有 Neoverse-UI 条目必须来源一致。本地与发布包混用会掩盖版本不一致。
 export function uiDependencyState(manifest: Manifest): UiDependencyState {
   const specs = [
     ...Object.entries(manifest.dependencies ?? {}),

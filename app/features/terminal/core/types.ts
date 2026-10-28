@@ -38,7 +38,7 @@ export type TerminalInteraction =
   | { type: "menu"; title: string; items: readonly TerminalMenuItem[]; select(id: string): void };
 /**
  * Framework-neutral TUI surface; keyboard and resize events reach only the active app.
- * 与框架无关的 TUI 界面；键盘和尺寸事件仅传递给当前活动的应用。
+ * 与框架无关的 TUI 界面。键盘和尺寸事件仅传递给当前活动的应用。
  */
 export interface TerminalApplication {
   title: string;

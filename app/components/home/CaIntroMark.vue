@@ -13,8 +13,8 @@ const scene = ref<HTMLElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
 const meshReady = ref(false);
 let releaseMesh: (() => void) | null = null;
-// The draw phase and non-WebGL fallback keep the authoritative SVG paths.
-// 绘制阶段与非 WebGL 回退都沿用权威的 SVG 路径。
+// The draw phase and non-WebGL fallback keep the CA mark SVG paths.
+// 绘制阶段与非 WebGL 回退都沿用 CA 标识 SVG 路径。
 const svg = mark
   .replace(/<title[\s\S]*?<\/title>/, "")
   .replace(/\s(?:role|aria-labelledby)="[^"]*"/g, "")

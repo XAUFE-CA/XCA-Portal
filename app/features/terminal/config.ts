@@ -1,6 +1,6 @@
 /**
- * Product configuration. Shared material and typography remain Neoverse-UI tokens.
- * 产品配置。共享材质与排版仍使用 Neoverse-UI 令牌。
+ * Product configuration. Shared styles and typography remain Neoverse-UI variables.
+ * 产品配置。共享样式与排版仍使用 Neoverse-UI 变量。
  */
 import { SITE } from "../../config/site";
 import type { MessageKey } from "../../i18n";

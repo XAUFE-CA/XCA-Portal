@@ -67,7 +67,7 @@ const suggestionDismissed = ref(false);
 const sessionRevision = ref(0);
 const suggestion = computed(() => {
   // History, cwd and registered candidates always come from the live session.
-  // 历史、当前目录和已注册候选项始终取自可变的会话。
+  // 历史、当前目录和补全候选项始终从当前会话读取。
   sessionRevision.value;
   if (suggestionDismissed.value || composing.value || booting.value || running.value) return "";
   return props.session.suggest(input.value);
@@ -96,7 +96,7 @@ function scrollToLatest() {
   const node = viewport.value;
   if (!node?.isConnected || props.intro || application.value) return;
   // Scroll only the terminal; scrollIntoView would also move the surrounding page.
-  // 只滚动终端；scrollIntoView 会连带滚动周围的页面。
+  // 只滚动终端。scrollIntoView 会连带滚动周围的页面。
   node.scrollTop = node.scrollHeight;
 }
 function updateColumns() {
@@ -237,7 +237,7 @@ function completeInput() {
     }
     if (matches.length > 1) {
       // Values keep the command and earlier arguments; list only the incomplete token.
-      // 替换值保留命令与先前参数；列表仅显示正在补全的标记。
+      // 替换值保留命令与先前参数。列表仅显示正在补全的标记。
       const base = source.slice(0, source.lastIndexOf(" ") + 1);
       props.session.append({
         type: "line",
@@ -303,7 +303,7 @@ function keydown(event: KeyboardEvent) {
   }
   if (event.key === "Tab") {
     // Shift+Tab leaves the editor; plain Tab stays with the shell even with no candidates.
-    // Shift+Tab 可离开编辑器；即使没有候选项，普通 Tab 仍交由 shell 处理。
+    // Shift+Tab 可离开编辑器。即使没有候选项，普通 Tab 仍交由 shell 处理。
     if (event.shiftKey) return;
     event.preventDefault();
     if (!running.value && !booting.value) completeInput();

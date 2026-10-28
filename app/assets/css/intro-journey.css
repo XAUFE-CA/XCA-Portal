@@ -1,5 +1,5 @@
-/* World-space brand geometry; surface material comes from public Neoverse glass roles.
-   世界空间品牌几何，表面材质取自公开的 Neoverse 玻璃角色。 */
+/* World-space CA mark geometry; surface material comes from public Neoverse glass roles.
+   世界空间 CA 标识几何，表面材质取自公开的 Neoverse 玻璃角色。 */
 .xca-ca-intro {
   --xca-road-edge: color-mix(
     in srgb,

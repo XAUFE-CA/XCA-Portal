@@ -42,7 +42,7 @@ test("document scrollbar uses the viewport, not the clipped XCA layout", async (
     expect(metrics.shellRight).toBeCloseTo(width, 0);
     expect(metrics.shellPadding).toBe(0);
     // Header surface reaches the viewport edge; only its content clears the overlay rail.
-    // 头部表面抵达视口边缘，仅其内容避开覆盖式滚动条；预留空间会裁掉极光玻璃。
+    // 头部表面抵达视口边缘，仅其内容避开覆盖式滚动条。预留空间会裁掉极光玻璃。
     expect(metrics.headerRight).toBeCloseTo(width, 0);
     expect(metrics.railRight).toBeGreaterThan(width - 20);
     expect(metrics.railRight).toBeLessThan(width);

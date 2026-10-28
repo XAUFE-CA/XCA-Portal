@@ -32,7 +32,7 @@ const titleLetters = computed(() => {
   });
 });
 // Keep the complete heading in SSR; animation starts after the intro reveals it.
-// SSR 保留完整标题；动画在开场显示后才开始。
+// SSR 保留完整标题。动画在开场显示后才开始。
 const visibleLetters = ref(titleLength.value);
 const titleElement = ref<HTMLElement | null>(null);
 useTitleCursor(titleElement, title, visibleLetters);
@@ -89,7 +89,7 @@ function resumeTitleOutsideTerminal(event: PointerEvent) {
 }
 function onTerminalKeydown(event: KeyboardEvent) {
   // Escape skips the intro and Tab traverses the UI; neither signals interest.
-  // Escape 跳过开场、Tab 遍历界面，两者都不表示兴趣。
+  // Escape 跳过开场，Tab 切换界面焦点。两者都不算开始使用终端。
   if (event.key !== "Escape" && event.key !== "Tab") engageTerminal();
 }
 function selectSentence() {

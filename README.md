@@ -53,7 +53,7 @@ bun run dev
 | `bun run build` | 生产构建 |
 | `bun run preview` | 预览构建产物 |
 
-详细的环境、检查与维护说明见 [工程质量契约](docs/architecture/engineering-quality.md)。
+详细的环境、检查与维护说明见 [工程质量规则](docs/architecture/engineering-quality.md)。
 
 ## 参与贡献
 

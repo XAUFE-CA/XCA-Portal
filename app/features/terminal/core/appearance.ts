@@ -12,8 +12,8 @@ export interface TerminalAppearance {
 }
 
 /**
- * Explicit background choices customize the shared token; the default inherits Neoverse-UI.
- * 显式背景选项会定制共享令牌；默认背景继承 Neoverse-UI。
+ * Explicit background choices customize the shared style variable; the default inherits Neoverse-UI.
+ * 显式背景选项会修改共享样式变量。默认背景继承 Neoverse-UI。
  */
 export class AppearanceRegistry {
   readonly backgrounds = new Map<string, TerminalBackground>();

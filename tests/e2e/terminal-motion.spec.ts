@@ -18,8 +18,8 @@ test("glass edge follows the same terminal throughout docking and settles withou
       };
       const clear = prototype.clear;
       prototype.clear = function (mask) {
-        // The brand canvas must not clear samples recorded by the glass renderer.
-        // 品牌画布不能清空玻璃渲染器记录的采样。
+        // The CA mark canvas must not clear samples recorded by the glass renderer.
+        // CA 标识画布不能清空玻璃渲染器记录的采样。
         if (renderers.has(this)) drawn.length = 0;
         return clear.call(this, mask);
       };

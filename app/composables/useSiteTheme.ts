@@ -6,7 +6,7 @@ const STORAGE_KEY = "xca-theme";
 const VIEW_TRANSITION = "data-neoverse-theme-view-transitioning";
 const COLOR_TRANSITION = "data-neoverse-theme-transitioning";
 // Client document only; all callers (header and terminal) share interruption state.
-// 仅限客户端文档；所有调用方（页头与终端）共享中断状态。
+// 仅限客户端文档。所有调用方（页头与终端）共享中断状态。
 let transition: ViewTransition | undefined;
 let request = 0;
 let cleanupTimer: number | undefined;
@@ -81,14 +81,14 @@ export function useSiteTheme() {
         root.removeAttribute(VIEW_TRANSITION);
       }
     }
-    // Older browsers interpolate the registered semantic colors in shared motion CSS.
-    // 旧版浏览器依靠共享动效 CSS 对已注册语义色做插值。
+    // Older browsers interpolate the registered color variables in shared motion CSS.
+    // 旧版浏览器依靠共享动效 CSS 对已注册颜色变量做插值。
     root.setAttribute(COLOR_TRANSITION, "");
     const style = getComputedStyle(root);
     const duration = style.getPropertyValue("--neoverse-motion-theme-fallback-duration").trim();
     const milliseconds = Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
-    // Resolve the old color with transition properties active before changing tokens.
-    // 在更改令牌前先让过渡属性生效并解析旧颜色。
+    // Resolve the old color with transition properties active before changing variables.
+    // 在更改样式变量前先让过渡属性生效并解析旧颜色。
     style.getPropertyValue("--neoverse-color-surface-canvas");
     apply();
     const refresh = () => {

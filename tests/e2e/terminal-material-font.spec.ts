@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
 
-// Terminal faces are WOFF2 subsets under /_nuxt; a clean profile avoids local font fallback.
-// 终端字体是 /_nuxt 下的 WOFF2 子集，使用干净配置以避免本地字体回退。
+// Terminal faces are WOFF2 subsets under /_nuxt; an isolated profile avoids local font fallback.
+// 终端字体是 /_nuxt 下的 WOFF2 子集，使用隔离的浏览器配置，避免回退到本地字体。
 const REGULAR_FONT = "/_nuxt/maple-mono-nf-cn-regular";
 const ITALIC_FONT = "/_nuxt/maple-mono-nf-cn-italic";
 
@@ -112,7 +112,7 @@ for (const localFonts of [true, false]) {
         })
         .toBe(true);
       // A clean profile must fetch the subset; a local install may satisfy it instead.
-      // 干净配置下必须请求该子集；本地安装的字体则可能替代满足。
+      // 隔离配置下必须请求该子集。本地安装的字体可能替代满足。
       if (!localFonts) expect(italicRequests.length).toBeGreaterThan(0);
       await expect(input).toHaveCSS("font-style", "normal");
       await input.press("ArrowRight");

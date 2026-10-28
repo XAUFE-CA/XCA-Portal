@@ -96,8 +96,8 @@ export function extrudeContour(points: readonly Point[], depth: number): Float32
 }
 
 /**
- * Bound curve error in world units, rather than adding more depth slices.
- * 以世界单位限制曲线误差，而不是增加更多深度切片。
+ * Bound curve error in scene units, rather than adding more depth slices.
+ * 以场景单位限制曲线误差，而不是增加更多深度切片。
  */
 export function sampleContour(path: SVGPathElement): Point[] {
   const length = path.getTotalLength();

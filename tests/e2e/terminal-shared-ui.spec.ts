@@ -32,8 +32,8 @@ test("focused terminal editor has no outline box and retains the shared prompt f
 
 function compareTerminalStyles() {
   function createReference(actual: HTMLElement) {
-    // The reference uses the same public component DOM, without consumer classes/styles.
-    // 参照实现使用相同的公开组件 DOM，但不含消费方类名与样式。
+    // The reference uses the same public component DOM, without portal-specific classes or styles.
+    // 对照组使用相同的公开组件结构，但不包含门户自定义的类名和样式。
     const reference = actual.cloneNode(true) as HTMLElement;
     for (const node of [reference, ...reference.querySelectorAll<HTMLElement>("*")]) {
       for (const name of [...node.classList]) {

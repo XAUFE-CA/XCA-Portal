@@ -118,8 +118,8 @@
   overflow: clip;
   margin: 0 0 var(--neoverse-space-6);
   padding: 0;
-  /* Welcome to XCA is the portal's brand artwork; preserve its original typography.
-     Welcome to XCA 是门户品牌视觉，须保留其原有排版。 */
+  /* Welcome to XCA is the portal's CA mark artwork; preserve its original typography.
+     Welcome to XCA 是门户 CA 标识视觉，须保留其原有排版。 */
   font:
     var(--neoverse-font-weight-regular) var(--neoverse-font-size-xs) /
     var(--neoverse-line-height-snug) var(--xca-terminal-font);
@@ -132,8 +132,8 @@
   letter-spacing: 0;
   color: var(--neoverse-color-accent-primary);
 }
-/* Brand-only neon ink; the same transcript node carries it through the intro.
-   仅品牌使用的霓虹着色，开场中由同一 transcript 节点延续。 */
+/* Mark-only neon ink; the same transcript node carries it through the intro.
+   仅 CA 标识使用的霓虹着色，开场中由同一 transcript 节点延续。 */
 @supports (background-clip: text) {
   .xca-terminal-banner {
     background-image: linear-gradient(

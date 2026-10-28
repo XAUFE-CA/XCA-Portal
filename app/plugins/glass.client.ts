@@ -9,7 +9,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   };
   onNuxtReady(() => {
     // One shared edge renderer per document; the CSS material is the fallback.
-    // 每个文档共用一个边缘渲染器；CSS 材质作为回退。
+    // 每个文档共用一个边缘渲染器。CSS 材质作为回退。
     if (!disposed) renderer.mount();
   });
   nuxtApp.vueApp.onUnmount(dispose);

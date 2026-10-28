@@ -15,8 +15,8 @@ const route = useRoute();
       <slot />
     </main>
     <SiteFooter v-if="route.path !== SITE.routes.home" />
-    <!-- The document-level rail must not inherit the clipped/isolated site shell.
-         文档级滚动条不得继承被裁剪或隔离的站点外壳。 -->
+    <!-- The document scrollbar is teleported out so it never inherits the site layout container's clipping or stacking isolation.
+         文档级滚动条通过 Teleport 移到 body，避免继承站点布局容器的裁剪和层叠隔离。 -->
     <ClientOnly>
       <Teleport to="body">
         <UiScrollbar class="xca-document-scrollbar" :refresh-key="route.fullPath" />
