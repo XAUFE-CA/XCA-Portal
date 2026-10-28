@@ -38,6 +38,8 @@ Status: adopted
 
 根节点通过 `data-theme` 支持 light、dark 和 system，主题选择保存在浏览器本地。语言存储、服务端首屏与命令输出规则只维护在 [翻译规则](../terminology/translation.md)。
 
+页面底色使用共享 `surface-canvas` token，不叠加装饰性发光背景。终端和顶栏的极光玻璃材质继续由共享 UI 提供。
+
 顶栏与终端复用共享极光玻璃材质，浏览器支持时由唯一共享 Glass Runtime 增强边缘折射；WebGL 不可用时由共享 CSS 回退。动画调用共享刷新能力，门户不建立第二套材质运行时。应用卸载和热更新时销毁 Renderer，清理画布与监听。
 
 ## 验证

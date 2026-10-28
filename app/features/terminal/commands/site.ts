@@ -24,7 +24,7 @@ const subcommands: CommandDefinition[] = [
     execute: async (args, ctx) => {
       const paths: Record<string, string> = TERMINAL.routes;
       const [page] = args;
-      const route = page === undefined ? undefined : paths[page];
+      const route = page !== undefined && Object.hasOwn(paths, page) ? paths[page] : undefined;
       if (args.length !== 1 || page === undefined || !route) return usage("xca open home", ctx.t);
       await ctx.services.navigate(route);
       return [line(ctx.t("command.opening", { page }), "success")];

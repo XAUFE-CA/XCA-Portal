@@ -34,7 +34,7 @@ docs/                   架构契约、现行接口与术语体系（写法见 d
 scripts/                门禁与治理脚本、quality-budgets.json、字体工具
 tests/e2e/              随功能提交的 Playwright 用例与 Windows 图片基线
 public/                 静态资产：品牌标识、字体许可证、intro-gate.js
-.agents/notes/          过程材料（审计、计划），其余子目录预留给 skills 等
+.agents/notes/          未解决事项与必要过程记录，其余子目录预留给 skills 等
 .github/                CI 工作流（quality.yml）与 PR 模板
 ```
 

@@ -118,6 +118,31 @@ test("deferred content has no commands, completion, virtual files or navigation 
   expect(navigated).toEqual(["/"]);
 });
 
+test("navigation rejects inherited properties, external paths and extra arguments", async () => {
+  const navigated: string[] = [];
+  const session = new TerminalSession({
+    ...makeServices(),
+    navigate: (path) => {
+      navigated.push(path);
+    },
+  });
+  for (const command of terminalCommands) session.registry.register(command);
+  for (const target of [
+    "toString",
+    "constructor",
+    "__proto__",
+    "/",
+    "https://example.com",
+    "home extra",
+  ]) {
+    await session.execute(`xca open ${target}`);
+    expect(session.status).toBe(1);
+  }
+  expect(navigated).toEqual([]);
+  await session.execute("xca open home");
+  expect(navigated).toEqual(["/"]);
+});
+
 test("xca intro resets the transcript before replay while preserving history and appearance", async () => {
   const services = makeServices();
   const session = new TerminalSession(services);

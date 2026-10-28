@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import ts from "typescript";
 import { budgetFailure, fileLimits, inBudgetScope } from "./check-budgets";
 import { extractLinks, isExternalLink } from "./check-docs";
 import { GATES, tail } from "./run-gates";
@@ -156,4 +157,25 @@ test("terminal core and commands reject framework, host and reverse dependencies
     expect(boundaryViolation(command, target)).toBe(true);
   expect(boundaryViolation(core, "app/i18n/index.ts")).toBe(false);
   expect(boundaryViolation(command, "app/features/terminal/core/types.ts")).toBe(false);
+});
+
+test("quality typecheck reports errors in scripts, browser configuration and E2E sources", () => {
+  const root = mkdtempSync(join(tmpdir(), "xca-quality-types-"));
+  try {
+    const config = JSON.parse(readFileSync("tsconfig.quality.json", "utf8"));
+    const paths = ["scripts/example.ts", "playwright.config.ts", "tests/e2e/example.spec.ts"];
+    mkdirSync(join(root, "scripts"), { recursive: true });
+    mkdirSync(join(root, "tests/e2e"), { recursive: true });
+    for (const path of paths)
+      writeFileSync(join(root, path), 'export const example: number = "type-error";\n');
+    const parsed = ts.parseJsonConfigFileContent(config, ts.sys, root);
+    const program = ts.createProgram(parsed.fileNames, { ...parsed.options, types: [] });
+    const errors = ts.getPreEmitDiagnostics(program).filter((error) => error.code === 2322);
+    for (const path of paths)
+      expect(
+        errors.some((error) => error.file?.fileName === join(root, path).replaceAll("\\", "/")),
+      ).toBe(true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

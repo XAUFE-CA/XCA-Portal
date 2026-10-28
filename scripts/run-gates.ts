@@ -26,8 +26,7 @@ export function tail(lines: string[], count: number): string[] {
     : [`… 输出较长，仅显示末 ${count} 行（共 ${lines.length} 行）`, ...lines.slice(-count)];
 }
 
-if (import.meta.main) {
-  const fast = process.argv.includes("--fast");
+export function runGates(fast = false): number {
   const plan = fast ? GATES : [...GATES, BUILD];
   const failed: string[] = [];
   let passed = 0;
@@ -66,6 +65,8 @@ if (import.meta.main) {
   console.log(`\n门禁汇总: ${passed} 通过, ${failed.length} 失败, ${skipped} 跳过`);
   if (failed.length) {
     console.log(`失败项: ${failed.join(", ")}`);
-    process.exitCode = 1;
   }
+  return failed.length ? 1 : 0;
 }
+
+if (import.meta.main) process.exitCode = runGates(process.argv.includes("--fast"));

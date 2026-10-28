@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { UiScrollbar } from "@neoverse-ui/vue";
 import { useRoute } from "vue-router";
-import SiteAtmosphere from "~/components/site/SiteAtmosphere.vue";
 import SiteFooter from "~/components/site/SiteFooter.vue";
 import SiteHeader from "~/components/site/SiteHeader.vue";
 import { SITE } from "~/config/site";
@@ -11,7 +10,6 @@ const route = useRoute();
 
 <template>
   <div class="site-shell">
-    <SiteAtmosphere :home="route.path === SITE.routes.home" />
     <SiteHeader />
     <main id="main-content" class="site-main">
       <slot />
