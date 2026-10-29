@@ -213,16 +213,12 @@
 /* Surrounding content enters while boot.content brings the terminal home.
    周边内容入场的同时，boot.content 把终端带回原位。 */
 .xca-terminal-hero__heading,
-.site-header-wrap,
 .site-footer {
   transition:
     opacity var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-standard)
     var(--xca-reveal-delay, 0ms),
     transform var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-emphasized)
     var(--xca-reveal-delay, 0ms);
-}
-.site-header-wrap {
-  --xca-reveal-delay: 0ms;
 }
 .xca-terminal-hero__heading {
   --xca-reveal-delay: calc(var(--neoverse-motion-duration-standard) * 0.5);
@@ -287,11 +283,10 @@ body:has(.xca-terminal-hero--intro) {
 .site-shell:has(.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing)) .site-header-wrap,
 .site-shell:has(.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing)) .site-footer {
   opacity: 0;
-  transform: translateY(var(--neoverse-motion-distance-mid));
   pointer-events: none;
 }
-.site-shell:has(.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing)) .site-header-wrap {
-  transform: translateY(calc(var(--neoverse-motion-distance-mid) * -1));
+.site-shell:has(.xca-terminal-hero--intro:not(.xca-terminal-hero--revealing)) .site-footer {
+  transform: translateY(var(--neoverse-motion-distance-mid));
 }
 /* Linux-style typed boot and ASCII printer share one origin; neither remounts TerminalSession.
    仿 Linux 的打字启动与 ASCII 打印共用同一原点，两者都不重挂载 TerminalSession。 */

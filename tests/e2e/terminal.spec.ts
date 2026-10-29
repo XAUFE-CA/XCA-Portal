@@ -59,7 +59,7 @@ async function skipAnimation(page: import("@playwright/test").Page) {
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
   await expect(page.locator(".site-header-wrap")).toHaveCSS("transform", "none");
 }
-test("entrance can be skipped, home navigation preserves history, and refresh replays entry", async ({
+test("entrance can be skipped, home navigation preserves history, and refresh uses a short entry", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -75,8 +75,8 @@ test("entrance can be skipped, home navigation preserves history, and refresh re
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("guest  /  访客模式")).toBeVisible();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(1);
-  await page.keyboard.press("Escape");
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
+  await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

@@ -36,7 +36,7 @@ Status: adopted
 
 导航复用 `UiNavigationItem`，主题与语言复用 `UiSegmentedControl`。控件采用共享默认尺寸和 `glass-subtle` 外观，门户不覆盖字号、点击区域、材质、滑块或焦点样式。主题控件与 `xca theme` 共用 `useSiteTheme`，语言控件与终端服务共用 `useSiteLocale`。切换不重建会话。
 
-根节点通过 `data-theme` 支持 light、dark 和 system，主题选择保存在浏览器本地。语言存储、服务端首屏与命令输出规则只维护在 [翻译规则](../terminology/translation.md)。
+根节点通过 `data-theme` 支持 light、dark 和 system，主题选择保存在浏览器本地。`theme.client.ts` 在异步布局完成水合后立即恢复选项，早于分段控件启用选中项过渡，避免刷新时从默认选项滑向已保存选项。顶栏及语言、主题控件不参与首页入场位移、缩放或错峰动画。语言存储、服务端首屏与命令输出规则只维护在 [翻译规则](../terminology/translation.md)。
 
 页面底色使用共享 `surface-canvas` token。首页局部背景变量 `--xca-home-canvas` 在深色使用 `#060b13`，渐变色阶混合共享次要文字色推导。浅色以 `#f5f9fc` 为底色，中下部混合 8% 共享辅助色形成淡薄荷色，左上方叠加透明度为 8% 的共享主色线性渐变形成淡蓝色过渡。深色下该叠层完全透明。背景采用大尺度低对比度渐变，其他路由保留共享画布底色。背景不创建额外节点或动画，随共享主题同步切换。终端和顶栏的极光玻璃材质继续由共享 UI 提供。
 

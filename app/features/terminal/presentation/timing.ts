@@ -14,6 +14,8 @@ export const INTRO_PACING = {
   brandCrossfade: 0.42,
   brandHold: 0.35,
   revealSettle: 2,
+  briefEnter: 1.6,
+  briefStagger: 0.2,
 } as const;
 export const INTRO_HANDOFF = { start: 0.75, boot: 0.91, arrival: 0.96 } as const;
 export const TERMINAL_EXPAND_UNITS = 0.92;

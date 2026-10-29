@@ -13,6 +13,7 @@ async function openHero(page: Page, random = 0) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(1);
   await page.keyboard.press("Escape");
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
 }
 
 for (const width of [1440, 390]) {
@@ -120,8 +121,8 @@ for (const locale of ["zh-CN", "en"] as const) {
       Array.from(welcome).length,
     );
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(1);
-    await page.keyboard.press("Escape");
+    await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
+    await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
     await expect(heading).toHaveAttribute("aria-label", welcome);
   });
 }

@@ -4,14 +4,18 @@ import { tokenLength } from "~/utils/cssTokens";
 import type TerminalHost from "../components/TerminalHost.vue";
 import { BOOT_SEQUENCE, type BootLine } from "./boot-script";
 import { refreshGlassDuring as trackGlassMotion } from "./glass-motion";
+import {
+  claimFirstHomeVisit,
+  createIntroShortcut,
+  entryTerminalFrames,
+  playEntryTransition,
+} from "./intro-entry";
 import { createIntroJourney, terminalDockFrames } from "./intro-journey";
 import { playIntroMark } from "./intro-mark";
+import { createIntroPlayback } from "./intro-playback";
 import { expressiveDuration, INTRO_PACING, INTRO_READING_UNIT_MS } from "./timing";
 import { useTerminalExpansion } from "./useTerminalExpansion";
 
-// Document-local: client routing keeps the session, a new load replays entry; never use it in SSR.
-// 仅限文档内：客户端路由保留会话，新加载重播入场。绝不在 SSR 中读写。
-let introPlayedInDocument = false;
 const IDENTITY_TRANSFORM = "translateZ(0)";
 function reducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -55,7 +59,10 @@ export function useTerminalPresentation(getCommandCount: () => number) {
   const anchor = ref<HTMLElement | null>(null);
   const terminalRef = ref<InstanceType<typeof TerminalHost> | null>(null);
   const markRef = ref<InstanceType<typeof CaIntroMark> | null>(null);
-  const introAnimations = new Set<Animation>();
+  const playback = createIntroPlayback(refreshGlassDuring, frame);
+  const animateIntro = playback.animate;
+  let settling = false;
+  let introShortcut = createIntroShortcut(() => void skipIntro());
   const revealing = ref(false);
   const spatialIntro = ref(false);
   let retreatPromise: Promise<unknown> | null = null;
@@ -85,8 +92,8 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     const wasPlaying = phase.value !== "ready";
     introAbort?.abort();
     introAbort = null;
-    for (const animation of introAnimations) animation.cancel();
-    introAnimations.clear();
+    playback.cancel();
+    settling = false;
     retreatPromise = null;
     revealing.value = false;
     spatialIntro.value = false;
@@ -100,6 +107,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     bannerRowsVisible.value = 0;
     bannerCaptionVisible.value = false;
     expansion.reset();
+    introShortcut = createIntroShortcut(() => void skipIntro());
     releaseIntroGate();
     if (wasPlaying)
       void nextTick(() => {
@@ -126,41 +134,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
       signal.addEventListener("abort", stop, { once: true });
     });
   }
-  async function animateIntro(
-    element: Element,
-    keyframes: Keyframe[],
-    options: KeyframeAnimationOptions,
-    signal: AbortSignal,
-  ): Promise<void> {
-    signal.throwIfAborted();
-    const animation = element.animate(keyframes, options);
-    introAnimations.add(animation);
-    if (element === frame() && keyframes.some((keyframe) => keyframe.transform))
-      refreshGlassDuring(animation);
-    if (document.hidden) animation.pause();
-    const stop = () => animation.cancel();
-    signal.addEventListener("abort", stop, { once: true });
-    try {
-      await animation.finished;
-      signal.throwIfAborted();
-    } finally {
-      signal.removeEventListener("abort", stop);
-      // Retain filled effects until handoff/finish; removing them would flash the outline.
-      // 填充效果保留至交接/结束。提前移除会闪现轮廓。
-      if (options.fill !== "both" && options.fill !== "forwards") {
-        introAnimations.delete(animation);
-        animation.cancel();
-      }
-    }
-  }
   const journey = createIntroJourney(animateIntro);
-  function onVisibilityChange() {
-    const animations = [...introAnimations];
-    for (const animation of animations) {
-      if (document.hidden && animation.playState === "running") animation.pause();
-      else if (!document.hidden && animation.playState === "paused") animation.play();
-    }
-  }
   async function playMark(element: HTMLElement, unit: number, signal: AbortSignal) {
     const root = (markRef.value?.$el as HTMLElement | undefined) ?? null;
     if (!root) return;
@@ -363,6 +337,43 @@ export function useTerminalPresentation(getCommandCount: () => number) {
       if (!signal.aborted && introAbort === controller) finishIntro();
     }
   }
+  async function enterHome(brief = false): Promise<void> {
+    if (settling) return;
+    const element = frame();
+    if (!element || reducedMotion() || typeof element.animate !== "function") {
+      finishIntro();
+      return;
+    }
+    settling = true;
+    playback.freeze();
+    const frames = entryTerminalFrames(element, brief);
+    introAbort?.abort();
+    const controller = new AbortController();
+    introAbort = controller;
+    phase.value = "reveal";
+    revealing.value = true;
+    viewportSize = viewportDimensions();
+    await nextTick();
+    if (controller.signal.aborted) return;
+    try {
+      const transition = playEntryTransition(
+        element,
+        (markRef.value?.$el as HTMLElement | undefined) ?? null,
+        frames,
+        animateIntro,
+        controller.signal,
+        brief,
+      );
+      document.documentElement.dataset.xcaIntro = "running";
+      await transition;
+      if (!controller.signal.aborted) finishIntro();
+    } catch {
+      if (!controller.signal.aborted) finishIntro();
+    }
+  }
+  function skipIntro() {
+    if (phase.value !== "ready") void enterHome();
+  }
   function onViewportChange() {
     expansion.onViewportChange();
     const size = viewportDimensions();
@@ -373,8 +384,11 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     if (phase.value !== "ready") finishIntro();
   }
   function onGlobalKeydown(event: KeyboardEvent) {
-    if (event.key !== "Escape") return;
-    if (phase.value !== "ready") finishIntro();
+    if (event.key !== "Escape") {
+      if (phase.value !== "ready" && !settling) introShortcut(event);
+      return;
+    }
+    if (phase.value !== "ready") skipIntro();
     else if (expansion.expanded.value) void expansion.toggle();
   }
   const motionPreference = ref<MediaQueryList | null>(null);
@@ -389,21 +403,19 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     window.visualViewport?.addEventListener("resize", onViewportChange);
     window.addEventListener("keydown", onGlobalKeydown);
     window.addEventListener("resize", onViewportChange);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    if (!introPlayedInDocument) {
-      introPlayedInDocument = true;
-      void startIntro();
-    } else releaseIntroGate();
+    document.addEventListener("visibilitychange", playback.onVisibilityChange);
+    if (claimFirstHomeVisit()) void startIntro();
+    else void enterHome(true);
   });
   onBeforeUnmount(() => {
     motionPreference.value?.removeEventListener("change", onMotionChange);
     window.visualViewport?.removeEventListener("resize", onViewportChange);
     window.removeEventListener("keydown", onGlobalKeydown);
     window.removeEventListener("resize", onViewportChange);
-    document.removeEventListener("visibilitychange", onVisibilityChange);
+    document.removeEventListener("visibilitychange", playback.onVisibilityChange);
     introAbort?.abort();
-    for (const animation of introAnimations) animation.cancel();
-    introAnimations.clear();
+    playback.cancel();
+    settling = false;
     expansion.cancel();
     releaseIntroGate();
   });
@@ -422,7 +434,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     terminalRef,
     markRef,
     startIntro,
-    finishIntro,
+    skipIntro,
     toggleExpanded: expansion.toggle,
   };
 }

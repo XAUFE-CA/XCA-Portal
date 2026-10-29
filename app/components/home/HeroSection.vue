@@ -150,7 +150,7 @@ const {
   terminalRef,
   markRef,
   startIntro,
-  finishIntro,
+  skipIntro,
   toggleExpanded,
 } = useTerminalPresentation(() => session.registry.list().length);
 const bindTerminal: VNodeRef = (instance) => {
@@ -285,7 +285,7 @@ onBeforeUnmount(() => {
         :banner-rows-visible="bannerRowsVisible"
         :banner-caption-visible="bannerCaptionVisible"
         :expanded="expanded"
-        @skip="finishIntro"
+        @skip="skipIntro"
         @expand="toggleExpanded"
       />
     </section>

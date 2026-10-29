@@ -15,6 +15,7 @@ Status: adopted
 | [intro-journey.ts](../../app/features/terminal/presentation/intro-journey.ts) | 摄像机插值、终端投影与归位轨迹 |
 | [intro-mark-mesh.ts](../../app/features/terminal/presentation/intro-mark-mesh.ts)、[intro-mark-renderer.ts](../../app/features/terminal/presentation/intro-mark-renderer.ts) | 网格生成与 WebGL 绘制 |
 | [intro-transparency.ts](../../app/features/terminal/presentation/intro-transparency.ts)、[intro-city-layer.ts](../../app/features/terminal/presentation/intro-city-layer.ts) | 城市透明排序、离屏绘制与整体合成 |
+| [intro-entry.ts](../../app/features/terminal/presentation/intro-entry.ts)、[intro-playback.ts](../../app/features/terminal/presentation/intro-playback.ts) | 首次访问、快捷键、短入场及动画冻结、取消与暂停 |
 | [timing.ts](../../app/features/terminal/presentation/timing.ts)、[boot-script.ts](../../app/features/terminal/presentation/boot-script.ts) | 节奏倍率、交接进度与启动日志顺序 |
 | [intro-journey.css](../../app/assets/css/intro-journey.css) | 场景布局与路牌样式 |
 
@@ -22,7 +23,7 @@ Status: adopted
 
 ## 启动与会话
 
-每次完整加载首页都会播放入场，客户端路由返回保留会话并跳过自动重播。`xca intro` 重播前复用 `Session.resetWelcome` 恢复初始输出，保留命令历史、身份、目录和外观。重播、跳过和展开共用唯一的真实 TerminalHost，不创建替代终端或第二份会话。
+首次进入首页播放完整入场，并将访问记录写入浏览器本地存储 `xca-intro-seen`。同一浏览器后续刷新、新标签页访问和客户端路由返回使用短入场：顶栏及语言、主题控件直接呈现，标题与终端依次从下方进入，终端带轻微缩放并使用共享缓动减速到位，不挂载空间场景或播放启动日志。存储不可用时保留当前文档内的访问记录，刷新后无法保留。首次访问其他路由不消耗首页入场。客户端路由返回保留会话、命令输出和草稿。`xca intro` 重播前复用 `Session.resetWelcome` 恢复初始输出，保留命令历史、身份、目录和外观。重播、跳过和展开共用唯一的真实 TerminalHost，不创建替代终端或第二份会话。
 
 首页画布与入场遮罩复用同一份背景底色及渐变定义，渐变按视口定位，首帧、CA 绘制和终端交接保持背景连续。场景雾化读取首页已解析的画布底色，沿用深浅色与系统配色的现有解析结果。
 
@@ -64,6 +65,8 @@ Status: adopted
 
 ## 中断与验证
 
+入场期间在 700 毫秒内连续独立按下三次空格可跳过动画，长按重复、组合键、IME 和可编辑控件中的空格不计数，其他按键会重置计数。Escape 和跳过按钮共用平滑跳过流程：冻结现有场景，取消后续输出，再从终端当前投影过渡到正常布局，同时淡出场景。终端尚不可见时直接在最终位置淡入。减少动画偏好下直接恢复可读布局。
+
 视口尺寸改变时结束入场并恢复正常布局。偏好变化、跳过和卸载取消同一组动画、异步任务与绘制。暂停与恢复不创建第二条时间线。
 
-几何与网格单元测试位于终端 presentation。浏览器回归入口为 `tests/e2e/terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`terminal-motion.spec.ts` 与 `hero-typewriter.spec.ts`。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，实际通过情况保存在带日期的审计记录中。自动化结果不等同最终视觉验收。
+几何与网格单元测试位于终端 presentation。浏览器回归入口为 `tests/e2e/terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`terminal-motion.spec.ts`、`home-entry.spec.ts` 与 `hero-typewriter.spec.ts`。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，实际通过情况保存在带日期的审计记录中。自动化结果不等同最终视觉验收。

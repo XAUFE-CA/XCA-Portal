@@ -1,12 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test("refresh restores the entrance even after an older visit marker", async ({ page }) => {
+test("an older session marker does not suppress first entry and refresh uses brief entry", async ({
+  page,
+}) => {
   await page.addInitScript(() => sessionStorage.setItem("xca-terminal-intro-v1", "seen"));
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-terminal-hero--logo")).toHaveCount(1);
   await page.keyboard.press("Escape");
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-terminal-hero--logo")).toHaveCount(1);
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
+  await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
 });
 
 test("xca intro is discoverable and explicitly replays, including with reduced motion", async ({
