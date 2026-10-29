@@ -3,6 +3,7 @@ import type CaIntroMark from "~/components/home/CaIntroMark.vue";
 import { tokenLength } from "~/utils/cssTokens";
 import type TerminalHost from "../components/TerminalHost.vue";
 import { BOOT_SEQUENCE, type BootLine } from "./boot-script";
+import { refreshGlassDuring as trackGlassMotion } from "./glass-motion";
 import { createIntroJourney, terminalDockFrames } from "./intro-journey";
 import { playIntroMark } from "./intro-mark";
 import { expressiveDuration, INTRO_PACING, INTRO_READING_UNIT_MS } from "./timing";
@@ -61,27 +62,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
   let introAbort: AbortController | null = null;
   let viewportSize = { width: 0, height: 0 };
   function refreshGlassDuring(animation: Animation) {
-    let frame = 0;
-    let stopped = false;
-    const delay = Number(animation.effect?.getTiming().delay ?? 0);
-    // WAAPI transforms emit no motion events; invalidate the shared renderer during animation.
-    // WAAPI 变换不会触发 CSS 运动事件。动画移动表面时需刷新共享渲染器。
-    function paint() {
-      if (stopped) return;
-      if (
-        Number(animation.currentTime ?? 0) >= delay &&
-        (animation.playState === "running" || animation.pending)
-      )
-        $glassRenderer?.refresh();
-      frame = requestAnimationFrame(paint);
-    }
-    function stop() {
-      stopped = true;
-      cancelAnimationFrame(frame);
-      $glassRenderer?.refresh();
-    }
-    frame = requestAnimationFrame(paint);
-    void animation.finished.then(stop, stop);
+    trackGlassMotion(animation, $glassRenderer);
   }
 
   function frame(): HTMLElement | null {
@@ -95,7 +76,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     getShade: shade,
     isReady: () => phase.value === "ready",
     reducedMotion,
-    refreshGlassDuring,
+    refreshGlassDuring: (animation) => trackGlassMotion(animation, $glassRenderer, frame()),
   });
   function releaseIntroGate(): void {
     delete document.documentElement.dataset.xcaIntro;

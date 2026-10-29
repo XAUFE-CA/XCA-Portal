@@ -56,7 +56,7 @@ async function expectSynchronizedTerminalShade(page: Page) {
   const timeline = await readTerminalShadeTimeline(page);
   if (!timeline) throw new Error("Terminal and shade animations are missing");
   expect(timeline.shadeDuration).toBe(timeline.terminalDuration);
-  expect(timeline.shadeEasing).toBe(timeline.terminalEasing);
+  expect(timeline.shadeEasing).toBe("linear");
   expect(timeline.shadeStartTime).toBe(timeline.terminalStartTime);
   expect(Math.abs(timeline.shadeCurrentTime - timeline.terminalCurrentTime)).toBeLessThan(17);
   expect(timeline.shadeOpacity).toBeGreaterThan(0);
@@ -115,6 +115,48 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expect(backdrop).toHaveCSS("opacity", "0");
   });
 }
+
+test("outside shade fades evenly and its opening follows the moving terminal", async ({ page }) => {
+  await page.goto("/");
+  await page.keyboard.press("Escape");
+  await page.locator(".xca-terminal-window").evaluate((element) => {
+    element.style.setProperty("--neoverse-motion-duration-expressive", "3s");
+  });
+  await page.getByRole("button", { name: "展开终端", exact: true }).click();
+  for (const expanding of [true, false]) {
+    if (!expanding) await page.getByRole("button", { name: "还原终端大小", exact: true }).click();
+    for (const fraction of [0.25, 0.5, 0.75]) {
+      const sample = await page.evaluate((progress) => {
+        const terminal = document.querySelector(".xca-terminal-window");
+        const shade = document.querySelector(".xca-terminal-focus-shade");
+        if (!terminal || !shade) throw new Error("Terminal or shade is missing");
+        for (const animation of [...terminal.getAnimations(), ...shade.getAnimations()]) {
+          if (!animation.effect) continue;
+          animation.pause();
+          animation.currentTime = Number(animation.effect.getComputedTiming().duration) * progress;
+        }
+        const bounds = (element: Element) => {
+          const { x, y, width, height } = element.getBoundingClientRect();
+          return [x, y, width, height];
+        };
+        return {
+          terminal: bounds(terminal),
+          shade: bounds(shade),
+          opacity: Number(getComputedStyle(shade).opacity),
+        };
+      }, fraction);
+      expect(sample.opacity).toBeCloseTo(expanding ? fraction : 1 - fraction, 2);
+      sample.terminal.forEach((value, index) => {
+        expect(sample.shade[index]).toBeCloseTo(value, 1);
+      });
+    }
+    await page.evaluate(() => {
+      for (const selector of [".xca-terminal-window", ".xca-terminal-focus-shade"])
+        for (const animation of document.querySelector(selector)?.getAnimations() ?? [])
+          animation.finish();
+    });
+  }
+});
 
 test("outside shade follows the terminal expansion and collapse timeline", async ({ page }) => {
   await page.goto("/");
