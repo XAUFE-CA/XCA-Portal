@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ts from "typescript";
 import { budgetFailure, fileLimits, inBudgetScope } from "./check-budgets";
-import { extractLinks, isExternalLink } from "./check-docs";
+import { bannedPhrases, extractLinks, isExternalLink, isWordingRuleFile } from "./check-docs";
 import { GATES, tail } from "./run-gates";
 import {
   boundaryViolation,
@@ -99,6 +99,17 @@ test("doc link extraction skips fences and inline code, keeps real targets", () 
   expect(isExternalLink("https://x.dev")).toBe(true);
   expect(isExternalLink("mailto:a@b.dev")).toBe(true);
   expect(isExternalLink("docs/readme.md")).toBe(false);
+});
+
+test("banned wording catches vague phrasing and exempts rule files", () => {
+  expect(bannedPhrases("// 权威标志\nconst ok = 1;\n// 事实来源与共享令牌")).toEqual([
+    { line: 1, phrase: "权威" },
+    { line: 3, phrase: "事实来源" },
+    { line: 3, phrase: "共享令牌" },
+  ]);
+  expect(bannedPhrases("CA 标识与样式变量")).toEqual([]);
+  expect(isWordingRuleFile("docs/AGENTS.md")).toBe(true);
+  expect(isWordingRuleFile("docs/architecture/site-shell.md")).toBe(false);
 });
 
 test("gate runner covers every granular check script without gaps", () => {

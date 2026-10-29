@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 const failures: string[] = [];
 const checks = [
   { pattern: /<(button|select|textarea)\b/g, message: "交互控件应复用 Neoverse-UI" },
-  { pattern: /X Computer Association|X COMPUTER ASSOCIATION/g, message: "品牌应使用 XAUFE" },
+  { pattern: /X Computer Association|X COMPUTER ASSOCIATION/g, message: "标识应使用 XAUFE" },
 ];
 for await (const path of new Bun.Glob("app/features/terminal/**/*.{ts,vue}").scan(".")) {
   if (path.endsWith(".test.ts")) continue;

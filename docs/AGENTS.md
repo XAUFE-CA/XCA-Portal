@@ -95,5 +95,5 @@ docs/
 
 - Markdown 由 Prettier 与 `prettier-plugin-markdown-compact-tables` 插件格式化：正文换行保留（`proseWrap: preserve`），表格单元格两侧各留一个空格，不对齐列宽。
 - 文件使用 UTF-8、LF、末尾换行；空行分隔标题、段落、列表、代码块和表格。
-- 写完运行 `bun run format:check`、`bun run check:docs` 与 `bun run check:budgets`。链接目标由 `check:docs` 机械校验，术语一致性仍需人工核对。
+- 写完运行 `bun run format:check`、`bun run check:docs` 与 `bun run check:budgets`。链接目标与禁用表述由 `check:docs` 机械校验，术语一致性仍需人工核对。
 - 单个子目录 `AGENTS.md` 应当不超过 100 行，硬上限 120 行；超限先拆分职责，不调高阈值。

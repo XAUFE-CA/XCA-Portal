@@ -27,6 +27,59 @@ export function isExternalLink(target: string): boolean {
   return /^[a-z][\w+.-]*:/i.test(target);
 }
 
+// Vague wording returns through translation; a mechanical list keeps it out of shipped text.
+// 空泛表述会随翻译重新出现。用固定清单阻止它进入交付文本。
+const BANNED_PHRASES = [
+  "权威",
+  "品牌",
+  "工程质量契约",
+  "架构契约",
+  "公共契约",
+  "包契约",
+  "私有契约",
+  "共享契约",
+  "事实来源",
+  "内容归属",
+  "治理脚本",
+  "叙事节奏",
+  "空间编排",
+  "表现力时长单位",
+  "共享材质",
+  "共享令牌",
+  "世界单位",
+  "语义色",
+  "消费方",
+  "版本漂移",
+  "常规流",
+  "终态矩形",
+  "空间缓动",
+  "重栅格化",
+  "呈现层",
+  "钩子",
+];
+
+// Rule files and this list quote banned phrases as counterexamples, so review covers them.
+// 规则文件与本清单把禁用表述当反例引用，因此只由人工审查。
+const WORDING_RULE_FILES = new Set([
+  "docs/AGENTS.md",
+  "docs/terminology/terms.md",
+  "scripts/check-docs.ts",
+  "scripts/quality.test.ts",
+]);
+
+export function bannedPhrases(source: string): { line: number; phrase: string }[] {
+  const hits: { line: number; phrase: string }[] = [];
+  source.split("\n").forEach((line, index) => {
+    for (const phrase of BANNED_PHRASES)
+      if (line.includes(phrase)) hits.push({ line: index + 1, phrase });
+  });
+  return hits;
+}
+
+export function isWordingRuleFile(path: string): boolean {
+  return WORDING_RULE_FILES.has(path);
+}
+
 if (import.meta.main) {
   const tracked = Bun.spawnSync(
     ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
@@ -34,10 +87,14 @@ if (import.meta.main) {
   );
   if (tracked.exitCode) throw new Error("Cannot enumerate repository files");
   const failures: string[] = [];
+  const wording: string[] = [];
   for (const file of new Set(tracked.stdout.toString().split("\0").filter(Boolean))) {
-    if (!file.endsWith(".md") || !inBudgetScope(file)) continue;
-    if (!existsSync(file)) continue;
+    if (!inBudgetScope(file) || !existsSync(file)) continue;
     const source = await Bun.file(file).text();
+    if (!isWordingRuleFile(file))
+      for (const hit of bannedPhrases(source))
+        wording.push(`${file}:${hit.line}: 禁用表述 ${hit.phrase}`);
+    if (!file.endsWith(".md")) continue;
     for (const link of extractLinks(source.split("\n"))) {
       if (isExternalLink(link.target) || link.target.startsWith("#")) continue;
       const path = link.target.split("#")[0];
@@ -54,8 +111,10 @@ if (import.meta.main) {
     }
   }
   console.log(`Doc links: ${failures.length} broken targets`);
-  if (failures.length) {
-    console.error(failures.join("\n"));
+  console.log(`Wording: ${wording.length} banned phrases`);
+  const problems = [...failures, ...wording];
+  if (problems.length) {
+    console.error(problems.join("\n"));
     process.exitCode = 1;
   }
 }
