@@ -18,6 +18,32 @@ test("prompt follows output without an empty fixed-height gap", async ({ page })
   expect(gap).toBeLessThanOrEqual(24);
 });
 
+test("submitting preserves the prompt position when it becomes history", async ({ page }) => {
+  const input = page.locator("#xca-command-input");
+  const position = (selector: string) =>
+    page
+      .locator(selector)
+      .last()
+      .evaluate((element) => {
+        const viewport = document.querySelector(".xca-terminal-transcript");
+        if (!viewport) throw new Error("Terminal transcript is missing");
+        return (
+          element.getBoundingClientRect().top -
+          viewport.getBoundingClientRect().top +
+          viewport.scrollTop
+        );
+      });
+  for (const command of ["test", "echo next"]) {
+    await input.fill(command);
+    const before = await position(".xca-terminal-prompt");
+    const hint = await position(".xca-terminal-welcome-hint");
+    await input.press("Enter");
+    await expect(page.locator(".xca-terminal-command").last()).toContainText(command);
+    expect(await position(".xca-terminal-command")).toBeCloseTo(before, 0);
+    expect(await position(".xca-terminal-welcome-hint")).toBeCloseTo(hint, 0);
+  }
+});
+
 test("command results scroll into the terminal while the page stays still", async ({ page }) => {
   const input = page.locator("#xca-command-input");
   const pageScroll = await page.evaluate(() => window.scrollY);
