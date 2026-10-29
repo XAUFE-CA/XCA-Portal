@@ -72,8 +72,15 @@ for (const mode of [
       ).toEqual(paths);
       const terminal = page.locator(".xca-terminal-window");
       await terminal.evaluate((node) => node.setAttribute("data-journey-persistent", "yes"));
-      for (const fraction of [0, 0.24, 0.43, 0.57, 0.82]) {
+      for (const fraction of [0, 0.24, 0.43, 0.57, 0.8, 0.85]) {
         await freezeApproach(page, fraction);
+        if (fraction >= 0.8) {
+          await expect(terminal).toHaveCSS("visibility", "visible");
+          const opacity = await terminal.evaluate((node) => Number(getComputedStyle(node).opacity));
+          expect(opacity).toBeGreaterThan(fraction === 0.8 ? 0.05 : 0.4);
+          expect(opacity).toBeLessThan(1);
+          await expect(page.locator(".xca-terminal-bootlog__line")).toHaveCount(0);
+        }
         await page.screenshot({ path: test.info().outputPath(`camera-${fraction}.png`) });
       }
       await resumeScene(page);

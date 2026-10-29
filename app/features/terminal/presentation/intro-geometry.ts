@@ -7,6 +7,8 @@ export const JOURNEY = {
   perspective: 900,
   roadX: 180,
   floorY: 300,
+  cityDrop: 1800,
+  bearingInset: 12,
   roadWidth: 960,
   roadStart: -240,
   roadLookAhead: 4500,
@@ -16,6 +18,67 @@ export const JOURNEY = {
   near: 32,
   far: 50000,
 } as const;
+
+/**
+ * One broad horizontal bow joins the straight sections with zero slope and curvature.
+ * 单个舒展的水平弧线以零斜率和曲率连接两端直线。
+ */
+export function roadBend(z: number) {
+  const t = Math.max(0, Math.min(1, (-z - 1400) / 8400));
+  const envelope = Math.sin(Math.PI * t) ** 4;
+  return { x: 340 * envelope, y: 0, roll: 0 };
+}
+
+/**
+ * Distance-driven skyline reveal and departure share the existing camera timeline.
+ * 由距离驱动的天际线显现与退场沿用现有摄像机时间线。
+ */
+export function skylineOpacity(eyeZ: number): number {
+  const smooth = (value: number) => {
+    const t = Math.max(0, Math.min(1, value));
+    return t * t * t * (10 + t * (-15 + 6 * t));
+  };
+  return smooth((600 - eyeZ) / 1600) * (1 - smooth((-eyeZ - 8200) / 3500));
+}
+
+/**
+ * The destination frame precedes the real terminal and dissolves as it becomes readable.
+ * 目的地光框先于真实终端出现，并在终端逐渐可读时消散。
+ */
+export function arrivalOpacity(eyeZ: number): number {
+  const smooth = (value: number) => {
+    const t = Math.max(0, Math.min(1, value));
+    return t * t * t * (10 + t * (-15 + 6 * t));
+  };
+  return smooth((-eyeZ - 6500) / 2000) * (1 - smooth((-eyeZ - 9900) / 2200));
+}
+
+/**
+ * Bend continuous geometry and its normals; station assemblies use one rigid translation.
+ * 弯曲连续几何与法线。路牌组件使用整体平移。
+ */
+export function bendRoadMesh(vertices: number[], stationDepth?: number): number[] {
+  for (let index = 0; index < vertices.length; index += 7) {
+    const z = stationDepth ?? vertices[index + 2] ?? 0;
+    const bend = roadBend(z);
+    vertices[index] = (vertices[index] ?? 0) + bend.x;
+    vertices[index + 1] = (vertices[index + 1] ?? 0) + bend.y;
+    if (stationDepth !== undefined) continue;
+    const before = roadBend(z - 1),
+      after = roadBend(z + 1);
+    const nx = vertices[index + 3] ?? 0,
+      ny = vertices[index + 4] ?? 0;
+    const nz =
+      (vertices[index + 5] ?? 0) -
+      (nx * (after.x - before.x)) / 2 -
+      (ny * (after.y - before.y)) / 2;
+    const length = Math.hypot(nx, ny, nz);
+    vertices[index + 3] = nx / length;
+    vertices[index + 4] = ny / length;
+    vertices[index + 5] = nz / length;
+  }
+  return vertices;
+}
 
 /**
  * Build the road behind A as the opening fills, then hold a lead at camera speed.
@@ -66,3 +129,47 @@ export function sceneryOpacity(growth: number, depth: number): number {
   );
   return t * t * (3 - 2 * t);
 }
+
+/**
+ * Shared normalized architectural profiles keep city silhouettes deterministic.
+ * 共用归一化建筑轮廓，使城市剪影保持确定。
+ */
+export const CITY_PROFILES = [
+  [
+    [0, 1],
+    [0, 0.22],
+    [0.22, 0.22],
+    [0.22, 0],
+    [0.78, 0],
+    [0.78, 0.22],
+    [1, 0.22],
+    [1, 1],
+  ],
+  [
+    [0, 1],
+    [0, 0],
+    [0.34, 0],
+    [0.34, 0.32],
+    [0.64, 0.32],
+    [0.64, 0.12],
+    [1, 0.12],
+    [1, 1],
+  ],
+  [
+    [0, 1],
+    [0, 0.16],
+    [0.72, 0],
+    [1, 0.09],
+    [1, 1],
+  ],
+  [
+    [0, 1],
+    [0, 0.5],
+    [0.18, 0.5],
+    [0.18, 0.25],
+    [0.7, 0.25],
+    [0.7, 0],
+    [1, 0],
+    [1, 1],
+  ],
+] as const;

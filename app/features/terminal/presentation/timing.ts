@@ -5,7 +5,7 @@
 export const INTRO_PACING = {
   markDraw: 2.8,
   markStagger: 0.28,
-  markFill: 0.65,
+  markFill: 2.2,
   journey: 21,
   arrival: 3,
   bootComplete: 0.42,
@@ -15,7 +15,7 @@ export const INTRO_PACING = {
   brandHold: 0.35,
   revealSettle: 2,
 } as const;
-export const INTRO_HANDOFF = { start: 0.85, boot: 0.91, arrival: 0.96 } as const;
+export const INTRO_HANDOFF = { start: 0.75, boot: 0.91, arrival: 0.96 } as const;
 export const TERMINAL_EXPAND_UNITS = 0.92;
 /**
  * Text reading interval; independent of reduced-motion's 1ms spatial effects.

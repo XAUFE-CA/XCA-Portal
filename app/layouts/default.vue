@@ -9,7 +9,7 @@ const route = useRoute();
 </script>
 
 <template>
-  <div class="site-shell">
+  <div class="site-shell" :class="{ 'site-shell--home': route.path === SITE.routes.home }">
     <SiteHeader />
     <main id="main-content" class="site-main">
       <slot />

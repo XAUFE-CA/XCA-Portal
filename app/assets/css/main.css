@@ -46,6 +46,29 @@ a {
   );
   margin-inline: auto;
 }
+/* Keep the reference's graphite blue-black depth within the home canvas alone.
+   仅在首页画布保留参考图的石墨蓝黑色纵深。 */
+.site-shell--home {
+  --xca-home-canvas: light-dark(#f5f9fc, #060b13);
+  --xca-home-canvas-blue: light-dark(
+    color-mix(in srgb, var(--neoverse-color-accent-primary) 8%, transparent),
+    transparent
+  );
+  --xca-home-canvas-center: light-dark(
+    color-mix(in srgb, var(--xca-home-canvas) 92%, var(--neoverse-color-accent-secondary)),
+    color-mix(in srgb, var(--xca-home-canvas) 96%, var(--neoverse-color-text-secondary))
+  );
+  --xca-home-canvas-image:
+    linear-gradient(135deg, var(--xca-home-canvas-blue), transparent 65%),
+    radial-gradient(
+      ellipse 72% 64% at 50% 58%,
+      var(--xca-home-canvas-center),
+      var(--xca-home-canvas)
+    );
+  background-color: var(--xca-home-canvas);
+  background-image: var(--xca-home-canvas-image);
+  background-attachment: fixed;
+}
 /* Keep the document rail clear of the header and near the viewport edge.
    让文档滚动条避开页头并贴近视口边缘。 */
 :root .xca-document-scrollbar {

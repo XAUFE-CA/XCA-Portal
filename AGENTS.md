@@ -27,7 +27,7 @@ app/                    门户应用（Nuxt 4 srcDir）
     terminal/           浏览器终端（当前唯一特性模块，作扩展范例）
       core/             纯逻辑：会话、解析、注册、虚拟工作区
       commands/         命令集合，经命令上下文访问服务
-      presentation/     入场、空间几何与轨迹、CA 网格（intro-mark-mesh.ts）和绘制（intro-mark-renderer.ts）、玻璃刷新（glass-motion.ts）、归位及展开动画
+      presentation/     入场、空间几何与轨迹、CA 网格（intro-mark-mesh.ts）、绘制（intro-mark-renderer.ts）、透明排序（intro-transparency.ts）、城市合成（intro-city-layer.ts）、玻璃刷新（glass-motion.ts）、归位及展开动画
       components/       终端 Vue 适配组件（Host、输入、Transcript）
       branding/         终端标识 ASCII 与字符画
       client-session.ts 命令与 Session 的组装入口

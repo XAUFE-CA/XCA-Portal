@@ -60,9 +60,14 @@
   height: 1254px;
 }
 .xca-ca-intro__mesh {
+  --xca-mesh-skyline-color: color-mix(
+    in srgb,
+    var(--neoverse-color-text-secondary) 65%,
+    var(--neoverse-color-accent-primary)
+  );
   --xca-mesh-road-color: color-mix(
     in srgb,
-    var(--neoverse-color-surface-canvas) 80%,
+    var(--neoverse-color-surface-canvas) 72%,
     var(--neoverse-color-accent-primary)
   );
   position: absolute;

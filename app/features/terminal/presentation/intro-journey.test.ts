@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { JOURNEY, roadGrowth } from "./intro-geometry";
+import { JOURNEY, roadBend, roadGrowth } from "./intro-geometry";
 import { cameraFrames, terminalDockFrames, terminalFrames } from "./intro-journey";
 import { INTRO_HANDOFF, INTRO_PACING, INTRO_READING_UNIT_MS } from "./timing";
 
@@ -10,6 +10,20 @@ function eye(frame: Keyframe): number[] {
   if (!match) throw new Error("Camera translation missing");
   return match.slice(1).map((value) => -Number(value));
 }
+
+test("the camera follows the curved road and levels out before the terminal becomes visible", () => {
+  for (const frame of cameraFrames(352, 448)) {
+    const [x = 0, y = 0, z = 0] = eye(frame);
+    if (z < -6100) {
+      expect(x - roadBend(z).x).toBeCloseTo(JOURNEY.roadX, 5);
+      expect(y - roadBend(z).y).toBeCloseTo(JOURNEY.floorY - 224 - 80, 5);
+    }
+    if (Number(frame.offset) >= INTRO_HANDOFF.start) {
+      expect(Math.abs(roadBend(z).x)).toBeLessThan(0.01);
+      expect(Math.abs(roadBend(z).y)).toBeLessThan(0.01);
+    }
+  }
+});
 
 test("passes through A above the crossbar, between its inner strokes", () => {
   const frames = cameraFrames(352, 448);

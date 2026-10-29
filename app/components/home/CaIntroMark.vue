@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import "~/assets/css/intro-journey.css";
 import { SITE } from "~/config/site";
-import { JOURNEY, JOURNEY_STATIONS } from "~/features/terminal/presentation/intro-geometry";
+import { JOURNEY_STATIONS, roadBend } from "~/features/terminal/presentation/intro-geometry";
 import { mountMarkRenderer } from "~/features/terminal/presentation/intro-mark-renderer";
 import type { MessageKey } from "~/i18n";
 import mark from "../../../public/brand/ca-mark.svg?raw";
@@ -35,6 +35,7 @@ const signposts: { label: MessageKey; detail: string; command: string }[] = [
 ];
 const fins = JOURNEY_STATIONS.map((station) => ({
   ...station,
+  bend: roadBend(station.depth),
   panel: station.hasPanel ? signposts[station.index] : null,
 }));
 
@@ -80,8 +81,8 @@ onBeforeUnmount(() => releaseMesh?.());
             :style="{
               width: `${fin.width}px`,
               height: `${fin.height}px`,
-              left: `${fin.left}px`,
-              top: `${fin.top}px`,
+              left: `${fin.left + fin.bend.x}px`,
+              top: `${fin.top + fin.bend.y}px`,
               transform: `translateZ(${fin.depth + 24}px)`,
               '--xca-sign-left': `${fin.panelLeft}px`,
               '--xca-sign-top': `${fin.panelTop}px`,

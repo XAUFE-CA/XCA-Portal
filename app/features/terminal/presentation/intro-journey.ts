@@ -1,4 +1,4 @@
-import { JOURNEY } from "./intro-geometry";
+import { JOURNEY, roadBend } from "./intro-geometry";
 import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
 
 export type IntroAnimate = (
@@ -53,14 +53,14 @@ function sampledFrames(sample: (at: number) => Keyframe, count = 181): Keyframe[
   }));
 }
 
-export function cameraTransform(eye: Point, target: Point): string {
+export function cameraTransform(eye: Point, target: Point, roll = 0): string {
   const [x, y, z] = eye;
   const dx = x - target[0],
     dy = y - target[1],
     dz = z - target[2];
   const yaw = Math.atan2(dx, dz);
   const pitch = Math.atan2(dy, Math.hypot(dx, dz));
-  return `translateZ(${JOURNEY.perspective}px) rotateX(${pitch}rad) rotateY(${-yaw}rad) translate3d(${-x}px, ${-y}px, ${-z}px)`;
+  return `translateZ(${JOURNEY.perspective}px) rotateZ(${roll}rad) rotateX(${pitch}rad) rotateY(${-yaw}rad) translate3d(${-x}px, ${-y}px, ${-z}px)`;
 }
 
 function cameraSamples(markSize: number, terminalHeight: number) {
@@ -81,9 +81,9 @@ function cameraSamples(markSize: number, terminalHeight: number) {
     start,
     start,
     start,
-    [-distance * 0.34 * orbit, 0, distance * 0.96],
-    [-distance * 0.4 * orbit, -60, distance * 0.72],
-    [portalX - 260, portalY - 50, 1200],
+    [-distance * 0.42 * orbit, -distance * 0.12 * orbit, distance * 0.96],
+    [-distance * 0.5 * orbit, -distance * 0.16 * orbit, distance * 0.72],
+    [portalX - 260, portalY - 100, 1200],
     [portalX, portalY, 650],
     [portalX, portalY, 160],
     [portalX, portalY, -480],
@@ -124,7 +124,16 @@ function cameraSamples(markSize: number, terminalHeight: number) {
   return Array.from({ length: 181 }, (_, index) => {
     const at = index / 180;
     const eye = spline(eyes, at);
-    return { offset: at, eye, transform: cameraTransform(eye, spline(targets, at)) };
+    const bend = roadBend(eye[2]);
+    const aim = spline(targets, at);
+    const lookAhead = roadBend(eye[2] - 1100);
+    const follow = ramp(-eye[2], 600, 1800);
+    aim[0] += lookAhead.x * follow;
+    aim[1] += lookAhead.y * follow;
+    aim[2] += (eye[2] - 1100 - aim[2]) * follow;
+    eye[0] += bend.x;
+    eye[1] += bend.y;
+    return { offset: at, eye, transform: cameraTransform(eye, aim, bend.roll) };
   });
 }
 
@@ -150,6 +159,7 @@ export function terminalFrames(
       offset: (offset - INTRO_HANDOFF.start) / (1 - INTRO_HANDOFF.start),
       transform: `${centered} scale(${JOURNEY.perspective / (eye[2] + JOURNEY.depth)})`,
       opacity: ramp(offset, INTRO_HANDOFF.start, 0.94),
+      visibility: "visible",
     }));
 }
 

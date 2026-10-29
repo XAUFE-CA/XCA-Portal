@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { JOURNEY } from "./intro-geometry";
+import { JOURNEY, JOURNEY_STATIONS, roadBend } from "./intro-geometry";
 import { createMarkMesh, extrudeContour, roundedPanelContour } from "./intro-mark-mesh";
 
 test("extrusion closes a concave cap without filling its opening", () => {
@@ -73,18 +73,35 @@ test("the road is a separate slab behind A, with no crossbar extension or etched
     if (y === undefined || z === undefined) throw new Error("Incomplete road vertex");
     if (mesh[offset + 6] === 1) {
       roadVertices++;
-      expect([JOURNEY.floorY, JOURNEY.floorY + 18]).toContain(y);
-      expect([JOURNEY.roadStart, -JOURNEY.depth]).toContain(z);
+      const localY = y - roadBend(z).y;
+      expect(localY).toBeGreaterThanOrEqual(JOURNEY.floorY);
+      expect(localY).toBeLessThanOrEqual(JOURNEY.floorY + 28);
+      expect(z).toBeLessThanOrEqual(JOURNEY.roadStart);
+      expect(z).toBeGreaterThanOrEqual(-JOURNEY.depth);
+      const edgeDistance = Math.abs((mesh[offset] ?? 0) - roadBend(z).x - JOURNEY.roadX);
+      expect(edgeDistance).toBeGreaterThanOrEqual(JOURNEY.roadWidth / 2 - 8.001);
+      expect(edgeDistance).toBeLessThanOrEqual(JOURNEY.roadWidth / 2 + 0.001);
     } else {
       supportVertices++;
-      const x = mesh[offset] ?? 0;
-      if (y >= JOURNEY.floorY - 50)
-        expect(Math.abs(x - JOURNEY.roadX)).toBeGreaterThanOrEqual(JOURNEY.roadWidth / 2);
+      const station = JOURNEY_STATIONS.find((item) => Math.abs(item.depth - z) <= 110);
+      const bend = roadBend(station?.depth ?? z);
+      const x = (mesh[offset] ?? 0) - bend.x;
+      if (
+        (mesh[offset + 6] ?? 0) < 4.5 &&
+        y - bend.y >= JOURNEY.floorY - 50 &&
+        y - bend.y < JOURNEY.floorY
+      )
+        expect(Math.abs(x - JOURNEY.roadX)).toBeGreaterThanOrEqual(JOURNEY.roadWidth / 2 - 0.001);
     }
   }
-  expect(roadVertices / 3).toBe(8);
+  expect(roadVertices / 3).toBeGreaterThan(1000);
   expect(supportVertices).toBeGreaterThan(0);
   expect([...mesh].every(Number.isFinite)).toBe(true);
+  for (let offset = 0; offset < mesh.length; offset += 7) {
+    expect(
+      Math.hypot(mesh[offset + 3] ?? 0, mesh[offset + 4] ?? 0, mesh[offset + 5] ?? 0),
+    ).toBeCloseTo(1, 5);
+  }
 });
 
 test("sign housing follows the same corner radius as its content face", () => {
@@ -102,4 +119,107 @@ test("sign housing follows the same corner radius as its content face", () => {
       y = body[offset + 1] ?? 0;
     expect((x === 0 || x === 600) && (y === 0 || y === 340)).toBe(false);
   }
+});
+
+test("the low-poly skyline leaves the road corridor open with bounded background geometry", () => {
+  const mesh = createMarkMesh([], 16);
+  const depths = new Set<number>();
+  let count = 0;
+  for (let offset = 0; offset < mesh.length; offset += 7) {
+    if (mesh[offset + 6] !== 5) continue;
+    count++;
+    expect(Math.abs((mesh[offset] ?? 0) - JOURNEY.roadX)).toBeGreaterThan(
+      JOURNEY.roadWidth / 2 + 140,
+    );
+    depths.add(mesh[offset + 2] ?? 0);
+  }
+  expect(count).toBeGreaterThan(3000);
+  expect(count).toBeLessThan(12000);
+  expect(depths.size).toBeGreaterThan(30);
+});
+
+test("distant towers fill the destination skyline beyond the road and foreground city", () => {
+  const mesh = createMarkMesh([], 16);
+  let highest = 0,
+    centerVertices = 0;
+  for (let offset = 0; offset < mesh.length; offset += 7) {
+    if (mesh[offset + 6] !== 8) continue;
+    expect(mesh[offset + 2] ?? 0).toBeLessThan(-20000);
+    highest = Math.max(highest, JOURNEY.floorY - (mesh[offset + 1] ?? 0));
+    if (Math.abs((mesh[offset] ?? 0) - JOURNEY.roadX) < 1800) centerVertices++;
+  }
+  expect(highest).toBeGreaterThan(7000);
+  expect(centerVertices).toBeGreaterThan(50);
+});
+
+test("the viaduct crosses between visible lower roofs and taller towers", () => {
+  const mesh = createMarkMesh([], 16);
+  let lowerRoofs = 0,
+    tallerRoofs = 0,
+    piers = 0;
+  for (let offset = 0; offset < mesh.length; offset += 7) {
+    const y = mesh[offset + 1] ?? 0;
+    if (mesh[offset + 6] === 5 && (mesh[offset + 4] ?? 0) < -0.5) {
+      if (y > JOURNEY.floorY + 250) lowerRoofs++;
+      if (y < JOURNEY.floorY - 250) tallerRoofs++;
+    }
+    if (mesh[offset + 6] === 2 && y === JOURNEY.floorY + JOURNEY.cityDrop) piers++;
+  }
+  expect(lowerRoofs).toBeGreaterThan(30);
+  expect(tallerRoofs).toBeGreaterThan(30);
+  expect(piers).toBeGreaterThan(30);
+});
+
+test("every sign footing has a solid outrigger reaching into the curved bridge deck", () => {
+  const mesh = createMarkMesh([], 16);
+  for (const station of JOURNEY_STATIONS.filter((item) => item.hasPanel)) {
+    const leg = station.left + (station.side < 0 ? 92 : station.width - 126);
+    const bend = roadBend(station.depth).x;
+    const edge = JOURNEY.roadX + (station.side * JOURNEY.roadWidth) / 2 + bend;
+    const footing = leg + 17 + bend;
+    let connected = false;
+    for (let offset = 0; offset < mesh.length; offset += 21) {
+      const triangle = [0, 7, 14].map((vertex) => mesh.slice(offset + vertex, offset + vertex + 7));
+      if (
+        !triangle.every(
+          (vertex) =>
+            vertex[6] === 2 &&
+            Math.abs((vertex[1] ?? 0) - JOURNEY.floorY - JOURNEY.bearingInset) < 0.001 &&
+            Math.abs((vertex[2] ?? 0) - station.depth) <= 43,
+        )
+      )
+        continue;
+      const xs = triangle.map((vertex) => vertex[0] ?? 0);
+      const minimum = Math.min(...xs),
+        maximum = Math.max(...xs);
+      if (minimum <= Math.min(edge, footing) && maximum >= Math.max(edge, footing))
+        connected = true;
+    }
+    expect(connected).toBe(true);
+  }
+});
+
+test("bridge supports do not overlap the driving surface with coplanar top faces", () => {
+  const mesh = createMarkMesh([], 16);
+  let coplanarFaces = 0;
+  for (let offset = 0; offset < mesh.length; offset += 21) {
+    if (mesh[offset + 6] !== 2) continue;
+    const triangle = [0, 7, 14].map((vertex) => mesh.slice(offset + vertex, offset + vertex + 3));
+    if (!triangle.every((vertex) => Math.abs((vertex[1] ?? 0) - JOURNEY.floorY) < 0.001)) continue;
+    const xs = triangle.map(
+      (vertex) => (vertex[0] ?? 0) - roadBend(vertex[2] ?? 0).x - JOURNEY.roadX,
+    );
+    const zs = triangle.map((vertex) => vertex[2] ?? 0);
+    const area = Math.abs(
+      ((xs[1] ?? 0) - (xs[0] ?? 0)) * ((zs[2] ?? 0) - (zs[0] ?? 0)) -
+        ((xs[2] ?? 0) - (xs[0] ?? 0)) * ((zs[1] ?? 0) - (zs[0] ?? 0)),
+    );
+    if (
+      area > 1 &&
+      Math.min(...xs) < JOURNEY.roadWidth / 2 - 8 &&
+      Math.max(...xs) > -JOURNEY.roadWidth / 2 + 8
+    )
+      coplanarFaces++;
+  }
+  expect(coplanarFaces).toBe(0);
 });

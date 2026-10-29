@@ -1,4 +1,4 @@
-import { JOURNEY, JOURNEY_STATIONS } from "./intro-geometry";
+import { bendRoadMesh, CITY_PROFILES, JOURNEY, JOURNEY_STATIONS } from "./intro-geometry";
 
 type Point = readonly [number, number];
 // Each vertex contains position, normal, and body/road material selector.
@@ -208,33 +208,103 @@ function panelHousing(
   }
 }
 
+/**
+ * Sweep a closed section without internal end caps or overlapping segment boxes.
+ * 扫掠闭合截面，不生成内部端盖或相互重叠的分段盒体。
+ */
+function sweepSection(profile: Point[], material: number, smooth = false): number[] {
+  const vertices: number[] = [];
+  const segments = 240;
+  const normal = (index: number): Point => {
+    const before = profile[(index + profile.length - 1) % profile.length];
+    const at = profile[index],
+      after = profile[(index + 1) % profile.length];
+    if (!before || !at || !after) throw new Error("Incomplete road section");
+    const dx = after[0] - (smooth ? before[0] : at[0]);
+    const dy = after[1] - (smooth ? before[1] : at[1]);
+    const length = Math.hypot(dx, dy);
+    return [dy / length, -dx / length];
+  };
+  for (let segment = 0; segment < segments; segment++) {
+    const start = JOURNEY.roadStart - ((JOURNEY.depth + JOURNEY.roadStart) * segment) / segments;
+    const end =
+      JOURNEY.roadStart - ((JOURNEY.depth + JOURNEY.roadStart) * (segment + 1)) / segments;
+    for (let index = 0; index < profile.length; index++) {
+      const next = (index + 1) % profile.length;
+      const a = profile[index],
+        b = profile[next];
+      if (!a || !b) throw new Error("Incomplete road section");
+      const na = normal(index),
+        nb = smooth ? normal(next) : na;
+      for (const [point, n, z] of [
+        [a, na, start],
+        [b, nb, start],
+        [b, nb, end],
+        [a, na, start],
+        [b, nb, end],
+        [a, na, end],
+      ] as const) {
+        vertices.push(point[0], point[1], z, n[0], n[1], 0, material);
+      }
+    }
+  }
+  for (const z of [JOURNEY.roadStart, -JOURNEY.depth]) {
+    for (const index of capTriangles(profile)) {
+      const point = profile[index];
+      if (point)
+        vertices.push(point[0], point[1], z, 0, 0, z === JOURNEY.roadStart ? 1 : -1, material);
+    }
+  }
+  return bendRoadMesh(vertices);
+}
+
 function sceneryVertices(panelRadius: number): number[] {
   const vertices: number[] = [];
   for (const side of [-1, 1]) {
-    const edge = JOURNEY.roadX + side * (JOURNEY.roadWidth / 2 + 120);
-    const length = JOURNEY.depth + JOURNEY.roadStart;
-    box(vertices, [edge - 14, JOURNEY.floorY - 170, JOURNEY.roadStart], [28, 120, length]);
-    box(vertices, [edge - 27, JOURNEY.floorY - 190, JOURNEY.roadStart], [54, 20, length], 3);
+    const edge = JOURNEY.roadX + side * (JOURNEY.roadWidth / 2 + 44);
+    for (const [width, height, elevation, radius, material, offset = 0] of [
+      [24, 20, 142, 8, 2],
+      [10, 12, 38, 5, 2],
+      [5, 90, 128, 2, 4],
+      [8, 6, 8, 3, 3],
+      [104, 54, -JOURNEY.bearingInset, 8, 2, -32 * side],
+    ]) {
+      const section = roundedPanelContour(width ?? 0, height ?? 0, radius ?? 0)
+        .filter((_, index) => index % 2 === 0 || index % 9 === 0 || index % 9 === 8)
+        .map(
+          ([x, y]): Point => [
+            edge + offset - (width ?? 0) / 2 + x,
+            JOURNEY.floorY - (elevation ?? 0) + y,
+          ],
+        );
+      const strip = sweepSection(section, material ?? 2, true);
+      for (const value of strip) vertices.push(value);
+    }
+    for (let z = -600; z > -JOURNEY.depth; z -= 700) {
+      const post: number[] = [];
+      box(post, [edge - 7, JOURNEY.floorY - 122, z], [14, 122 + JOURNEY.bearingInset, 18]);
+      vertices.push(...bendRoadMesh(post, z));
+    }
   }
   for (const station of JOURNEY_STATIONS) {
-    const { left, top, depth, width, height, side } = station;
-    const leg = left + (side < 0 ? 50 : width - 134);
-    const beamX = side < 0 ? leg : JOURNEY.roadX;
-    const beamWidth = side < 0 ? JOURNEY.roadX - leg : leg + 84 - JOURNEY.roadX;
-    box(vertices, [leg, top, depth + 44], [84, height, 88]);
-    box(vertices, [leg - 34, JOURNEY.floorY - 36, depth + 100], [152, 36, 200]);
-    box(vertices, [beamX, top, depth + 52], [beamWidth, 64, 104]);
-    const roadEdge = JOURNEY.roadX + (side * JOURNEY.roadWidth) / 2;
-    const baseX = side < 0 ? leg - 34 : roadEdge;
-    const baseWidth = side < 0 ? roadEdge - baseX : leg + 118 - roadEdge;
-    box(vertices, [baseX, JOURNEY.floorY, depth + 110], [baseWidth, 48, 220]);
-    box(vertices, [roadEdge + side * 120 - 32, JOURNEY.floorY - 200, depth + 45], [64, 200, 90]);
-    box(vertices, [roadEdge - 70, top + 64, depth + 30], [140, 12, 60], 3);
     if (!station.hasPanel) continue;
+    const assembly: number[] = [];
+    const { left, top, depth, width, side } = station;
+    const leg = left + (side < 0 ? 92 : width - 126);
     const panelX = left + station.panelLeft,
       panelY = top + station.panelTop;
+    box(assembly, [leg, panelY + 50, depth + 24], [34, JOURNEY.floorY - panelY - 50, 38]);
+    box(assembly, [leg - 18, JOURNEY.floorY - 12, depth + 42], [70, 12 + JOURNEY.bearingInset, 74]);
+    const roadEdge = JOURNEY.roadX + (side * JOURNEY.roadWidth) / 2;
+    const bearingLeft = Math.min(leg - 18, roadEdge - 24);
+    const bearingRight = Math.max(leg + 52, roadEdge + 24);
+    box(
+      assembly,
+      [bearingLeft, JOURNEY.floorY + JOURNEY.bearingInset, depth + 42],
+      [bearingRight - bearingLeft, 44, 74],
+    );
     panelHousing(
-      vertices,
+      assembly,
       panelX,
       panelY,
       depth + 16,
@@ -242,12 +312,12 @@ function sceneryVertices(panelRadius: number): number[] {
       station.panelHeight,
       panelRadius,
     );
-    const mountX = side < 0 ? leg + 84 : panelX + station.panelWidth;
+    const mountX = side < 0 ? leg + 34 : panelX + station.panelWidth;
     const mountWidth = side < 0 ? panelX - mountX : leg - mountX;
-    for (const offset of [90, 230]) {
-      box(vertices, [mountX, panelY + offset, depth], [mountWidth, 24, 56]);
-      box(vertices, [leg - 12, panelY + offset - 6, depth + 56], [108, 36, 112], 3);
+    for (const offset of [96, 230]) {
+      box(assembly, [mountX, panelY + offset, depth], [mountWidth, 12, 20]);
     }
+    vertices.push(...bendRoadMesh(assembly, depth));
   }
   return vertices;
 }
@@ -255,55 +325,148 @@ function sceneryVertices(panelRadius: number): number[] {
 function roadVertices(): number[] {
   const left = JOURNEY.roadX - JOURNEY.roadWidth / 2,
     right = left + JOURNEY.roadWidth;
-  const top = JOURNEY.floorY,
-    bottom = top + 18;
-  const start = JOURNEY.roadStart,
-    end = -JOURNEY.depth;
+  const y = JOURNEY.floorY;
+  return sweepSection(
+    [
+      [left + 8, y],
+      [right - 8, y],
+      [right, y + 8],
+      [right, y + 20],
+      [right - 8, y + 28],
+      [left + 8, y + 28],
+      [left, y + 20],
+      [left, y + 8],
+    ],
+    1,
+  );
+}
+
+/**
+ * Architectural silhouettes use setbacks, split crowns and sloping roofs instead of window noise.
+ * 建筑剪影采用退台、分体冠部与斜顶，替代零散窗灯。
+ */
+function cityTower(
+  vertices: number[],
+  x: number,
+  z: number,
+  width: number,
+  height: number,
+  kind: number,
+  material = 5,
+) {
+  const outline = CITY_PROFILES[kind % CITY_PROFILES.length];
+  if (!outline) throw new Error("Missing city silhouette");
+  const top = JOURNEY.floorY + JOURNEY.cityDrop - height;
+  const points = outline.map(
+    ([u, v]): Point => [x - width / 2 + u * width, top + v * (height + 180)],
+  );
+  const mesh = extrudeContour(points, 420 + kind * 90);
+  for (let index = 0; index < mesh.length; index += 7) {
+    vertices.push(
+      mesh[index] ?? 0,
+      mesh[index + 1] ?? 0,
+      (mesh[index + 2] ?? 0) + z,
+      mesh[index + 3] ?? 0,
+      mesh[index + 4] ?? 0,
+      mesh[index + 5] ?? 0,
+      material,
+    );
+  }
+  for (let index = 1; index < points.length - 2; index++) {
+    const a = points[index],
+      b = points[index + 1];
+    if (!a || !b || (kind % 3 === 0 && index % 2 === 0)) continue;
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const dx = ((b[1] - a[1]) / length) * 3,
+      dy = (-(b[0] - a[0]) / length) * 3;
+    quad(
+      vertices,
+      [
+        [a[0], a[1], z + 3],
+        [b[0], b[1], z + 3],
+        [b[0] + dx, b[1] + dy, z + 3],
+        [a[0] + dx, a[1] + dy, z + 3],
+      ],
+      [0, 0, 1],
+      6,
+    );
+  }
+  if (kind % 2 === 0) {
+    for (const level of [0.68, 0.72, 0.76]) {
+      box(vertices, [x - width * 0.38, top + height * level, z + 4], [width * 0.76, 4, 3], 6);
+    }
+  }
+}
+
+function skylineVertices(): number[] {
   const vertices: number[] = [];
-  quad(
-    vertices,
-    [
-      [left, top, start],
-      [right, top, start],
-      [right, top, end],
-      [left, top, end],
-    ],
-    [0, -1, 0],
-    1,
-  );
-  quad(
-    vertices,
-    [
-      [left, bottom, start],
-      [right, bottom, start],
-      [right, bottom, end],
-      [left, bottom, end],
-    ],
-    [0, 1, 0],
-    1,
-  );
-  quad(
-    vertices,
-    [
-      [left, top, start],
-      [left, bottom, start],
-      [left, bottom, end],
-      [left, top, end],
-    ],
-    [-1, 0, 0],
-    1,
-  );
-  quad(
-    vertices,
-    [
-      [right, top, start],
-      [right, bottom, start],
-      [right, bottom, end],
-      [right, top, end],
-    ],
-    [1, 0, 0],
-    1,
-  );
+  for (let index = -10; index <= 10; index++) {
+    const x = JOURNEY.roadX + index * 1500;
+    const height = 3200 + ((index * index * 13 + 17) % 9) * 620;
+    cityTower(
+      vertices,
+      x,
+      -24000 - Math.abs(index % 3) * 1900,
+      1050,
+      height + JOURNEY.cityDrop,
+      Math.abs(index) % 4,
+      8,
+    );
+  }
+  for (const side of [-1, 1]) {
+    for (let row = 0; row < 3; row++) {
+      for (let index = 0; index < 15; index++) {
+        const seed = (index * 17 + row * 11 + (side + 1) * 7) % 23;
+        const kind = seed % 4;
+        const width = 380 + (seed % 5) * 110;
+        const height =
+          kind === 3 ? 850 + (seed % 4) * 150 : 2350 + ((seed * 7) % 9) * 190 + row * 160;
+        const setback = kind === 3 ? 1400 : 2500;
+        const x = JOURNEY.roadX + side * (setback + row * 1900 + (seed % 3) * 260);
+        const z = -2200 - index * 1550 - row * 650;
+        cityTower(vertices, x, z, width, height, kind);
+        if (index % 3 === 0) {
+          box(
+            vertices,
+            [x - width * 0.64, JOURNEY.floorY + JOURNEY.cityDrop - 240, z + 70],
+            [width * 1.28, 420, 740],
+            5,
+          );
+        }
+      }
+    }
+  }
+  return vertices;
+}
+
+function arrivalVertices(): number[] {
+  const vertices: number[] = [];
+  for (const offset of [0, 1300]) {
+    const z = -JOURNEY.depth + 80 + offset;
+    const left = JOURNEY.roadX - 600,
+      top = JOURNEY.floorY - 720;
+    box(vertices, [left, top, z], [7, 720, 9], 7);
+    box(vertices, [left + 1193, top, z], [7, 720, 9], 7);
+    box(vertices, [left, top, z], [1200, 7, 9], 7);
+    box(vertices, [left + 160, JOURNEY.floorY - 3, z], [880, 3, 10], 7);
+  }
+  return vertices;
+}
+
+function viaductVertices(): number[] {
+  const vertices: number[] = [];
+  for (let z = -1600; z > -JOURNEY.depth; z -= 1700) {
+    const support: number[] = [];
+    box(support, [JOURNEY.roadX - 450, JOURNEY.floorY + 34, z], [900, 92, 200]);
+    for (const side of [-1, 1]) {
+      box(
+        support,
+        [JOURNEY.roadX + side * 340 - 42, JOURNEY.floorY + 126, z - 24],
+        [84, JOURNEY.cityDrop - 126, 150],
+      );
+    }
+    vertices.push(...bendRoadMesh(support, z));
+  }
   return vertices;
 }
 
@@ -311,9 +474,17 @@ export function createMarkMesh(paths: SVGPathElement[], panelRadius: number): Fl
   const body = paths.flatMap((path) => [...extrudeContour(sampleContour(path), JOURNEY.bodyDepth)]);
   const road = roadVertices();
   const scenery = sceneryVertices(panelRadius);
-  const mesh = new Float32Array(body.length + road.length + scenery.length);
-  mesh.set(body);
-  mesh.set(road, body.length);
-  mesh.set(scenery, body.length + road.length);
+  const skyline = skylineVertices();
+  const arrival = arrivalVertices();
+  const viaduct = viaductVertices();
+  const mesh = new Float32Array(
+    skyline.length + body.length + road.length + scenery.length + arrival.length + viaduct.length,
+  );
+  mesh.set(skyline);
+  mesh.set(body, skyline.length);
+  mesh.set(road, skyline.length + body.length);
+  mesh.set(scenery, skyline.length + body.length + road.length);
+  mesh.set(arrival, skyline.length + body.length + road.length + scenery.length);
+  mesh.set(viaduct, skyline.length + body.length + road.length + scenery.length + arrival.length);
   return mesh;
 }
