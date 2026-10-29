@@ -7,7 +7,9 @@ node_modules/
 .cache/
 dist/
 
-# Generated logs
+# Generated test artifacts and logs
+test-results*/
+playwright-report/
 logs/
 *.log
 
@@ -19,7 +21,3 @@ bun.lock
 .env.*
 .fleet/
 .idea/
-
-# Generated browser test artifacts
-test-results/
-playwright-report/

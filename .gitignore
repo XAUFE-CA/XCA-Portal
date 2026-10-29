@@ -34,6 +34,6 @@ __pycache__/
 *.pyc
 
 # IDEs
-.codebuddy/*
-.workbuddy/*
-.codeartsdoer/*
+.codebuddy/
+.workbuddy/
+.codeartsdoer/
