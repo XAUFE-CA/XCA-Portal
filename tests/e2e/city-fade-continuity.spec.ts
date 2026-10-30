@@ -1,10 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
+import { setThemePreference } from "./preferences";
 
 type FadeProbe = { opacity: number | null; layer: boolean; pixels: Uint8Array | null };
 
-async function observeCity(page: Page, theme: string) {
-  await page.addInitScript((value) => {
-    localStorage.setItem("xca-theme", value);
+async function observeCity(page: Page, theme: "light" | "dark") {
+  await setThemePreference(page, theme);
+  await page.addInitScript(() => {
     const probe: FadeProbe = { opacity: null, layer: false, pixels: null };
     Object.assign(window, { fadeProbe: probe });
     const names = new WeakMap<WebGLUniformLocation, string>();
@@ -53,7 +54,7 @@ async function observeCity(page: Page, theme: string) {
         probe.pixels,
       );
     };
-  }, theme);
+  });
 }
 
 for (const theme of ["light", "dark"] as const) {

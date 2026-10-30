@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { setThemePreference } from "./preferences";
 
 test("skipping the journey releases the city texture and framebuffer", async ({ page }) => {
   await page.addInitScript(() => {
@@ -144,7 +145,7 @@ test("the city uses a transparent pass before the depth-writing road pass", asyn
 
 for (const theme of ["light", "dark"] as const) {
   test(`intro background matches the initial home canvas in ${theme}`, async ({ page }) => {
-    await page.addInitScript((value) => localStorage.setItem("xca-theme", value), theme);
+    await setThemePreference(page, theme);
     await page.goto("/", { waitUntil: "domcontentloaded" });
     const backdrop = page.locator(".xca-terminal-hero__intro-backdrop");
     await expect(backdrop).toHaveCount(1);

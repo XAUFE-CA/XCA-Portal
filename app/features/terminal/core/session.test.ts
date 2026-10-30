@@ -89,35 +89,6 @@ test("cancelled commands do not append stale async output", async () => {
   expect(session.running).toBe(false);
 });
 
-test("deferred content has no commands, completion, virtual files or navigation effects", async () => {
-  const navigated: string[] = [];
-  const session = new TerminalSession({
-    ...makeServices(),
-    navigate: (path) => {
-      navigated.push(path);
-    },
-  });
-  for (const command of terminalCommands) session.registry.register(command);
-  expect(session.complete("xca open ")).toEqual(["xca open home"]);
-  await session.execute("xca help");
-  const help = JSON.stringify(session.entries);
-  for (const name of ["about", "departments", "teams"]) {
-    expect(help).not.toContain(`xca ${name}`);
-    expect(session.complete(`xca ${name}`)).toEqual([]);
-    await session.execute(`xca ${name}`);
-    expect(session.status).toBe(1);
-    await session.execute(`xca open ${name}`);
-  }
-  for (const path of ["/community/about.md", "/community/departments.txt"]) {
-    await session.execute(`cat ${path}`);
-    expect(session.status).toBe(1);
-  }
-  expect(navigated).toEqual([]);
-  expect(session.workspace.list("/community")).toEqual([]);
-  await session.execute("xca open home");
-  expect(navigated).toEqual(["/"]);
-});
-
 test("navigation rejects inherited properties, external paths and extra arguments", async () => {
   const navigated: string[] = [];
   const session = new TerminalSession({

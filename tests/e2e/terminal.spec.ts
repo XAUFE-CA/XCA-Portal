@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
+import { setThemePreference } from "./preferences";
 
 interface IntroFrame {
   phase: string;
@@ -192,7 +193,7 @@ test("saved theme applies before hydration and persists across homepage reloads"
 }) => {
   await page.goto("/");
   await skipAnimation(page);
-  await page.evaluate(() => localStorage.setItem("xca-theme", "dark"));
+  await setThemePreference(page, "dark");
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await skipAnimation(page);
@@ -209,7 +210,7 @@ test("saved theme applies before hydration and persists across homepage reloads"
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await skipAnimation(page);
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.evaluate(() => localStorage.setItem("xca-theme", "light"));
+  await setThemePreference(page, "light");
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await skipAnimation(page);

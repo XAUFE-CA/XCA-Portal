@@ -1,10 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
 import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
+import { setThemePreference } from "./preferences";
 
 async function openLightPage(page: Page, path = "/") {
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await setThemePreference(page, "light");
   await page.addInitScript(() => {
-    if (!localStorage.getItem("xca-theme")) localStorage.setItem("xca-theme", "light");
     const native = document.startViewTransition.bind(document);
     const observations: { duration: string; opacity: number[]; finished: boolean }[] = [];
     Object.assign(window, { themeTransitions: observations });
@@ -54,7 +55,9 @@ async function settled(page: Page, theme: string) {
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   await expect(page.locator("html")).not.toHaveAttribute("data-neoverse-theme-view-transitioning");
   await expect(page.locator("html")).not.toHaveAttribute("data-neoverse-theme-transitioning");
-  expect(await page.evaluate(() => localStorage.getItem("xca-theme"))).toBe(theme);
+  expect(
+    (await page.context().cookies()).find((cookie) => cookie.name === "xca-theme")?.value,
+  ).toBe(theme);
 }
 
 test("header theme changes crossfade the whole page using shared motion", async ({ page }) => {
@@ -134,7 +137,7 @@ test("without View Transitions the shared semantic colors interpolate", async ({
     }),
   );
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
-  await page.addInitScript(() => localStorage.setItem("xca-theme", "light"));
+  await setThemePreference(page, "light");
   await page.goto("/");
   await page.keyboard.press("Escape");
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);

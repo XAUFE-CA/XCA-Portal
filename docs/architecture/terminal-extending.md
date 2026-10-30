@@ -22,7 +22,7 @@ Status: adopted
 
 ## 新命令及虚拟文件
 
-常用 Linux 风格命令注册于 `terminalCommands`。站点专属操作注册于 `commands/site.ts` 的子命令集合，经单一 `xca` 入口执行。其子命令包括 open、theme、banner、intro、background、explore，原顶层名称不保留别名。`xca open` 仅接受 home，`xca explore` 提供帮助与当前主题查询。`xca` 或 `xca help` 列出子命令。`xca help intro`、`help xca intro`、`man xca intro` 与 `xca intro --help` 查询用法。`subcommands` 元数据供帮助和参数补全复用，不引入另一套 Parser 或 Session。
+常用 Linux 风格命令注册于 `terminalCommands`。站点专属操作注册于 `commands/site.ts` 的子命令集合，经单一 `xca` 入口执行。其子命令包括 open、theme、banner、intro、background、explore，原顶层名称不保留别名。`xca open` 接受站点配置中的路由名，页面清单见 [站点框架](site-shell.md#页面与内容来源)，`xca explore` 提供帮助与当前主题查询。`xca` 或 `xca help` 列出子命令。`xca help intro`、`help xca intro`、`man xca intro` 与 `xca intro --help` 查询用法。`subcommands` 元数据供帮助和参数补全复用，不引入另一套 Parser 或 Session。
 
 站内命令的说明通过 `summaryKey` 引用双语资源，输出调用 `ctx.t(key, params)`。包含自然语言的用法可设置 `usageKey`。语言由 `TerminalServices.getLocale()` 提供，帮助与虚拟文件读取时使用当前语言。第三方扩展仍可传入已本地化的 `summary` 字符串。帮助和命令补全来自注册表，参数补全由 `complete(args, context)` 提供。`execute` 支持同步/异步结果，`ctx.write(...)` 支持渐进输出。异步能力须尊重 AbortSignal。取消和超时后 Session 拒绝旧命令的输出和受控副作用。
 

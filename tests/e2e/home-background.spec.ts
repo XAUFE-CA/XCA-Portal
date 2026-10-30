@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { setThemePreference } from "./preferences";
 
 for (const width of [1440, 390]) {
   for (const theme of ["dark", "light"] as const) {
     test(`neutral home canvas in ${theme} at ${width}px survives reload`, async ({ page }) => {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       await page.emulateMedia({ reducedMotion: "reduce", colorScheme: theme });
-      await page.addInitScript((value) => localStorage.setItem("xca-theme", value), theme);
+      await setThemePreference(page, theme);
       await page.goto("/", { waitUntil: "domcontentloaded" });
       const shell = page.locator(".site-shell--home");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);

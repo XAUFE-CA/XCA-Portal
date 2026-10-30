@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { setThemePreference } from "./preferences";
 
 async function freezeApproach(page: Page, fraction: number) {
   await page.evaluate((progress) => {
@@ -59,7 +60,7 @@ for (const mode of [
     }) => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      await page.addInitScript((theme) => localStorage.setItem("xca-theme", theme), mode.theme);
+      await setThemePreference(page, mode.theme);
       await page.goto("/", { waitUntil: "domcontentloaded" });
       const scene = page.locator(".xca-ca-intro");
       await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: 15000 });

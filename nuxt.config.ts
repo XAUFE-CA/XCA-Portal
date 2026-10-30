@@ -69,6 +69,14 @@ export default defineNuxtConfig({
     head: {
       meta: [{ name: "color-scheme", content: "light dark" }],
       script: [{ src: "/intro-gate.js", tagPosition: "head" }],
+      // Register cascade order before SSR styles, whose dev order can change across requests.
+      // 在 SSR 样式之前声明层叠顺序，避免开发请求间的样式顺序变化影响页面。
+      style: [
+        {
+          innerHTML: "@layer properties, theme, base, components, utilities, neoverse;",
+          tagPriority: "critical",
+        },
+      ],
       link: [{ rel: "icon", type: "image/svg+xml", href: "/brand/ca-mark.svg" }],
     },
   },

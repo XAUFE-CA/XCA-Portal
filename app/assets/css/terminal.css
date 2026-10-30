@@ -249,6 +249,7 @@ body:has(.xca-terminal-hero--focused) > .xca-document-scrollbar {
   position: fixed;
   z-index: 0;
   inset: 0;
+  pointer-events: none;
   background-color: var(--xca-home-canvas, var(--neoverse-color-surface-canvas));
   background-image: var(--xca-home-canvas-image, none);
   opacity: 1;

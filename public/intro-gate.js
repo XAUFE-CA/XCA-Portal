@@ -1,15 +1,33 @@
-// Parser-blocking bootstrap: theme on every route before first paint; intro gate is home-only.
-// 阻塞解析的引导：所有路由在首帧前应用主题，开场门禁仅用于首页。
+// Parser-blocking bootstrap: migrate legacy theme before rendering; intro gate is home-only.
+// 阻塞解析的引导：渲染前迁移旧主题，开场门禁仅用于首页。
 (() => {
-  const root = document.documentElement;
   try {
     const saved = localStorage.getItem("xca-theme");
-    root.dataset.theme = saved === "light" || saved === "dark" ? saved : "system";
+    if (saved === "light" || saved === "dark" || saved === "system") {
+      const cookie = document.cookie
+        .split("; ")
+        .find((entry) => entry.startsWith("xca-theme="))
+        ?.slice("xca-theme=".length);
+      if (cookie !== "light" && cookie !== "dark" && cookie !== "system") {
+        document.cookie = `xca-theme=${saved}; path=/; max-age=31536000; samesite=lax`;
+        if (document.cookie.split("; ").includes(`xca-theme=${saved}`)) {
+          localStorage.removeItem("xca-theme");
+          // Re-request SSR with the migrated preference before any control is painted.
+          // 在任何控件绘制前，携带迁移后的偏好重新请求 SSR。
+          location.reload();
+          return;
+        }
+      } else {
+        localStorage.removeItem("xca-theme");
+      }
+    }
   } catch {
-    root.dataset.theme = "system";
+    // Storage restrictions must not block the cookie-backed server-rendered page.
+    // 存储限制不得阻塞使用 Cookie 偏好的服务端页面。
   }
 
   if (location.pathname !== "/") return;
+  const root = document.documentElement;
   try {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     // Stylesheets load after this script, so install the first-paint gate here.

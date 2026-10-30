@@ -4,7 +4,7 @@
 
 ## 界面与终端文案
 
-- 界面、SEO、无障碍标签与终端提示存放于 `app/i18n/locales/zh-CN.json` 与 `en.json`，两个语言的键和插值参数必须一致。新增文案先写中文再补英文，两份同步修改。
+- 通用界面文案、无障碍标签、首页 SEO 与终端提示存放于 `app/i18n/locales/zh-CN.json` 与 `en.json`，两个语言的键和插值参数必须一致。新增文案先写中文再补英文，两份同步修改。Markdown 页面的正文、SEO 与横幅替代文本维护在对应内容文件，不在 locale 重复存放。
 - 页面使用 `useSiteLocale().t()`，终端命令使用 `ctx.t()` 并通过 `summaryKey`、`usageKey` 提供帮助文案，不在组件硬编码文字。
 - 语言选择保存在 `xca-locale` Cookie。默认中文，无效值回退中文，服务端首屏按已选语言渲染。
 - 切换语言保留终端目录、输入草稿和命令历史。已有命令结果保留执行时的语言，新命令按当前语言执行。
@@ -12,6 +12,8 @@
 ## 内容文件
 
 - `app/data/hero-sentences.json` 按语言维护首页轮播语句。
+- 关于学社分别维护于 `content/pages/about/zh-CN.md` 与 `en.md`。正文使用 Markdown，frontmatter 的 `locale`、`title`、`description` 与 `banner` 由 `content.config.ts` 的 `about` 集合校验。
+- 页面按 `useSiteLocale().locale` 查询 Markdown，服务端首屏与客户端切换使用同一语言状态。修改标题、章节、段落、链接和页面元信息只需修改对应 Markdown，不调整 Vue。
 
 ## 术语对应
 

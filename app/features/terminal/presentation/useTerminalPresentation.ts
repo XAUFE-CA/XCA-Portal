@@ -350,8 +350,12 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     introAbort?.abort();
     const controller = new AbortController();
     introAbort = controller;
-    phase.value = "reveal";
-    revealing.value = true;
+    // Brief entry decorates the ready page; only a full intro owns its interaction state.
+    // 短入场只装饰可交互页面，只有完整入场才占用交互状态。
+    if (!brief) {
+      phase.value = "reveal";
+      revealing.value = true;
+    }
     viewportSize = viewportDimensions();
     await nextTick();
     if (controller.signal.aborted) return;
@@ -364,7 +368,8 @@ export function useTerminalPresentation(getCommandCount: () => number) {
         controller.signal,
         brief,
       );
-      document.documentElement.dataset.xcaIntro = "running";
+      if (brief) releaseIntroGate();
+      else document.documentElement.dataset.xcaIntro = "running";
       await transition;
       if (!controller.signal.aborted) finishIntro();
     } catch {
@@ -374,6 +379,10 @@ export function useTerminalPresentation(getCommandCount: () => number) {
   function skipIntro() {
     if (phase.value !== "ready") void enterHome();
   }
+  function toggleExpanded() {
+    if (phase.value === "ready" && introAbort) finishIntro();
+    return expansion.toggle();
+  }
   function onViewportChange() {
     expansion.onViewportChange();
     const size = viewportDimensions();
@@ -381,7 +390,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     viewportSize = size;
     // A changed projection cannot reuse its old DOM handoff; settle once instead of jumping.
     // 投影变化后旧 DOM 无法继续交接。直接一次归位，避免几何跳变或重复输出。
-    if (phase.value !== "ready") finishIntro();
+    if (introAbort) finishIntro();
   }
   function onGlobalKeydown(event: KeyboardEvent) {
     if (event.key !== "Escape") {
@@ -394,7 +403,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
   const motionPreference = ref<MediaQueryList | null>(null);
   function onMotionChange() {
     if (!motionPreference.value?.matches) return;
-    if (phase.value !== "ready") finishIntro();
+    if (introAbort) finishIntro();
     expansion.onMotionPreferenceChange();
   }
   onMounted(() => {
@@ -435,6 +444,6 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     markRef,
     startIntro,
     skipIntro,
-    toggleExpanded: expansion.toggle,
+    toggleExpanded,
   };
 }

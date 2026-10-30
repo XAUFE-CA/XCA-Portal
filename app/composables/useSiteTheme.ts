@@ -2,7 +2,7 @@ import { nextTick } from "vue";
 
 export type SiteTheme = "light" | "dark" | "system";
 
-const STORAGE_KEY = "xca-theme";
+const COOKIE_KEY = "xca-theme";
 const VIEW_TRANSITION = "data-neoverse-theme-view-transitioning";
 const COLOR_TRANSITION = "data-neoverse-theme-transitioning";
 // Client document only; all callers (header and terminal) share interruption state.
@@ -13,13 +13,17 @@ let cleanupTimer: number | undefined;
 let refreshFrame: number | undefined;
 
 export function useSiteTheme() {
-  const theme = useState<SiteTheme>("xca-theme", () => "system");
+  const saved = useCookie<string>(COOKIE_KEY, { sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
+  const theme = useState<SiteTheme>(COOKIE_KEY, () =>
+    saved.value === "light" || saved.value === "dark" ? saved.value : "system",
+  );
   const { $glassRenderer } = useNuxtApp();
 
   function setTheme(value: SiteTheme, options: { animate?: boolean } = {}) {
     // Command services read the selected mode synchronously after setTheme.
     // 命令服务在 setTheme 之后同步读取所选模式。
     theme.value = value;
+    saved.value = value;
     if (!import.meta.client) return;
 
     const root = document.documentElement;
@@ -32,12 +36,6 @@ export function useSiteTheme() {
     refreshFrame = undefined;
     root.removeAttribute(VIEW_TRANSITION);
     root.removeAttribute(COLOR_TRANSITION);
-    try {
-      localStorage.setItem(STORAGE_KEY, value);
-    } catch {
-      // Private mode or storage restrictions must not block theme switching.
-      // 隐私模式或存储限制不得阻塞主题切换。
-    }
     const system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     const resolve = (mode: string | undefined) =>
       mode === "light" || mode === "dark" ? mode : system;
@@ -110,23 +108,5 @@ export function useSiteTheme() {
     );
   }
 
-  function restoreTheme() {
-    if (!import.meta.client) return;
-
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(STORAGE_KEY);
-    } catch {
-      // System preference remains the default.
-      // 系统偏好仍是默认值。
-    }
-
-    if (saved === "light" || saved === "dark" || saved === "system") {
-      setTheme(saved, { animate: false });
-    } else {
-      setTheme(theme.value, { animate: false });
-    }
-  }
-
-  return { theme, setTheme, restoreTheme };
+  return { theme, setTheme };
 }

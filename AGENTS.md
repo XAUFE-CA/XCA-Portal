@@ -20,6 +20,7 @@ app/                    门户应用（Nuxt 4 srcDir）
   components/           跨页面展示组件，按场景分子目录
     site/               站点框架：顶栏、导航、菜单、语言与主题控件
     home/               首页 Hero 与终端入场动画
+    about/              关于学社：玻璃卡片、主题横幅与 Markdown 渲染
   composables/          跨组件状态与能力：主题、语言、内容适配
   config/               站点标识、路由与导航配置（site.ts）
   data/                 结构化数据：首页轮播语句（hero-sentences.json）
@@ -34,9 +35,11 @@ app/                    门户应用（Nuxt 4 srcDir）
       config.ts         终端自身配置
   i18n/                 翻译入口与双语资源（locales/zh-CN、en）
   layouts/              默认布局：顶栏与页面容器
-  pages/                路由：index 首页
+  pages/                路由：首页与关于学社，只做组合
   plugins/              客户端插件：极光玻璃运行时、主题引导
   utils/                共享工具函数（共享 token 读取）
+content/                可直接编辑的 Markdown 正文与页面元信息
+  pages/about/          关于学社：zh-CN.md 与 en.md
 docs/                   架构说明、现行接口与术语体系（写法见 docs/AGENTS.md）
 scripts/                门禁与检查脚本、quality-budgets.json、字体工具
 tests/e2e/              随功能提交的 Playwright 用例与 Windows 图片基线
@@ -45,7 +48,7 @@ public/                 静态资产：学社标识、字体许可证、intro-ga
 .github/                CI 工作流（quality.yml）与 PR 模板
 ```
 
-根目录配置：`package.json` 与 `bun.lock`（依赖与脚本事实依据）、`nuxt.config.ts`（别名、端口、共享库解析）、`playwright.config.ts`（E2E）、`biome.json` 与 `.prettierrc.json`（格式分工）、`tsconfig.quality.json`（检查脚本类型检查）、EditorConfig 与 Git attributes。
+根目录配置：`package.json` 与 `bun.lock`（依赖与脚本事实依据）、`nuxt.config.ts`（别名、端口、共享库解析）、`content.config.ts`（正文集合与 Schema）、`playwright.config.ts`（E2E）、`biome.json` 与 `.prettierrc.json`（格式分工）、`tsconfig.quality.json`（检查脚本类型检查）、EditorConfig 与 Git attributes。
 
 扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景归入 `app/components/<场景>/`。新交互特性按 `app/features/<特性>/` 建模块，按实际职责选择逻辑、展示与适配分层。终端的 commands 层只用于命令集合，不为其他功能创建空目录。后续新增结构化正文时，在 `content/` 维护并同步定义内容集合 Schema。静态资产进 `public/`。检查脚本进 `scripts/` 并接入对应 check 门禁。Agent 过程材料进 `.agents/notes/`。
 
@@ -75,7 +78,7 @@ public/                 静态资产：学社标识、字体许可证、intro-ga
 - **终端交互**：点击终端后完成当前打字输出单元再暂停并隐藏光标，点击终端外部恢复，不能仅 mouseleave 恢复。使用共享 UiTerminalPrompt、Surface、Transcript、Line，输入支持 IME、历史、Tab、取消、焦点与键盘路径。取消或超时后不得追加旧输出、执行旧副作用。卸载清理异步任务、订阅、监听和动画。输出可选择复制，阅读历史不抢滚，输入和提交恢复合理跟随，滚动行为沿用共享接口。首页逐行启动日志和字符画使用等宽度量适配，不堆空格、固定像素或产生意外滚动条，首页动画只在首页运行。
 - **字体**：Maple Mono NF CN 自托管 WOFF2 子集及真实 Italic 不得换为整包字体或恢复字体选择器。字体生成与许可证见 [字体与资产维护](docs/architecture/fonts.md)，新增可渲染中文后更新子集和覆盖清单。
 - **客户端与无障碍**：根节点 data-theme 支持 light/dark/system。切换主题和语言不重建 Session，不丢目录、历史、草稿和外观。浏览器 API 控制运行环境并有降级，协调 SSR/Hydration，共享 Glass Runtime 保持唯一并正确刷新/销毁。尊重 reduced-motion，跳过动画仍可读、可操作，不留遮罩，背景低对比，不抢内容层级。保持可见焦点、控件标签、文字对比和移动操作区。
-- **双语与内容**：中文默认，英文完整支持。页面用 `useSiteLocale().t()`，命令用 `ctx.t()`，两份 locale key/插值一致，翻译与资源位置见 [docs/terminology/translation.md](docs/terminology/translation.md)。Hero 轮播语句不在组件重复维护。动态输出以文本渲染，验证导航和资源目标。
+- **双语与内容**：中文默认，英文完整支持。界面用 `useSiteLocale().t()`，命令用 `ctx.t()`，两份 locale key/插值一致。页面正文与对应元信息维护在 `content/` 的双语 Markdown，不在 Vue 或 locale 重复存放，翻译与资源位置见 [docs/terminology/translation.md](docs/terminology/translation.md)。Hero 轮播语句不在组件重复维护。动态输出以文本渲染，验证导航和资源目标。
 - **敏感数据与资产**：不提交凭据、Cookie、私人数据或环境文件。资产来源、授权及再分发条件明确。
 
 ## 事实依据

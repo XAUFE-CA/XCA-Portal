@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { setThemePreference } from "./preferences";
 
 for (const width of [1440, 390]) {
   test(`boot uses centered status cells and a character progress bar at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    await page.addInitScript(() => localStorage.setItem("xca-theme", "dark"));
+    await setThemePreference(page, "dark");
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".xca-terminal-screen--boot")).toHaveCount(1, { timeout: 15000 });
     const progress = page.locator(".xca-terminal-boot-progress");
@@ -151,7 +152,7 @@ for (const mode of [
     baseURL,
   }) => {
     await page.setViewportSize(mode);
-    await page.addInitScript((theme) => localStorage.setItem("xca-theme", theme), mode.theme);
+    await setThemePreference(page, mode.theme);
     if (baseURL === undefined) throw new Error("A base URL is required to set the locale cookie");
     await page.context().addCookies([{ name: "xca-locale", value: mode.locale, url: baseURL }]);
     await page.goto("/", { waitUntil: "domcontentloaded" });

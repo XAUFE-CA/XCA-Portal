@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { setThemePreference } from "./preferences";
 
 async function expectTerminalScreenshot(terminal: Locator, name: string): Promise<void> {
   await expect(terminal).toHaveScreenshot(name, { animations: "disabled", caret: "hide" });
@@ -25,7 +26,7 @@ test("real terminal stays readable across themes and a narrow viewport", async f
   page,
 }) {
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  await page.addInitScript(() => localStorage.setItem("xca-theme", "light"));
+  await setThemePreference(page, "light");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
