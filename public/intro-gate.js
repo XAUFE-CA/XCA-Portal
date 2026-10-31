@@ -9,6 +9,8 @@
         .find((entry) => entry.startsWith("xca-theme="))
         ?.slice("xca-theme=".length);
       if (cookie !== "light" && cookie !== "dark" && cookie !== "system") {
+        // Migration must complete synchronously before first paint, so the async Cookie Store API cannot be used.
+        // 迁移必须早于首帧同步完成，因此不能使用异步的 Cookie Store API。
         document.cookie = `xca-theme=${saved}; path=/; max-age=31536000; samesite=lax`;
         if (document.cookie.split("; ").includes(`xca-theme=${saved}`)) {
           localStorage.removeItem("xca-theme");

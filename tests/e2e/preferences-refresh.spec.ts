@@ -57,8 +57,9 @@ for (const mode of [
       if (route.request().resourceType() === "script") await hydration;
       await route.continue();
     });
-    await page.goto("/about", { waitUntil: "commit" });
+    const response = await page.goto("/about", { waitUntil: "commit" });
     try {
+      expect(response?.status()).toBe(200);
       await expect
         .poll(() => page.evaluate(() => window.preferenceRefresh?.beforeHydration ?? 0))
         .toBeGreaterThan(2);
@@ -70,7 +71,6 @@ for (const mode of [
       "data-ready",
       "true",
     );
-    await page.evaluate(() => document.fonts.ready);
     const samples = await page.evaluate(async () => {
       await new Promise(requestAnimationFrame);
       const state = window.preferenceRefresh;

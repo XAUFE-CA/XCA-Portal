@@ -23,6 +23,8 @@ Status: adopted
 
 Maple Mono NF CN 上游使用 SIL OFL 1.1，许可证随站点发布在 [public/fonts/OFL.txt](../../public/fonts/OFL.txt)。CA 图形标识来自 SVG，与字体资源分开维护。
 
+浏览器标签页图标以 [ca-mark.svg](../../public/brand/ca-mark.svg) 为唯一图稿来源，不修改源文件或维护图标副本。`nuxt.config.ts` 读取 SVG，仅将 favicon 内存副本的 `viewBox` 调整为 `176 178 928 928`，再编码为 Data URL，使 CA 主体占图标画布宽度约 96%。顶栏与首页继续使用原始 SVG。
+
 ## 子集生成
 
 生成器使用上游 Maple Mono NF CN 7.900，覆盖应用可渲染字符、GB2312 一级常用字及终端符号，保留上游 1000 upem、600/1200 等宽度量。实际扫描目录与字符范围由生成脚本维护。预先裁剪属于修改版本，命名依据见 [OFL 官方说明](https://openfontlicense.org/webfonts-and-reserved-font-names/)，生成器默认使用非保留内部名称。

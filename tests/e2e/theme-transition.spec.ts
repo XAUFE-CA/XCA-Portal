@@ -44,6 +44,10 @@ async function openLightPage(page: Page, path = "/") {
     };
   });
   await page.goto(path);
+  await expect(page.locator(".site-theme-control .ui-segmented-control__slider")).toHaveAttribute(
+    "data-ready",
+    "true",
+  );
   if (path === "/") {
     await page.keyboard.press("Escape");
     await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
@@ -139,6 +143,10 @@ test("without View Transitions the shared semantic colors interpolate", async ({
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
   await setThemePreference(page, "light");
   await page.goto("/");
+  await expect(page.locator(".site-theme-control .ui-segmented-control__slider")).toHaveAttribute(
+    "data-ready",
+    "true",
+  );
   await page.keyboard.press("Escape");
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
   await expect(page.getByRole("radio", { name: "浅色", exact: true })).toBeChecked();

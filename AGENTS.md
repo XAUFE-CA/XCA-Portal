@@ -36,7 +36,7 @@ app/                    门户应用（Nuxt 4 srcDir）
   i18n/                 翻译入口与双语资源（locales/zh-CN、en）
   layouts/              默认布局：顶栏与页面容器
   pages/                路由：首页与关于学社，只做组合
-  plugins/              客户端插件：极光玻璃运行时、主题引导
+  plugins/              客户端插件：极光玻璃运行时
   utils/                共享工具函数（共享 token 读取）
 content/                可直接编辑的 Markdown 正文与页面元信息
   pages/about/          关于学社：zh-CN.md 与 en.md

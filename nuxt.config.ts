@@ -27,6 +27,12 @@ const uiAliases = localUi
     ]
   : [];
 
+const brandMark = readFileSync(new URL("./public/brand/ca-mark.svg", import.meta.url), "utf8");
+const faviconSvg = brandMark.replace(/viewBox="[^"]*"/, 'viewBox="176 178 928 928"');
+// A source rewrite would silently ship an unclipped favicon, so fail loudly instead.
+// 源文件改写会静默输出未裁剪的图标，因此此处直接失败。
+if (faviconSvg === brandMark) throw new Error("Favicon viewBox override did not apply");
+
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   modules: ["@nuxt/content"],
@@ -71,11 +77,19 @@ export default defineNuxtConfig({
       // 在 SSR 样式之前声明层叠顺序，避免开发请求间的样式顺序变化影响页面。
       style: [
         {
+          key: "xca-cascade-order",
           innerHTML: "@layer properties, theme, base, components, utilities, neoverse;",
           tagPriority: "critical",
         },
       ],
-      link: [{ rel: "icon", type: "image/svg+xml", href: "/brand/ca-mark.svg" }],
+      link: [
+        {
+          rel: "icon",
+          type: "image/svg+xml",
+          sizes: "any",
+          href: `data:image/svg+xml,${encodeURIComponent(faviconSvg)}`,
+        },
+      ],
     },
   },
 });
