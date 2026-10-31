@@ -6,7 +6,7 @@
     "build": "nuxt build",
     "dev": "bun run ui:sync && nuxt dev --strictPort",
     "generate": "nuxt generate",
-    "preview": "nuxt preview --port 3100 --strictPort",
+    "preview": "nuxt preview --port 4100 --strictPort",
     "postinstall": "nuxt prepare",
     "format": "biome check --write --linter-enabled=false . && prettier --write \"**/*.{md,yml,yaml}\"",
     "format:check": "biome check --linter-enabled=false . && prettier --check \"**/*.{md,yml,yaml}\"",

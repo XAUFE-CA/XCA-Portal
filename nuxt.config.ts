@@ -30,9 +30,7 @@ const uiAliases = localUi
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   modules: ["@nuxt/content"],
-  // XCA ports start at 3100; keep the Portal development server deterministic.
-  // XCA 端口从 3100 起，保持门户开发服务器端口固定。
-  devServer: { port: 3100 },
+  devServer: { port: 4100 },
   // Neoverse-UI CSS is already prefixed; Nuxt Autoprefixer misparses its @supports clause.
   // Neoverse-UI 样式已带前缀；Nuxt 的 Autoprefixer 会误解析其 @supports 子句。
   postcss: { plugins: { autoprefixer: false } },
@@ -63,7 +61,7 @@ export default defineNuxtConfig({
     "~/assets/css/main.css",
     "~/assets/css/terminal.css",
   ],
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   typescript: { strict: true },
   app: {
     head: {

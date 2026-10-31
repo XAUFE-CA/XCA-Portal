@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const port = Number(process.env.XCA_TEST_PORT ?? 3102);
+const port = Number(process.env.XCA_TEST_PORT ?? 4102);
 const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
@@ -19,10 +19,12 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    // Isolated test preview avoids colliding with the developer server on 3100.
-    // 隔离的测试预览避免与 3100 的开发服务器冲突。
+    // Isolated test preview avoids colliding with the developer server on 4100.
+    // 隔离的测试预览避免与 4100 的开发服务器冲突。
     command: `bunx nuxt preview --host 127.0.0.1 --port ${port} --strictPort`,
     url: baseURL,
+    // Never trust a server the run did not start; a stale build can pass silently.
+    // 不复用本次未启动的服务，陈旧构建可能静默通过。
     reuseExistingServer: false,
     timeout: 60_000,
   },
