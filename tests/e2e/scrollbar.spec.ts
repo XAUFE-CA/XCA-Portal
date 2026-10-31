@@ -1,5 +1,26 @@
 import { expect, test } from "@playwright/test";
 
+test("server-rendered markup hides the native document scrollbar before hydration", async ({
+  page,
+}) => {
+  // Blocking the client bundle keeps the page in the server-rendered frame.
+  // 阻断客户端产物，使页面停留在服务端渲染帧。
+  await page.route("**/_nuxt/**/*.js", (route) => route.abort());
+  await page.goto("/about", { waitUntil: "load" });
+
+  const rail = page.locator("body > .ui-scrollbar");
+  await expect(rail).toHaveCount(1);
+  await expect(rail).toHaveAttribute("data-hide-native", "true");
+  await expect(rail).toHaveAttribute("data-visible", "false");
+  // The stylesheet owns the hiding state here; the owner class needs mounting.
+  // 此处由样式表负责隐藏，属主类需要挂载后才存在。
+  await expect(page.locator("html")).not.toHaveClass(/ui-scrollbar-target/);
+  const nativeScrollbar = await page.evaluate(
+    () => getComputedStyle(document.documentElement).scrollbarWidth,
+  );
+  expect(nativeScrollbar).toBe("none");
+});
+
 test("document scrollbar uses the viewport, not the clipped XCA layout", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/", { waitUntil: "domcontentloaded" });

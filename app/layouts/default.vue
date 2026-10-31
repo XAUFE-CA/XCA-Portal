@@ -15,12 +15,13 @@ const route = useRoute();
       <slot />
     </main>
     <SiteFooter v-if="route.path !== SITE.routes.home" />
-    <!-- The document scrollbar is teleported out so it never inherits the site layout container's clipping or stacking isolation.
-         文档级滚动条通过 Teleport 移到 body，避免继承站点布局容器的裁剪和层叠隔离。 -->
-    <ClientOnly>
-      <Teleport to="body">
-        <UiScrollbar class="xca-document-scrollbar" :refresh-key="route.fullPath" />
-      </Teleport>
-    </ClientOnly>
+    <!-- The rail is server rendered so the shared stylesheet removes the native bar on the
+         first paint; teleporting it to body keeps it out of the site layout container's
+         clipping and stacking isolation.
+         文档滚动条参与服务端渲染，使共享样式表在首帧即移除原生条；通过 Teleport 移到 body
+         可避免继承站点布局容器的裁剪和层叠隔离。 -->
+    <Teleport to="body">
+      <UiScrollbar class="xca-document-scrollbar" :refresh-key="route.fullPath" />
+    </Teleport>
   </div>
 </template>
