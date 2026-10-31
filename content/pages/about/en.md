@@ -3,8 +3,8 @@ locale: en
 title: About · XCA
 description: XCA is an academic and technology student association at Xi'an University of Finance and Economics, providing space for students of different experience levels to learn, discuss, and collaborate.
 banner:
-  light: /brand/xca-banner-light.webp
-  dark: /brand/xca-banner-dark.webp
+  light: https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-light.webp
+  dark: https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-dark.webp
   alt: "XCA Computer Association banner: sincerity, inclusion, harmony, passion; technical discussion, knowledge sharing, and hands-on projects."
   width: 2172
   height: 724

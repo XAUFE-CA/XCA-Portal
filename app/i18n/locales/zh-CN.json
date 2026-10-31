@@ -116,5 +116,6 @@
   "summary.hostname": "显示模拟主机名称",
   "summary.env": "查看公开的模拟环境变量",
   "summary.man": "查看命令手册",
-  "summary.xca": "站点导航、主题与首页终端设置"
+  "summary.xca": "站点导航、主题与首页终端设置",
+  "about.loading": "正在加载学社介绍"
 }

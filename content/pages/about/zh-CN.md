@@ -3,8 +3,8 @@ locale: zh-CN
 title: 关于学社 · XCA
 description: XCA 是西安财经大学的学术科技类学生社团，为不同基础的同学提供学习、研讨与协作的空间。
 banner:
-  light: /brand/xca-banner-light.webp
-  dark: /brand/xca-banner-dark.webp
+  light: https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-light.webp
+  dark: https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-dark.webp
   alt: XCA 计算机学社横幅：真诚、包容、和谐、热爱；技术交流、知识分享、项目实践。
   width: 2172
   height: 724

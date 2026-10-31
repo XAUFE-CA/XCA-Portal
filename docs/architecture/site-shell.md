@@ -64,8 +64,12 @@ Markdown 通过原生 MDC 容器标记页面布局：`about-intro` 使用共享�
 ::
 ```
 
-卡片顶部展示学社横幅，路径、替代文本与原始尺寸来自 Markdown 的 `banner` 字段。浅色使用 [xca-banner-light.webp](../../public/brand/xca-banner-light.webp)，深色使用 [xca-banner-dark.webp](../../public/brand/xca-banner-dark.webp)，系统模式跟随 `prefers-color-scheme`。两张横幅由用户提供的同名 PNG 无损转为 WebP，原始图稿不变；展示保留 3:1 比例，不裁切图片。两张图片通过 CSS 按根节点 `data-theme` 显示对应版本，使用原生懒加载，隐藏版本不占布局或无障碍阅读位置。根节点主题随 SSR 输出，因此图片选择不等待 Vue 水合。
+卡片顶部展示学社横幅，路径、替代文本与原始尺寸来自 Markdown 的 `banner` 字段。两条路径直接引用组织总仓库 `XAUFE-CA/.github` 的 `profile/assets/xca-banner-light.webp` 与 `xca-banner-dark.webp`，门户不保存副本，也不做格式转换。浅色使用 light 版本，深色使用 dark 版本，系统模式跟随 `prefers-color-scheme`；展示保留 3:1 比例，不裁切图片。两张图片通过 CSS 按根节点 `data-theme` 显示对应版本，使用原生懒加载，隐藏版本不占布局或无障碍阅读位置。根节点主题随 SSR 输出，因此图片选择不等待 Vue 水合。横幅只在组织总仓库更新；源图尺寸变化时同步修改内容字段的 `width` 与 `height`。
+
+正文查询使用不阻塞导航的懒加载：客户端跳转先渲染卡片骨架，服务端仍等待查询以直出正文。骨架样式取自共享 `UiSkeleton`，保留共享默认半透明填充与无障碍回退。横幅占位保持 3:1，正文保留通栏与双栏结构，每节使用 1–2 条正文占位行，行间距取共享 `space-6`，区块间距取 `space-12`，`aria-busy` 标记加载中。取数完成后，骨架与正文在同一网格区域交叉淡化，离开的内容退出键盘与无障碍访问。过渡沿用共享 `expressive` 时长与线性缓动，不增加取数等待时间，也不对服务端直出的正文补播放入场。首次查询错误直接抛出，后续查询错误交给错误页。缺失正文只在查询成功后按 404 处理，加载中不报错。
+
+正文就绪后，横幅图片仍有独立的加载骨架。明暗骨架分别跟随对应图片的主题显示规则，只覆盖横幅固有比例区域，不参与正文布局；当前主题图片加载或失败结束后淡出对应骨架，切换主题不会复用另一张图片的完成状态。横幅容器挂载时同步已完成的缓存图片，覆盖首屏水合与懒加载正文就绪两种情况，避免遗漏加载事件后残留骨架。正文与横幅过渡均遵循减少动态效果偏好，启用时立即切换。
 
 ## 验证
 
-浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts` 与 `preferences-refresh.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。
+浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts` 与 `about-skeleton.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。

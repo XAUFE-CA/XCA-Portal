@@ -116,5 +116,6 @@
   "summary.hostname": "Show the simulated hostname",
   "summary.env": "Show public simulated environment variables",
   "summary.man": "Read the command manual",
-  "summary.xca": "Site navigation, theme and homepage terminal settings"
+  "summary.xca": "Site navigation, theme and homepage terminal settings",
+  "about.loading": "Loading the association introduction"
 }
