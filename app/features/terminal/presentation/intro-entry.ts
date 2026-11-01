@@ -33,6 +33,10 @@ export function markSessionEntry(pathname: string): void {
 export function claimHomeIntro(): boolean {
   if (homeIntroClaimed) return false;
   homeIntroClaimed = true;
+  // On a slow device the presentation can mount before the client plugin records the entry,
+  // and waiting for it would silently downgrade the first visit to the brief entry.
+  // 在慢速设备上，展示层可能先于客户端插件记录入口而挂载；等它就会把首次访问静默降级为短入场。
+  if (!entryResolved && typeof window !== "undefined") markSessionEntry(window.location.pathname);
   return entryIsHome;
 }
 
