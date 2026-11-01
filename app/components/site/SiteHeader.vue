@@ -75,7 +75,16 @@ onBeforeUnmount(() => {
     <a class="skip-link" href="#main-content">{{ t("nav.skip") }}</a>
     <!-- Fallback popovers stay inside this layout surface instead of the native top layer.
          回退弹层保留在此布局层内，而非原生顶层。 -->
-    <UiSurface as="header" surface="glass-elevated" content-overflow="visible" class="site-header">
+    <!-- The bar is anchored to the window, so it asks the shared UI for the painted
+         stroke that refraction cannot supply without backdrop light.
+         顶栏贴着窗口，折射在背后没有内容时无法成边，因此启用共享 UI 的绘制描边。 -->
+    <UiSurface
+      as="header"
+      surface="glass-elevated"
+      content-overflow="visible"
+      class="site-header"
+      data-neoverse-glass-edge-stroke
+    >
       <div class="site-header__brand">
         <SiteLogo />
       </div>

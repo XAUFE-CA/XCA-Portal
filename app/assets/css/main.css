@@ -99,13 +99,20 @@ a {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--neoverse-space-5);
-  border-radius: var(--neoverse-radius-none);
+  /* The card radius stays on the silhouette the bar always shows, so the library
+     draws one continuous card stroke instead of a line that closes on detach. */
+  /* 底部常驻卡片圆角，使库绘制的是同一段卡片描边，而不是收拢时才闭合的直线。 */
+  border-radius: var(--neoverse-radius-none) var(--neoverse-radius-none) var(--neoverse-radius-card)
+    var(--neoverse-radius-card);
   transform: translateY(0);
+  /* The silhouette carries the rim, so the morph itself has to travel the whole
+     duration; the shared ease-out curves finish in a few frames and read as a snap. */
+  /* 亮边贴在轮廓上，形变必须走完整段时长；共享的 ease-out 曲线几帧内就结束，观感等同跳变。 */
   transition:
-    width var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-emphasized),
-    transform var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-emphasized),
-    border-radius var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-standard),
-    padding var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-standard);
+    width var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-linear),
+    transform var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-linear),
+    border-radius var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-linear),
+    padding var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-linear);
 }
 .site-header-wrap--floating .site-header {
   width: min(

@@ -33,7 +33,7 @@ Status: adopted
 
 菜单使用共享 `UiPopover`，从四宫格按钮下方靠右弹出，不撑高顶栏。浮层定位、极光玻璃材质、进出动效、外部点击关闭及 Escape 焦点恢复由共享 UI 提供。菜单内语言与主题分组纵向排列，页面跳转或跨响应式断点后收起。宽屏与菜单复用同一组导航和设置组件。
 
-顶栏在页顶铺开，滚动超过共享 `space-4` 对应距离后收成悬浮形态。包裹区域随实际内容计算高度，文档滚动条按实际顶栏高度避让。标识与菜单容器使用 Flex 居中，避免内联基线影响垂直位置。文档滚动条由布局直接服务端渲染并经 Teleport 移到 `body`，共享样式表据 `data-hide-native` 在首帧即隐藏原生条，刷新时不出现原生条与沉浸式轨道的替换和横向重排；`ClientOnly` 包裹会退回挂载后才隐藏的旧行为。
+顶栏在页顶铺开，滚动超过共享 `space-4` 对应距离后收成悬浮形态。顶栏轮廓在两种状态下都保留底部的共享卡片圆角，收拢只改变宽度、上移量与顶部圆角，形变按共享时长线性推进，避免轮廓在数帧内跳到位。顶栏贴着窗口，页顶背后没有可折射的内容，因此通过共享 UI 的 `data-neoverse-glass-edge-stroke` 启用材质自带的绘制描边，描边取自 `--neoverse-material-edge-stroke`，门户不写自己的边缘实现。包裹区域随实际内容计算高度，文档滚动条按实际顶栏高度避让。标识与菜单容器使用 Flex 居中，避免内联基线影响垂直位置。文档滚动条由布局直接服务端渲染并经 Teleport 移到 `body`，共享样式表据 `data-hide-native` 在首帧即隐藏原生条，刷新时不出现原生条与沉浸式轨道的替换和横向重排；`ClientOnly` 包裹会退回挂载后才隐藏的旧行为。
 
 ## 主题、语言与共享 UI
 
@@ -74,4 +74,4 @@ Markdown 通过原生 MDC 容器标记页面布局：`about-intro` 使用共享�
 
 ## 验证
 
-浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts` 与 `about-skeleton.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。
+浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts`、`header-edge-rim.spec.ts` 与 `about-skeleton.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及顶栏底部圆角与描边归属、内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。

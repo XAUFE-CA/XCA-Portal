@@ -105,7 +105,7 @@ test("header smoothly morphs between the page top and floating state with a stab
   if (!full) throw new Error("Page-top header bounding box is missing");
   expect(full.y).toBe(0);
   expect(full.width).toBeGreaterThan(1400);
-  await expect(header).toHaveCSS("border-radius", "0px");
+  await expect(header).toHaveCSS("border-radius", "0px 0px 16px 16px");
   await page.evaluate(() => window.scrollTo({ top: 200, behavior: "instant" }));
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(200);
   await expect(wrap).toHaveClass(/floating/);
@@ -123,6 +123,6 @@ test("header smoothly morphs between the page top and floating state with a stab
   expect(await wrap.evaluate((el) => el.clientHeight)).toBe(shellHeight);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   await expect(wrap).not.toHaveClass(/floating/);
-  await expect(header).toHaveCSS("border-radius", "0px");
+  await expect(header).toHaveCSS("border-radius", "0px 0px 16px 16px");
   expect(await wrap.evaluate((el) => el.clientHeight)).toBe(shellHeight);
 });
