@@ -82,6 +82,7 @@
   z-index: var(--neoverse-layout-layer-sticky);
 }
 .xca-terminal-window {
+  --neoverse-terminal-header-background: var(--neoverse-surface-inset-rest-background);
   width: 100%;
   height: 100%;
   transform-origin: center center;
@@ -191,12 +192,6 @@
   position: absolute;
   right: 0;
   bottom: 0;
-}
-.xca-terminal-statusbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--neoverse-space-3);
 }
 .xca-terminal-sr-only {
   position: absolute;
@@ -460,9 +455,6 @@ html[data-xca-intro="running"] .xca-terminal-hero--logo .xca-terminal-window {
   .xca-terminal-anchor {
     height: calc(var(--neoverse-space-32) * 4);
   }
-  .xca-terminal-toolbar__session {
-    display: none;
-  }
 }
 @media (max-width: 38rem) {
   .xca-terminal-hero {
@@ -482,10 +474,6 @@ html[data-xca-intro="running"] .xca-terminal-hero--logo .xca-terminal-window {
   .xca-terminal-banner,
   .xca-terminal-brand-probe {
     font-size: var(--neoverse-font-size-2xs);
-  }
-  .xca-terminal-statusbar span:last-child {
-    max-width: 60%;
-    text-align: right;
   }
 }
 @media (prefers-reduced-motion: reduce) {

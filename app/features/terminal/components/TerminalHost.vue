@@ -20,7 +20,9 @@ import type {
 import type { BootLine } from "../presentation/boot-script";
 import TerminalCommandInput from "./TerminalCommandInput.vue";
 import TerminalInteraction from "./TerminalInteraction.vue";
+import TerminalStatusBar from "./TerminalStatusBar.vue";
 import TerminalTranscript from "./TerminalTranscript.vue";
+import TerminalWindowHeader from "./TerminalWindowHeader.vue";
 
 const props = defineProps<{
   session: TerminalSession;
@@ -334,30 +336,17 @@ defineExpose({
       'xca-terminal-window--expanded': expanded,
     }"
   >
-    <template #status>
-      <span class="xca-terminal-toolbar__session">{{ identity.user }}@{{ identity.host }}</span>
-    </template>
-    <template #actions>
-      <UiButton
-        v-if="intro && introStage !== 'logo' && introStage !== 'handoff'"
-        variant="ghost"
-        size="sm"
-        :aria-label="t('terminal.skipLabel')"
-        @click="emit('skip')"
-        >{{
-          t("terminal.skip")
-        }}</UiButton
-      >
-      <UiButton
-        v-else-if="!intro"
-        variant="ghost"
-        size="sm"
-        :aria-label="expanded ? t('terminal.restoreLabel') : t('terminal.expandLabel')"
-        @click="emit('expand')"
-        >{{
-          expanded ? t("terminal.restore") : t("terminal.expand")
-        }}</UiButton
-      >
+    <template #header>
+      <TerminalWindowHeader
+        :user="identity.user"
+        :host="identity.host"
+        :directory="identity.directory"
+        :intro="intro"
+        :intro-stage="introStage"
+        :expanded="expanded"
+        @skip="emit('skip')"
+        @expand="emit('expand')"
+      />
     </template>
     <section
       ref="screen"
@@ -480,25 +469,14 @@ defineExpose({
         </div>
       </div>
     </section>
-    <UiTerminalLine class="xca-terminal-statusbar" kind="status" tone="muted">
-      <span
-        >{{ application ? t("terminal.tui") : t("terminal.shell") }}
-        / {{ identity.directory }}</span
-      >
-      <span v-if="intro">{{
-        introStage === "boot"
-          ? t("terminal.boot")
-          : introStage === "brand"
-            ? t("terminal.welcomeLabel")
-            : t("terminal.entering")
-      }}</span>
-      <span v-else
-        >{{ columns }}
-        {{ t("terminal.columns") }}
-        ·
-        {{ running ? t("terminal.running") : t("terminal.shortcuts") }}</span
-      >
-    </UiTerminalLine>
+    <TerminalStatusBar
+      :directory="identity.directory"
+      :columns="columns"
+      :intro="intro"
+      :intro-stage="introStage"
+      :running="running"
+      :application="!!application"
+    />
     <span class="xca-terminal-sr-only" aria-live="polite">{{
       intro ? t("terminal.starting") : running ? t("terminal.runningLabel") : t("terminal.ready")
     }}</span>

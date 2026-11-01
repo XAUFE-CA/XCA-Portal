@@ -18,8 +18,19 @@ for await (const path of new Bun.Glob("app/features/terminal/**/*.{ts,vue}").sca
   });
 }
 const cssPath = "app/assets/css/terminal.css";
-const css = await Bun.file(cssPath).text();
-for (const [pattern, message] of [
+// Terminal component style blocks carry terminal styling too, so the same rules cover them.
+// 终端组件内的样式块同样属于终端样式，因此适用同一套规则。
+const styleSources: { path: string; css: string }[] = [
+  { path: cssPath, css: await Bun.file(cssPath).text() },
+];
+for await (const path of new Bun.Glob("app/features/terminal/**/*.vue").scan(".")) {
+  const markup = await Bun.file(path).text();
+  for (const match of markup.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
+    const [, block] = match;
+    if (block?.trim()) styleSources.push({ path, css: block });
+  }
+}
+const rules = [
   [
     /#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})\b|\b(?:rgb|hsl|oklch)a?\(/gi,
     "颜色应来自 Neoverse-UI tokens",
@@ -30,26 +41,7 @@ for (const [pattern, message] of [
   [/\.ui-terminal-[\w-]+/g, "不要通过共享组件内部选择器覆盖终端样式"],
   [/\.xca-prompt-identity[\w-]*/g, "历史命令使用共享文本行，不另建提示符样式"],
   [/--neoverse-font-family-[\w-]+\s*:/g, "终端字体角色由 Neoverse-UI 维护"],
-] as const) {
-  // Zero is a valid absence of a stagger, rather than a motion duration.
-  // 零表示确实没有错峰延迟，而非运动时长。
-  const source = css.replace(/\b0ms\b/g, "0");
-  if (pattern.test(source)) failures.push(`${cssPath}: ${message}`);
-}
-// Geometry belongs to the portal; shared chrome, text and color variables do not.
-// 几何属性由门户定义。共享外框、文本和颜色变量不能覆盖。
-for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-  const [, selector, declarations] = block;
-  if (selector === undefined || declarations === undefined)
-    throw new Error("CSS block pattern must capture a selector and declarations");
-  if (
-    /\.xca-terminal-(?:window|screen|line|command|statusbar|font-probe)(?![\w-])/.test(selector) &&
-    /(?:^|[;\n])\s*(?:font(?:-[\w-]+)?|line-height|letter-spacing|color|border(?:-[\w-]+)?|background(?:-color)?)\s*:/.test(
-      declarations,
-    )
-  )
-    failures.push(`${cssPath}: ${selector.trim()} 不应重复定义共享终端材质或文字样式`);
-}
+] as const;
 const tokens = new Set<string>();
 for await (const path of new Bun.Glob(
   "node_modules/@neoverse-ui/{tokens,tailwind}/dist/**/*.css",
@@ -61,16 +53,41 @@ for await (const path of new Bun.Glob(
   }
 }
 if (!tokens.size) failures.push("未找到已安装的 Neoverse-UI token 定义");
-for (const match of css.matchAll(/var\((--neoverse-[\w-]+)/g)) {
-  const [, token] = match;
-  if (token === undefined) throw new Error("Token reference pattern must capture a name");
-  if (!tokens.has(token)) failures.push(`${cssPath}: 未定义的 token ${token}`);
-}
-for (const match of css.matchAll(/font-family\s*:\s*([^;]+)/g)) {
-  const [, family] = match;
-  if (family === undefined) throw new Error("Font family pattern must capture a value");
-  if (!family.trim().startsWith("var("))
-    failures.push(`${cssPath}: 字体应来自已注册外观或 Neoverse-UI tokens`);
+for (const { path, css } of styleSources) {
+  // Zero is a valid absence of a stagger, rather than a motion duration.
+  // 零表示确实没有错峰延迟，而非运动时长。
+  const source = css.replace(/\b0ms\b/g, "0");
+  for (const [pattern, message] of rules) {
+    pattern.lastIndex = 0;
+    if (pattern.test(source)) failures.push(`${path}: ${message}`);
+  }
+  // Geometry belongs to the portal; shared chrome, text and color variables do not.
+  // 几何属性由门户定义。共享外框、文本和颜色变量不能覆盖。
+  for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const [, selector, declarations] = block;
+    if (selector === undefined || declarations === undefined)
+      throw new Error("CSS block pattern must capture a selector and declarations");
+    if (
+      /\.xca-terminal-(?:window|screen|line|command|statusbar|font-probe)(?![\w-])/.test(
+        selector,
+      ) &&
+      /(?:^|[;\n])\s*(?:font(?:-[\w-]+)?|line-height|letter-spacing|color|border(?:-[\w-]+)?|background(?:-color)?)\s*:/.test(
+        declarations,
+      )
+    )
+      failures.push(`${path}: ${selector.trim()} 不应重复定义共享终端材质或文字样式`);
+  }
+  for (const match of css.matchAll(/var\((--neoverse-[\w-]+)/g)) {
+    const [, token] = match;
+    if (token === undefined) throw new Error("Token reference pattern must capture a name");
+    if (!tokens.has(token)) failures.push(`${path}: 未定义的 token ${token}`);
+  }
+  for (const match of css.matchAll(/font-family\s*:\s*([^;]+)/g)) {
+    const [, family] = match;
+    if (family === undefined) throw new Error("Font family pattern must capture a value");
+    if (!family.trim().startsWith("var("))
+      failures.push(`${path}: 字体应来自已注册外观或 Neoverse-UI tokens`);
+  }
 }
 for await (const path of new Bun.Glob("app/assets/css/*.css").scan(".")) {
   const source = await Bun.file(path).text();
@@ -85,4 +102,6 @@ if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log(`Terminal UI boundary passed (${resolve(cssPath)})`);
+console.log(
+  `Terminal UI boundary passed (${resolve(cssPath)} + ${styleSources.length - 1} component style blocks)`,
+);

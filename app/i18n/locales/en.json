@@ -27,8 +27,6 @@
   "terminal.skip": "Skip intro ↗",
   "terminal.restoreLabel": "Restore terminal size",
   "terminal.expandLabel": "Expand terminal",
-  "terminal.restore": "Restore ↙",
-  "terminal.expand": "Expand ↗",
   "terminal.output": "Terminal output",
   "terminal.input": "Enter an XCA command",
   "terminal.runningLabel": "Running command",

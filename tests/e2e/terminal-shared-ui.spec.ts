@@ -78,9 +78,8 @@ function compareTerminalStyles() {
     const issues: string[] = [];
     const comparisons = [
       ["", ["border-radius", "background-color", "color", "font-family"]],
-      [".ui-terminal-surface__header", ["padding", "gap", "background-color"]],
+      [".ui-terminal-surface__header", ["padding", "gap"]],
       [".ui-terminal-surface__body", ["padding", "gap", "background-color"]],
-      [".ui-terminal-surface__title", ["font-family", "font-size", "color"]],
       ["form .ui-terminal-prompt", ["font-family", "font-size", "line-height", "color"]],
       ["form .ui-terminal-prompt__segment", ["padding", "background-color", "color"]],
       [
@@ -104,6 +103,31 @@ function compareTerminalStyles() {
     reference.remove();
   }
 }
+function compareTokenStyles() {
+  // The portal window header may only deviate from the shared default through public tokens.
+  // 门户窗口标题栏只能通过公开 token 偏离共享默认值，期望值随共享 token 解析，不硬编码结果。
+  const root = document.querySelector<HTMLElement>(".xca-terminal-window");
+  if (!root) throw new Error("The terminal is required to compare shared styles");
+  const expectations = [
+    [".ui-terminal-surface__header", "background-color", "--neoverse-terminal-header-background"],
+    [".xca-terminal-chrome", "font-size", "--neoverse-typography-caption-size"],
+    [".xca-terminal-chrome", "color", "--neoverse-color-text-secondary"],
+    [".xca-terminal-chrome__session", "color", "--neoverse-color-text-primary"],
+  ] as const;
+  const issues: string[] = [];
+  for (const [selector, property, token] of expectations) {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (!element) throw new Error(`Shared style expectation element is missing: ${selector}`);
+    const probe = root.appendChild(document.createElement("div"));
+    probe.style.cssText = "position: absolute; visibility: hidden";
+    probe.style.setProperty(property, `var(${token})`);
+    const expected = getComputedStyle(probe).getPropertyValue(property);
+    probe.remove();
+    const value = getComputedStyle(element).getPropertyValue(property);
+    if (value !== expected) issues.push(`${selector} ${property}: ${value} != var(${token})`);
+  }
+  return issues;
+}
 test("portal terminal chrome and text retain the unmodified shared styles in both themes and widths", async ({
   page,
 }) => {
@@ -118,7 +142,10 @@ test("portal terminal chrome and text retain the unmodified shared styles in bot
     for (const theme of ["light", "dark"]) {
       await page.getByRole("radio", { name: theme === "light" ? "浅色" : "深色" }).click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      const differences = await page.evaluate(compareTerminalStyles);
+      const differences = [
+        ...(await page.evaluate(compareTerminalStyles)),
+        ...(await page.evaluate(compareTokenStyles)),
+      ];
       expect(differences, `${theme}, ${width}px`).toEqual([]);
     }
   }

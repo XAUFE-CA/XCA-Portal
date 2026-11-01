@@ -126,7 +126,7 @@ Biome 负责代码、CSS、JSON、SVG 及 Vue 的实验性 HTML 格式化，Pret
 
 ## 架构边界及局限
 
-站点框架、终端和首页入场分别见 [站点框架](site-shell.md)、[终端扩展接口](terminal-extending.md) 和 [首页入场](home-intro.md)。`check:terminal` 检查终端控件复用、公开 token、固定颜色与时长及共享组件内部选择器覆盖。
+站点框架、终端和首页入场分别见 [站点框架](site-shell.md)、[终端扩展接口](terminal-extending.md) 和 [首页入场](home-intro.md)。`check:terminal` 检查终端控件复用、公开 token、固定颜色与时长及共享组件内部选择器覆盖，范围包含终端样式表与终端特性组件的样式块。
 
 `check:architecture` 构建 app 生产模块的导入图，检查静态 import、export-from、字面量 import()/require()，支持相对路径与 `~/`、`@/`，检查循环和无法解析的本地导入（包括类型导入）。Vue 仅提取 script，资源查询参数被移除后验证文件。
 

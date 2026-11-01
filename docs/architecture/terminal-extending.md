@@ -12,7 +12,13 @@ Status: adopted
 - `presentation/`：启动、收缩、展开、跳过和中断，与命令状态分开。
 - `components/`：Host、Transcript、CommandInput、Interaction。容器、输出滚动区、文本行和命令行分别复用 Neoverse-UI 的 `UiTerminalSurface`、`UiTerminalTranscript`、`UiTerminalLine`、`UiTerminalPrompt`。CommandInput 仅将会话身份映射为 host/path 分段，原生编辑、材质、光标和状态由共享组件负责。历史命令的身份作为共享命令行文本记录，不另建提示符组件。启动消息、说明和底部状态也使用共享文本行。
 
-材质、正文内边距、排版、控件状态、圆角、动画时长和缓动来自 Neoverse-UI。门户保留页面几何、ASCII 字形适配和演出节奏倍率。`bun run check:terminal` 检查裸控件、固定颜色/时长、自造按钮和学社名称拼写，并禁止共享终端内部选择器覆盖、字体角色重定义及本地终端材质/文字样式。认证等普通表单继续使用 UiInput。输出自动跟随由 `UiTerminalTranscript` 负责，向上滚动阅读时保持当前位置。
+材质、正文内边距、排版、控件状态、圆角、动画时长和缓动来自 Neoverse-UI。门户保留页面几何、ASCII 字形适配和演出节奏倍率。`bun run check:terminal` 检查裸控件、固定颜色/时长、自造按钮和学社名称拼写，并禁止共享终端内部选择器覆盖、字体角色重定义及本地终端材质/文字样式。检查对象包含 `app/assets/css/terminal.css` 与 `app/features/terminal/**/*.vue` 的样式块，终端组件内的样式不能绕过该门禁。认证等普通表单继续使用 UiInput。输出自动跟随由 `UiTerminalTranscript` 负责，向上滚动阅读时保持当前位置。
+
+标题栏通过 `UiTerminalSurface` 的公开 `header` 插槽挂载 `TerminalWindowHeader`，保留共享容器、材质、内边距和输出区。浏览器可识别的 Apple 设备统一使用左侧三色圆点与居中会话标题，包括 Mac、iPhone、iPad、iPod 及其他 Apple 系统。Windows 与其他设备使用终端图标和普通文字标题，不添加标签底色或边框。三色圆点只作装饰，不可点击且不进入无障碍树；真实的展开与还原仍使用带标签、展开状态和圆角图标的 `UiIconButton`。窗口外框背景仅通过公开 `--neoverse-terminal-header-background` token 调整，标题排版取自 caption 字号与文字色 token；共享 UI 回归用例以 token 期望值校验这两处偏差，不通过删减比较项回避。
+
+`terminal-platform.ts` 优先读取浏览器平台提示，缺失时依次使用旧平台字段和 User-Agent。以桌面 Mac 身份运行的 iPadOS 同样使用 macOS 风格，Android 和无法识别的系统使用中性头部。系统识别只影响外观，不用于能力判断或授权。服务端渲染中性头部，挂载后更新系统样式，不重建会话。
+
+`TerminalStatusBar` 只接收展示状态，使用共享文本行和普通文字分组显示模式、当前目录、列数和快捷键提示，不使用徽标或状态圆点。窄屏时底部状态分成两行，长目录截断但保留完整悬停文本。命令输出、欢迎字符画和输入提示行不参与窗口外层样式定制。
 
 共享依赖与构建解析只维护在 [工程质量规则](engineering-quality.md#本地开发与共享依赖)。
 

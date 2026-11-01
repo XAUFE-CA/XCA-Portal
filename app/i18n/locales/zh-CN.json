@@ -27,8 +27,6 @@
   "terminal.skip": "跳过动画 ↗",
   "terminal.restoreLabel": "还原终端大小",
   "terminal.expandLabel": "展开终端",
-  "terminal.restore": "收起 ↙",
-  "terminal.expand": "展开 ↗",
   "terminal.output": "终端输出",
   "terminal.input": "输入 XCA 命令",
   "terminal.runningLabel": "正在执行命令",

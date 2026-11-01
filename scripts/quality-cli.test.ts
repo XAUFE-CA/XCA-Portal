@@ -83,3 +83,42 @@ test("architecture CLI rejects missing imports and indirect cycles and accepts a
     expect(success.output).toContain("Architecture passed (3 modules;");
   });
 });
+
+test("terminal UI CLI validates every component style block", () => {
+  withFixture((root) => {
+    write(root, "app/assets/css/terminal.css", "");
+    write(
+      root,
+      "node_modules/@neoverse-ui/tokens/dist/fixture.css",
+      ":root { --neoverse-color-text-primary: black; --neoverse-motion-duration-standard: 100ms; }",
+    );
+    const first = "app/features/terminal/components/First.vue";
+    const second = "app/features/terminal/components/Second.vue";
+    const valid = ".example { color: var(--neoverse-color-text-primary); transition-delay: 0ms; }";
+    write(root, first, `<template><div /></template><style scoped>${valid}</style>`);
+    write(root, second, `<template><div /></template><style>${valid}</style>`);
+    expect(check(root, "terminal-boundary").code).toBe(0);
+
+    for (const [css, message] of [
+      [".example { color: #fff; }", "颜色应来自 Neoverse-UI tokens"],
+      [".example { transition-duration: 100ms; }", "动画时长应来自 Neoverse-UI tokens"],
+      [".ui-terminal-surface { display: grid; }", "不要通过共享组件内部选择器覆盖终端样式"],
+      [".example { --neoverse-font-family-code: monospace; }", "终端字体角色由 Neoverse-UI 维护"],
+      [".example { color: var(--neoverse-missing-token); }", "未定义的 token"],
+      [
+        ".xca-terminal-statusbar { color: var(--neoverse-color-text-primary); }",
+        "不应重复定义共享终端材质或文字样式",
+      ],
+    ]) {
+      write(root, second, `<style>${valid}</style><style scoped>${css}</style>`);
+      const failure = check(root, "terminal-boundary");
+      expect(failure.code).toBe(1);
+      expect(failure.output.replaceAll("\\", "/")).toContain(second);
+      expect(failure.output).toContain(message);
+    }
+    write(root, second, `<style>${valid}</style>`);
+    expect(check(root, "terminal-boundary").code).toBe(0);
+    write(root, "app/assets/css/terminal.css", ".example { color: #fff; }");
+    expect(check(root, "terminal-boundary").code).toBe(1);
+  });
+});

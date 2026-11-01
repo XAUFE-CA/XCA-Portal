@@ -25,7 +25,7 @@ test("terminal font uses the shared Maple role for Chinese, Latin and command te
 
     const selectors = [
       ".xca-terminal-window",
-      ".ui-terminal-surface__title",
+      ".xca-terminal-chrome",
       ".xca-terminal-screen",
       ".xca-terminal-banner",
       ".ui-terminal-prompt__editor",
@@ -63,7 +63,7 @@ test("terminal font uses the shared Maple role for Chinese, Latin and command te
     await input.press("Enter");
     const transcript = page.locator(".xca-terminal-transcript");
     await expect(transcript).toContainText(zh["command.available"]);
-    const commands = await transcript.innerText();
+    const commands = (await transcript.textContent()) ?? "";
     expect(commands).not.toMatch(/\bfont\s+查看或切换/);
   } finally {
     await context.close();
@@ -141,9 +141,6 @@ test("glass material remains translucent and usable in both themes", async ({ pa
       .locator(".xca-terminal-screen")
       .evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(bg).toBe("rgba(0, 0, 0, 0)");
-    await expect(page.locator(".ui-terminal-surface__title")).toHaveCSS(
-      "font-family",
-      /Maple Mono NF CN/,
-    );
+    await expect(page.locator(".xca-terminal-chrome")).toHaveCSS("font-family", /Maple Mono NF CN/);
   }
 });
