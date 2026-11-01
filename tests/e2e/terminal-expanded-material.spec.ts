@@ -1,4 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 async function readTerminalShadeTimeline(page: Page) {
   return page.evaluate(() => {

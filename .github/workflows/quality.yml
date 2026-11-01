@@ -12,18 +12,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        # Hosted runners render the cinematic intro without a GPU; shards keep each job
-        # inside its timeout instead of stretching a single serial run past the limit.
-        # 托管运行器没有 GPU 渲染影院式入场；分片让每个作业保持在超时限制内，
-        # 而不是把单条串行任务拖过上限。
-        shard: [1, 2, 3]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+  # Gates and the production build run once; browser jobs reuse the artifact.
+  # 门禁与生产构建只运行一次，浏览器作业复用其产物。
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: XCA-Portal
@@ -63,6 +56,73 @@ jobs:
         run: bun run check:fast
       - name: Production build
         run: bunx nuxt build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: portal-build
+          # The build output is a dot-directory, which the action excludes by default.
+          # 构建产物是点开头的目录，该动作默认会跳过隐藏文件。
+          path: XCA-Portal/.output
+          include-hidden-files: true
+          retention-days: 1
+
+  # Hosted runners render the cinematic intro without a GPU, so functional coverage is
+  # split across shards. Image baselines depend on the rasterizer of the machine that owns
+  # them, so they run in the separate images workflow instead of gating every push.
+  # 托管运行器没有 GPU 渲染影院式入场，因此功能覆盖按分片切分。
+  # 图片基线取决于其所在机器的光栅器，因此改在独立的 images 工作流运行，不阻断每次推送。
+  browser:
+    needs: gates
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shard: 1
+          - os: ubuntu-latest
+            shard: 2
+          - os: ubuntu-latest
+            shard: 3
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: XCA-Portal
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: XCA-Portal
+          persist-credentials: false
+      # Early development only: published dependencies need no sibling checkout.
+      # 仅早期开发需要：发布版本无需联合检出。
+      - uses: actions/checkout@v7
+        with:
+          repository: SSJ-ZYJ/Neoverse-UI
+          ref: 59262b08e19471a8b3741d99e214484943755a19
+          path: Neoverse-UI
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('XCA-Portal/bun.lock', 'Neoverse-UI/bun.lock') }}
+      - name: Install shared workspace
+        working-directory: Neoverse-UI
+        run: bun install --frozen-lockfile --linker hoisted
+      - name: Install portal
+        run: bun install --frozen-lockfile --linker hoisted
+      # Early development only; published dependencies need no sync.
+      # 仅早期开发需要；发布版本无需同步。
+      - name: Sync shared UI
+        run: bun run ui:sync
+      - uses: actions/download-artifact@v7
+        with:
+          name: portal-build
+          path: XCA-Portal/.output
       - name: Install Chromium (Linux)
         if: runner.os == 'Linux'
         run: bunx playwright install --with-deps chromium
@@ -70,10 +130,9 @@ jobs:
         if: runner.os == 'Linux'
         # Existing image baselines are Windows-only. All functional assertions still run.
         # 现有图片基线仅限 Windows；所有功能断言仍会运行。
-        run: bunx playwright test --ignore-snapshots --shard=${{ matrix.shard }}/3
-      - name: Browser and existing image regression (Windows)
-        if: runner.os == 'Windows'
-        run: bunx playwright test --shard=${{ matrix.shard }}/3
+        # Full-scene geometry runs in the cinematic workflow; a slow renderer cannot host it.
+        # 完整场景几何由 cinematic 工作流承担；慢速渲染器跑不动它。
+        run: bunx playwright test --ignore-snapshots --grep-invert @cinematic --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

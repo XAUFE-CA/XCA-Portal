@@ -347,10 +347,25 @@ function bindMesh(state: MeshState) {
   }
 }
 
+/**
+ * Software rasterizers fill pixels on the CPU, so supersampling them costs frames without
+ * gaining detail the scene can show. Detect one and keep the native resolution instead.
+ * 软件光栅器在 CPU 上填充像素，对它超采样只会掉帧，换不来场景能呈现的细节。
+ * 因此识别软件光栅器并保持原生分辨率。
+ */
+function softwareRasterizer(gl: WebGLRenderingContext): boolean {
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  if (!info) return false;
+  const renderer = String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
+  return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer);
+}
+
 function prepareCityLayer(state: MeshState, root: HTMLElement, canvas: HTMLCanvasElement) {
   // Supersample even if the driver declines the requested multisampling.
   // 即使驱动拒绝请求的多重采样，也仍进行超采样。
-  const ratio = Math.min(2.5, Math.max(2, window.devicePixelRatio || 1));
+  const ratio = softwareRasterizer(state.gl)
+    ? 1
+    : Math.min(2.5, Math.max(2, window.devicePixelRatio || 1));
   const limit = state.gl.getParameter(state.gl.MAX_RENDERBUFFER_SIZE) as number;
   // Bound each full-screen attachment on large displays (8 million pixels).
   // 在大屏幕上限制每个全屏附件的显存占用（800 万像素）。

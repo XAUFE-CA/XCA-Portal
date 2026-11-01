@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
 import { resumeAnimations } from "./timing";
 
 // These tests pin content and image loading states plus the geometry around them.
@@ -9,6 +10,7 @@ const bannerImage =
   '<svg xmlns="http://www.w3.org/2000/svg" width="2172" height="724"><rect width="2172" height="724" fill="gray"/></svg>';
 
 test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
   await page.route("**/xca-banner-*.webp", (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: bannerImage }),
   );
@@ -128,9 +130,11 @@ test("loaded content crossfades with the skeleton in the same card area", async 
         const animations = [content, skeleton].flatMap((element) => element.getAnimations());
         if (!animations.length) return 0;
         for (const animation of animations) {
-          const duration = Number(animation.effect?.getComputedTiming().duration ?? 0);
+          const timing = animation.effect?.getComputedTiming();
+          // Skip the delay too: a delayed transition parked at its start reports opacity 0.
+          // 同时跳过延迟：带延迟的过渡停在起点时透明度仍为 0。
           animation.pause();
-          animation.currentTime = duration / 2;
+          animation.currentTime = Number(timing?.delay ?? 0) + Number(timing?.duration ?? 0) / 2;
         }
         return animations.length;
       }),

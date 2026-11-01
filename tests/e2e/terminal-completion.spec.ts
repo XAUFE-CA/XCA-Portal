@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
 
 test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 });

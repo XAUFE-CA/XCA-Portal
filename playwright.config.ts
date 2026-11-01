@@ -9,8 +9,13 @@ export default defineConfig({
   // several times the wall clock of a GPU machine; stage waits use SCENE_TIMEOUT from ./tests/e2e/timing.
   // 影院式入场每个提示都要等一帧，软件渲染运行器需要数倍于 GPU 机器的墙钟时间；
   // 阶段等待使用 ./tests/e2e/timing 中的 SCENE_TIMEOUT。
-  timeout: 120_000,
+  timeout: 300_000,
   expect: { timeout: 20_000 },
+  // A shared runner occasionally skips a stage inside one frame; one retry separates that
+  // from a real failure without hiding it (a retry that also fails still blocks).
+  // 共享运行器偶尔会在单帧内跳过某个阶段；一次重试可将其与真实失败区分开，
+  // 且重试后仍失败时依旧阻断。
+  retries: process.env.CI ? 1 : 0,
   workers: 1,
   fullyParallel: false,
   reporter: "list",

@@ -1,4 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 // The header borrows the shared Aurora Glass stroke instead of painting its own:
 // its silhouette keeps the card radius on the bottom edge at the page top, so the

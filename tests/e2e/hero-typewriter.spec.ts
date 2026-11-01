@@ -236,7 +236,7 @@ test("moving away keeps the heading paused, clicking outside resumes its normal 
   await expect(heading).not.toHaveAttribute("aria-label", firstSentence);
 });
 
-test("clicking outside during a partial line keeps typing without revealing characters", async ({
+test("clicking outside during a partial line keeps typing without revealing characters @cinematic", async ({
   page,
 }) => {
   await page.clock.install();

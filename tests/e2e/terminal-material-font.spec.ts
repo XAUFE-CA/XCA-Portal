@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
+import { useBriefEntry } from "./entry";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 // Terminal faces are WOFF2 subsets under /_nuxt; an isolated profile avoids local font fallback.
 // 终端字体是 /_nuxt 下的 WOFF2 子集，使用隔离的浏览器配置，避免回退到本地字体。

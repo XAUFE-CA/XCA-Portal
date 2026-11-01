@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 for (const width of [1440, 390]) {
   for (const colorScheme of ["light", "dark"] as const) {

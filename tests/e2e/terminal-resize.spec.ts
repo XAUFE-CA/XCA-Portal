@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 test("following survives terminal column and viewport reflow without a new command", async ({
   page,

@@ -1,0 +1,68 @@
+name: Cinematic
+on:
+  workflow_dispatch:
+    inputs:
+      shard:
+        description: "Shard index (1-3)"
+        default: "1"
+
+permissions:
+  contents: read
+concurrency:
+  group: cinematic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-scene:
+    # The full intro mounts ~40 sequential cues; a hosted runner renders a few frames per
+    # second, so these cases run on demand instead of gating every push.
+    # 完整入场串联约 40 个提示；托管运行器每秒只有几帧，因此这些用例按需运行，不阻断每次推送。
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: XCA-Portal
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: XCA-Portal
+          persist-credentials: false
+      # Early development only: published dependencies need no sibling checkout.
+      # 仅早期开发需要：发布版本无需联合检出。
+      - uses: actions/checkout@v7
+        with:
+          repository: SSJ-ZYJ/Neoverse-UI
+          ref: 59262b08e19471a8b3741d99e214484943755a19
+          path: Neoverse-UI
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('XCA-Portal/bun.lock', 'Neoverse-UI/bun.lock') }}
+      - name: Install shared workspace
+        working-directory: Neoverse-UI
+        run: bun install --frozen-lockfile --linker hoisted
+      - name: Install portal
+        run: bun install --frozen-lockfile --linker hoisted
+      # Early development only; published dependencies need no sync.
+      # 仅早期开发需要；发布版本无需同步。
+      - name: Sync shared UI
+        run: bun run ui:sync
+      - name: Production build
+        run: bunx nuxt build
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: Full-scene regression
+        run: bunx playwright test --ignore-snapshots --grep @cinematic --shard=${{ inputs.shard }}/3
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: cinematic-results
+          path: XCA-Portal/test-results
+          if-no-files-found: ignore

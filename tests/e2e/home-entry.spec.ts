@@ -139,19 +139,34 @@ test("three separate spaces smoothly skip the scene and retain the real terminal
   await page.keyboard.press("Space");
   await page.keyboard.press("Space");
   await expect(page.locator(".xca-terminal-screen--reveal")).toHaveCount(0);
-  const opacities = await page.evaluate(async () => {
+  // Hold the skip fade at its midpoint: a slow renderer can drop the whole fade in one frame.
+  // 把跳过淡出冻结在中点：慢速渲染器可能一帧就走完整个淡出。
+  const faded = await page.evaluate(async () => {
     document.body.dispatchEvent(
       new KeyboardEvent("keydown", { code: "Space", key: " ", bubbles: true }),
     );
     const scene = document.querySelector(".xca-ca-intro");
-    const values: number[] = [];
-    while (scene?.isConnected) {
-      values.push(Number(getComputedStyle(scene).opacity));
-      await new Promise(requestAnimationFrame);
+    if (!scene) return null;
+    const own = () =>
+      scene.getAnimations().filter((animation) => animation.constructor.name === "Animation");
+    let animations = own();
+    if (!animations.length) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      animations = own();
     }
-    return values;
+    if (!animations.length) return null;
+    const span = Math.max(
+      ...animations.map((animation) => Number(animation.effect?.getComputedTiming().duration ?? 0)),
+    );
+    for (const animation of animations) animation.pause();
+    for (const animation of animations) animation.currentTime = span / 2;
+    const opacity = Number(getComputedStyle(scene).opacity);
+    for (const animation of animations) animation.play();
+    return opacity;
   });
-  expect(opacities.some((value) => value > 0 && value < 1)).toBe(true);
+  if (faded === null) throw new Error("The skip fade must animate the scene");
+  expect(faded).toBeGreaterThan(0);
+  expect(faded).toBeLessThan(1);
   await ready(page);
   await expect(page.locator(".xca-terminal-window")).toHaveAttribute("data-host", "original");
   await expect(page.locator(".xca-ca-intro, .xca-terminal-hero__intro-backdrop")).toHaveCount(0);
@@ -220,7 +235,11 @@ test("entering on another route consumes the session entry and returning keeps s
 }) => {
   await watchScenes(page);
   await page.goto("/about", { waitUntil: "domcontentloaded" });
-  expect(await page.evaluate(() => sessionStorage.getItem("xca-intro-session"))).toBe("1");
+  // The entry record lands during client startup, after the document is interactive.
+  // 入口记录在客户端启动时写入，晚于文档可交互。
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem("xca-intro-session")))
+    .toBe("1");
   await page.getByRole("link", { name: "首页", exact: true }).click();
   await ready(page);
   const input = page.locator("#xca-command-input");

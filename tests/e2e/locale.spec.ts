@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
+import { SETTLE_TIMEOUT } from "./timing";
 
 test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 });
@@ -99,13 +102,16 @@ test("header navigation and settings remain reachable without overlap in both la
     const mobileMenu = page.locator(".site-menu").getByRole("button");
     if (await mobileMenu.isVisible()) {
       if ((await mobileMenu.getAttribute("aria-expanded")) === "false") await mobileMenu.click();
+      // The panel must report itself open before its controls can be clicked.
+      // 面板必须先报告已展开，其控件才可以点击。
+      await expect(mobileMenu).toHaveAttribute("aria-expanded", "true");
       await expect(page.locator(".site-controls")).toBeVisible();
     }
     for (const language of ["English", "中文"]) {
       await page
         .locator(".site-controls")
         .getByRole("radio", { name: language, exact: true })
-        .click();
+        .click({ timeout: SETTLE_TIMEOUT });
       const differences = await page.evaluate(measureHeaderIssues);
       expect(differences, `${language}, ${width}px`).toEqual([]);
     }

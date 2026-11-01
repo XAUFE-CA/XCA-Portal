@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
 import { setThemePreference } from "./preferences";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 for (const width of [1440, 390]) {
   for (const theme of ["dark", "light"] as const) {

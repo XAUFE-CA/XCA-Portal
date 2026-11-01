@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
 import { setThemePreference } from "./preferences";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 type RefreshObservation = {
   beforeHydration: number;

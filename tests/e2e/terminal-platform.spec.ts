@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { useBriefEntry } from "./entry";
+
+test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
+});
 
 for (const profile of [
   { client: "macOS", legacy: "MacIntel", expected: "macos" },

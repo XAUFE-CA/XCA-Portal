@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
+import { useBriefEntry } from "./entry";
 
 test.beforeEach(async ({ page }) => {
+  await useBriefEntry(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 });

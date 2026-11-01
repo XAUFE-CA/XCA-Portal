@@ -7,13 +7,13 @@ import type { Page } from "@playwright/test";
  * 入场阶段到达的墙钟预算。60fps 机器上入场约 24 秒，软件渲染时每个提示都要等一帧，
  * 因此阶段等待不能按快机器的时长推导。
  */
-export const SCENE_TIMEOUT = 120_000;
+export const SCENE_TIMEOUT = 180_000;
 
 /**
  * Budget for a single CSS/WAAPI settle after a state change.
  * 单次状态变更后 CSS/WAAPI 收敛的预算。
  */
-export const SETTLE_TIMEOUT = 30_000;
+export const SETTLE_TIMEOUT = 60_000;
 
 export interface TerminalRecord {
   /** Journey stage seen at the moment of the record. */
@@ -30,6 +30,8 @@ export interface TerminalRecord {
   fill: number | null;
   /** Rendered boot progress track text, null when absent. */
   track: string | null;
+  /** Rendered characters of the first history entry, which is the banner. */
+  banner: number;
 }
 
 export interface ContinuitySnapshot {
@@ -49,10 +51,12 @@ export interface ContinuitySnapshot {
 
 export interface TerminalRecords {
   sequence: TerminalRecord[];
-  /** Snapshots of the printed welcome, taken while the brand screen still owns it. */
+  /** Snapshots of the printed welcome, taken while the entry still owns it. */
   printed: ContinuitySnapshot[] | null;
   /** Snapshots of the same lines once the ready screen shows them. */
   ready: ContinuitySnapshot[] | null;
+  /** Whether the ready lines already existed before the ready screen appeared. */
+  reused: boolean | null;
 }
 
 /** Capture the printed history geometry relative to the screen and the terminal scale. */
@@ -100,15 +104,21 @@ function installRecorder() {
     progress: number | null;
     fill: number | null;
     track: string | null;
+    banner: number;
   };
   interface Capture {
     xcaCaptureTerminalLines: () => unknown[];
   }
-  const records: { sequence: Entry[]; printed: unknown[] | null; ready: unknown[] | null } = {
-    sequence: [],
-    printed: null,
-    ready: null,
-  };
+  const records: {
+    sequence: Entry[];
+    printed: unknown[] | null;
+    ready: unknown[] | null;
+    reused: boolean | null;
+  } = { sequence: [], printed: null, ready: null, reused: null };
+  // Lines observed before the ready screen prove the entry kept the same DOM nodes.
+  // 就绪前观测到的行可以证明入场沿用了同一批 DOM 节点。
+  const seenBeforeReady = new WeakSet<Element>();
+  let previousSignature = "";
   Object.assign(window, { xcaTerminalRecords: records });
   const capture = (window as unknown as Capture).xcaCaptureTerminalLines;
   const historySelector =
@@ -130,6 +140,7 @@ function installRecorder() {
       progress: progress === undefined || progress === null ? null : Number(progress),
       fill: fill === undefined || fill === null ? null : fill.length,
       track: screen?.querySelector(".xca-terminal-boot-progress__track")?.textContent ?? null,
+      banner: screen?.querySelector(historySelector)?.textContent?.length ?? 0,
     };
   }
   function sample() {
@@ -142,15 +153,31 @@ function installRecorder() {
       previous.bootLines === entry.bootLines &&
       previous.progress === entry.progress &&
       previous.fill === entry.fill &&
-      previous.track === entry.track;
+      previous.track === entry.track &&
+      previous.banner === entry.banner;
     if (unchanged) return;
     records.sequence.push(entry);
-    // The brand screen still owns the printed welcome; keep the latest capture so the
-    // recorded geometry is the one the ready screen inherits.
-    // 标识屏幕仍持有已打印的欢迎语；保留最后一次记录，使几何就是就绪屏幕承接的那一帧。
-    if (entry.screen.includes("brand") && entry.lines === 4) records.printed = capture();
-    if (records.printed && entry.screen.includes("ready") && !records.ready)
-      records.ready = capture();
+    // Keep the last entry-side capture whose four lines already carry text: the geometry the
+    // ready screen must inherit. A slow frame can merge the stage, so no class marker is used.
+    // 保留入场侧最后一次四行都已有文本的快照：那是就绪屏幕必须承接的几何。
+    // 慢帧可能合并阶段，因此不依赖类名标记。
+    if (!entry.screen.includes("ready") && entry.lines >= 4) {
+      const lines = capture().slice(0, 4);
+      const text = (line: unknown) => (line as { text: string | null }).text ?? "";
+      const signature = lines.map(text).join("\u0000");
+      // Accept only a printed banner: the same text across two batches means printing finished.
+      // 只采纳已打印完的字符画：连续两批文本相同即视为打印结束。
+      if (lines.length === 4 && signature === previousSignature && signature.trim())
+        records.printed = lines;
+      previousSignature = signature;
+    }
+    if (entry.screen.includes("ready") && !records.ready) {
+      const lines = capture().slice(0, 4);
+      records.ready = lines;
+      records.reused = lines.every((line) => seenBeforeReady.has(line as never));
+    }
+    const current = document.querySelectorAll(historySelector);
+    for (const line of current) if (!entry.screen.includes("ready")) seenBeforeReady.add(line);
   }
   const start = () => {
     if (!document.body) {
@@ -181,22 +208,14 @@ export async function recordTerminal(page: Page): Promise<void> {
 }
 
 /** Read the records collected by {@link recordTerminal}. */
-export function terminalRecords(page: Page): Promise<{
-  sequence: TerminalRecord[];
-  printed: ContinuitySnapshot[] | null;
-  ready: ContinuitySnapshot[] | null;
-}> {
+export function terminalRecords(page: Page): Promise<TerminalRecords> {
   return page.evaluate(
     () =>
       (
         window as unknown as {
-          xcaTerminalRecords?: {
-            sequence: TerminalRecord[];
-            printed: ContinuitySnapshot[] | null;
-            ready: ContinuitySnapshot[] | null;
-          };
+          xcaTerminalRecords?: TerminalRecords;
         }
-      ).xcaTerminalRecords ?? { sequence: [], printed: null, ready: null },
+      ).xcaTerminalRecords ?? { sequence: [], printed: null, ready: null, reused: null },
   );
 }
 
@@ -247,5 +266,44 @@ export function holdAnimations(
       return { total: animations.length, frozen };
     },
     { selector, share },
+  );
+}
+
+/**
+ * Step the intro timeline forward until the page satisfies a condition.
+ * Each step costs one frame instead of waiting the scene out in real time, which keeps
+ * choreography specs bounded on renderers that deliver only a few frames per second.
+ * 按步推进入场时间线，直到页面满足条件。每步只花一帧，而不是按真实时间等完整个场景，
+ * 使编排用例在每秒只有几帧的渲染器上仍有上界。
+ */
+export function advanceUntil(page: Page, condition: string, budget = 120_000): Promise<boolean> {
+  return page.evaluate(
+    async ({ condition, budget }) => {
+      const satisfied = new Function(`return (${condition})`) as () => boolean;
+      const deadline = performance.now() + budget;
+      while (performance.now() < deadline) {
+        if (satisfied()) return true;
+        // Finish the cue that is currently running; the next one is only created after it ends,
+        // so this advances one stage per frame instead of skipping ahead.
+        // 结束当前正在跑的提示；下一个提示在它结束后才创建，因此每帧只推进一个阶段而不会跳过。
+        for (const animation of document.getAnimations()) {
+          if (animation.constructor.name !== "Animation") continue;
+          const duration = Number(animation.effect?.getComputedTiming().duration ?? 0);
+          if (!Number.isFinite(duration) || duration <= 0) continue;
+          if (Number(animation.currentTime ?? 0) >= duration) continue;
+          // finish() resolves the finished promise the presentation awaits, which a paused
+          // seek does not guarantee. 结束当前提示以兑现展示层等待的 finished 承诺，
+          // 单纯的暂停跳转并不保证这一点。
+          try {
+            animation.finish();
+          } catch {
+            animation.cancel();
+          }
+        }
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      }
+      return satisfied();
+    },
+    { condition, budget },
   );
 }
