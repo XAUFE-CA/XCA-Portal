@@ -1,7 +1,99 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+function samplePreferenceResize(page: Page, label: "English" | "中文") {
+  return page.evaluate(async (nextLabel) => {
+    const shell = document.querySelectorAll<HTMLElement>(
+      ".site-preference-group > [data-surface]",
+    )[1];
+    const option = [
+      ...document.querySelectorAll<HTMLButtonElement>(".site-controls [role=radio]"),
+    ].find((button) => button.textContent?.trim() === nextLabel);
+    if (!shell || !option) throw new Error("Preference shell and language option are required");
+    const width = () => Number.parseFloat(getComputedStyle(shell).width);
+    const before = width();
+    option.click();
+    await new Promise(requestAnimationFrame);
+    const animation = shell
+      .getAnimations()
+      .find(
+        (candidate) =>
+          candidate.effect instanceof KeyframeEffect &&
+          candidate.effect.getKeyframes().some((frame) => typeof frame.width === "string"),
+      );
+    if (!animation || !(animation.effect instanceof KeyframeEffect)) {
+      return { before, start: null, middle: null, after: width(), settled: true };
+    }
+    const duration = animation.effect.getComputedTiming().duration;
+    if (typeof duration !== "number") throw new Error("Resize animation needs a finite duration");
+    animation.pause();
+    animation.currentTime = 0;
+    const start = width();
+    animation.currentTime = duration / 2;
+    const middle = width();
+    animation.finish();
+    await animation.finished;
+    await new Promise(requestAnimationFrame);
+    return { before, start, middle, after: width(), settled: shell.getAnimations().length === 0 };
+  }, label);
+}
+
+function preferenceSurfaces(page: Page) {
+  return page.evaluate(() => {
+    const navigation = document.querySelector(".site-navigation > [data-surface]");
+    if (!navigation) throw new Error("The navigation surface is required");
+    const appearance = (element: Element) => {
+      const style = getComputedStyle(element);
+      return [
+        style.backgroundColor,
+        style.backgroundImage,
+        style.boxShadow,
+        style.borderColor,
+        style.borderWidth,
+        style.borderRadius,
+        style.getPropertyValue("--neoverse-material-filter").trim(),
+      ].join("|");
+    };
+    const expected = appearance(navigation);
+    const surfaces = document.querySelectorAll(".site-preference-group > [data-surface]");
+    const groups = document.querySelectorAll(".site-controls [role=radiogroup]");
+    const balanced = [...surfaces].every((surface) => {
+      const control = surface.querySelector("[role=radiogroup]");
+      if (!control) return false;
+      const outer = surface.getBoundingClientRect();
+      const inner = control.getBoundingClientRect();
+      const insets = [
+        inner.left - outer.left,
+        outer.right - inner.right,
+        inner.top - outer.top,
+        outer.bottom - inner.bottom,
+      ];
+      return Math.max(...insets) - Math.min(...insets) < 1;
+    });
+    return {
+      surfaces: surfaces.length,
+      balanced,
+      matching: [...surfaces].every(
+        (surface) =>
+          surface.getAttribute("data-surface") === "glass-subtle" &&
+          surface.getAttribute("data-neoverse-glass-edge-pass") === "css" &&
+          appearance(surface) === expected,
+      ),
+      embedded: [...groups].filter((group) => {
+        const style = getComputedStyle(group);
+        return (
+          group.getAttribute("data-surface") === "none" &&
+          style.backgroundColor === "rgba(0, 0, 0, 0)" &&
+          style.backgroundImage === "none" &&
+          style.boxShadow === "none" &&
+          style.backdropFilter === "none"
+        );
+      }).length,
+    };
+  });
+}
 
 for (const width of [1440, 390]) {
-  test(`header controls retain shared typography and proportions at ${width}px`, async ({
+  test(`header controls retain shared surfaces, typography and proportions at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -18,6 +110,15 @@ for (const width of [1440, 390]) {
       await localeOptions.nth(locale).click();
       for (const theme of [0, 1, 2]) {
         await themeOptions.nth(theme).click();
+        await page.mouse.move(0, 0);
+        await expect
+          .poll(() => preferenceSurfaces(page))
+          .toEqual({
+            surfaces: 2,
+            balanced: true,
+            matching: true,
+            embedded: 2,
+          });
         const geometry = await page.evaluate(() => {
           const navigation = document.querySelector(".site-navigation a");
           if (!navigation) throw new Error("Header navigation is missing");
@@ -45,6 +146,75 @@ for (const width of [1440, 390]) {
     }
   });
 }
+
+for (const width of [1440, 390]) {
+  for (const reducedMotion of ["no-preference", "reduce"] as const) {
+    test(`preference shells resize smoothly at ${width}px / ${reducedMotion}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion });
+      await page.goto("/about");
+      if (width === 390) await page.locator(".site-menu").getByRole("button").click();
+      await page.evaluate(() => document.fonts.ready);
+      for (const label of ["English", "中文"] as const) {
+        const result = await samplePreferenceResize(page, label);
+        expect(Math.abs(result.after - result.before)).toBeGreaterThan(1);
+        expect(result.settled).toBe(true);
+        if (reducedMotion === "reduce") {
+          expect(result.middle).toBeNull();
+        } else {
+          if (result.start === null || result.middle === null)
+            throw new Error("Language changes must animate the preference shell width");
+          expect(result.start).toBeCloseTo(result.before, 0);
+          expect(result.middle).toBeGreaterThan(Math.min(result.before, result.after));
+          expect(result.middle).toBeLessThan(Math.max(result.before, result.after));
+        }
+        await expect(page.getByRole("radio", { name: label, exact: true })).toBeChecked();
+      }
+    });
+  }
+}
+
+test("rapid language reversals continue from the visible width and resize restores auto sizing", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/about");
+  await page.evaluate(() => document.fonts.ready);
+  const result = await page.evaluate(async () => {
+    const shell = document.querySelectorAll<HTMLElement>(
+      ".site-preference-group > [data-surface]",
+    )[1];
+    if (!shell) throw new Error("The theme shell is required");
+    const width = () => Number.parseFloat(getComputedStyle(shell).width);
+    const initial = width();
+    const switchLanguage = (label: string) => {
+      const option = [
+        ...document.querySelectorAll<HTMLButtonElement>(".site-controls [role=radio]"),
+      ].find((button) => button.textContent?.trim() === label);
+      if (!option) throw new Error("The language option is required");
+      option.click();
+    };
+    switchLanguage("English");
+    await new Promise(requestAnimationFrame);
+    const first = shell.getAnimations()[0];
+    if (!first || !(first.effect instanceof KeyframeEffect)) throw new Error("Resize is missing");
+    first.pause();
+    first.currentTime = Number(first.effect.getComputedTiming().duration) / 2;
+    const interrupted = width();
+    switchLanguage("中文");
+    await new Promise(requestAnimationFrame);
+    const second = shell.getAnimations()[0];
+    if (!second) throw new Error("The reverse resize is missing");
+    second.pause();
+    second.currentTime = 0;
+    const resumed = width();
+    window.dispatchEvent(new Event("resize"));
+    return { initial, interrupted, resumed, final: width(), active: shell.getAnimations().length };
+  });
+  expect(result.resumed).toBeCloseTo(result.interrupted, 0);
+  expect(result.final).toBeCloseTo(result.initial, 0);
+  expect(result.active).toBe(0);
+});
 
 test("mobile navigation stays compact until opened and keeps shared theme controls usable", async ({
   page,

@@ -226,6 +226,7 @@ a {
   gap: var(--neoverse-space-4);
 }
 .site-preference-group {
+  --neoverse-control-surface-padding-inline: var(--neoverse-control-surface-padding-block);
   display: grid;
   justify-items: start;
   gap: var(--neoverse-space-2);

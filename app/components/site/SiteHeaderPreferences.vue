@@ -1,12 +1,65 @@
 <script setup lang="ts">
-import { UiSegmentedControl } from "@neoverse-ui/vue";
-import { computed } from "vue";
+import { motionRoles, prefersReducedMotion } from "@neoverse-ui/motion";
+import { UiControlSurface, UiSegmentedControl } from "@neoverse-ui/vue";
+import { computed, onBeforeUnmount, onBeforeUpdate, onMounted, onUpdated, ref } from "vue";
 import { SITE } from "~/config/site";
 import { locales } from "~/i18n";
 
 const props = defineProps<{ labelled?: boolean }>();
 const { locale, t, setLocale } = useSiteLocale();
 const { theme, setTheme } = useSiteTheme();
+const controls = ref<HTMLElement>();
+const animations = new Map<HTMLElement, Animation>();
+let measurements: { element: HTMLElement; width: string }[] = [];
+let reducedMotion: MediaQueryList | undefined;
+
+function cancelResizing() {
+  for (const animation of animations.values()) animation.cancel();
+  animations.clear();
+}
+onBeforeUpdate(() => {
+  // Capture the visible width before cancellation so rapid switches continue in place.
+  // 取消前记录当前可见宽度，使连续切换从当前位置接续。
+  measurements = [
+    ...(controls.value?.querySelectorAll<HTMLElement>(".site-preference-group > [data-surface]") ??
+      []),
+  ].map((element) => ({ element, width: getComputedStyle(element).width }));
+  cancelResizing();
+});
+onUpdated(() => {
+  if (prefersReducedMotion()) return;
+  for (const { element, width } of measurements) {
+    if (typeof element.animate !== "function") continue;
+    const style = getComputedStyle(element);
+    const target = style.width;
+    if (Math.abs(Number.parseFloat(target) - Number.parseFloat(width)) < 0.5) continue;
+    const duration = style.getPropertyValue(motionRoles.spatial.duration).trim();
+    const milliseconds = Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) continue;
+    const animation = element.animate([{ width }, { width: target }], {
+      duration: milliseconds,
+      easing: style.getPropertyValue(motionRoles.spatial.easing).trim(),
+      fill: "both",
+    });
+    animations.set(element, animation);
+    const finish = () => {
+      if (animations.get(element) !== animation) return;
+      animations.delete(element);
+      animation.cancel();
+    };
+    void animation.finished.then(finish, finish);
+  }
+});
+onMounted(() => {
+  reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  reducedMotion.addEventListener("change", cancelResizing);
+  window.addEventListener("resize", cancelResizing);
+});
+onBeforeUnmount(() => {
+  cancelResizing();
+  reducedMotion?.removeEventListener("change", cancelResizing);
+  window.removeEventListener("resize", cancelResizing);
+});
 const themeOptions = computed(() =>
   SITE.themes.map((value) => ({ value, label: t(`theme.${value}`) })),
 );
@@ -19,25 +72,31 @@ function selectTheme(value: string) {
 </script>
 
 <template>
-  <div class="site-controls">
+  <div ref="controls" class="site-controls">
     <div class="site-preference-group">
       <p v-if="props.labelled" class="site-preference-label">{{ t("locale.label") }}</p>
-      <UiSegmentedControl
-        :options="localeOptions"
-        :model-value="locale"
-        :aria-label="t('locale.label')"
-        @update:model-value="setLocale"
-      />
+      <UiControlSurface edge-mode="local">
+        <UiSegmentedControl
+          surface="none"
+          :options="localeOptions"
+          :model-value="locale"
+          :aria-label="t('locale.label')"
+          @update:model-value="setLocale"
+        />
+      </UiControlSurface>
     </div>
     <div class="site-preference-group">
       <p v-if="props.labelled" class="site-preference-label">{{ t("theme.label") }}</p>
-      <UiSegmentedControl
-        :options="themeOptions"
-        class="site-theme-control"
-        :model-value="theme"
-        :aria-label="t('theme.label')"
-        @update:model-value="selectTheme"
-      />
+      <UiControlSurface edge-mode="local">
+        <UiSegmentedControl
+          surface="none"
+          :options="themeOptions"
+          class="site-theme-control"
+          :model-value="theme"
+          :aria-label="t('theme.label')"
+          @update:model-value="selectTheme"
+        />
+      </UiControlSurface>
     </div>
   </div>
 </template>

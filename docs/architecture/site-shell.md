@@ -37,9 +37,11 @@ Status: adopted
 
 ## 主题、语言与共享 UI
 
-导航复用 `UiNavigationItem`，主题与语言复用 `UiSegmentedControl`。控件采用共享默认尺寸和 `glass-subtle` 外观，门户不覆盖字号、点击区域、材质、滑块或焦点样式。主题控件与 `xca theme` 共用 `useSiteTheme`，语言控件与终端服务共用 `useSiteLocale`。切换不重建会话。
+导航复用 `UiNavigationItem`，主题与语言复用 `UiSegmentedControl`。三组控件分别由共享 `UiControlSurface` 提供默认的 `glass-subtle` 外观，并通过 `edge-mode="local"` 使用相同的边缘绘制方式。内层导航项和分段控件使用 `surface="none"`，避免叠加独立背景与阴影，保留各自的选中样式与键盘操作。语言与主题外壳通过公开的 `--neoverse-control-surface-padding-inline` 复用纵向内边距，使四周留白一致。控件内部采用共享默认尺寸，门户不覆盖字号、点击区域、材质、滑块或焦点样式。主题控件与 `xca theme` 共用 `useSiteTheme`，语言控件与终端服务共用 `useSiteLocale`。切换不重建会话。
 
 根节点通过 `data-theme` 支持 light、dark 和 system，主题选择保存在 `xca-theme` Cookie。`useSiteTheme` 与根组件用同一偏好生成 SSR 的选中项和根节点主题，不在水合后恢复默认选项。根组件只在服务端向 Head 注册初始主题，客户端主题写入由 `useSiteTheme` 在过渡回调中执行，避免 Head 更新覆盖交互选择。`intro-gate.js` 在控件绘制前把旧 localStorage 偏好一次性迁移到 Cookie，迁移成功后移除旧值并重新请求 SSR，后续刷新不再迁移。顶栏及语言、主题控件不参与首页入场位移、缩放或错峰动画。语言存储、服务端首屏与命令输出规则只维护在 [翻译规则](../terminology/translation.md)。
+
+切换选项时，选中背景的滑动与伸缩由共享分段控件提供。语言变化导致外壳宽度改变时，`SiteHeaderPreferences` 在更新前后测量外壳，按共享 `spatial` 时长与缓动对宽度做过渡，不缩放文字。连续切换从当前可见宽度接续，完成后恢复自动宽度。首次渲染与水合不补播放动画，减少动态效果、尺寸变化及组件卸载会结束宽度动画；浏览器不支持动画接口时直接使用内容宽度。
 
 `nuxt.config.ts` 在样式表之前声明 CSS 层顺序，使基础重置层始终低于组件层，不依赖开发服务器的 SSR 样式链接顺序。声明使用固定的 `xca-cascade-order` key，服务端输出与客户端 Head 更新按同一标识复用。正文样式与共享控件保持各自的公开样式层，不提高选择器优先级覆盖基础重置。
 
