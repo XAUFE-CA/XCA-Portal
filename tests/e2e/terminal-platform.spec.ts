@@ -18,7 +18,7 @@ for (const profile of [
       await page.setViewportSize({ width: 820, height: 1180 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.addInitScript((hints) => {
-      localStorage.setItem("xca-intro-seen", "1");
+      sessionStorage.setItem("xca-intro-session", "1");
       Object.defineProperty(navigator, "userAgentData", {
         configurable: true,
         value: { platform: hints.client },

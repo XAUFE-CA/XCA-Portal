@@ -15,15 +15,16 @@ Status: adopted
 | [intro-journey.ts](../../app/features/terminal/presentation/intro-journey.ts) | 摄像机插值、终端投影与归位轨迹 |
 | [intro-mark-mesh.ts](../../app/features/terminal/presentation/intro-mark-mesh.ts)、[intro-mark-renderer.ts](../../app/features/terminal/presentation/intro-mark-renderer.ts) | 网格生成与 WebGL 绘制 |
 | [intro-transparency.ts](../../app/features/terminal/presentation/intro-transparency.ts)、[intro-city-layer.ts](../../app/features/terminal/presentation/intro-city-layer.ts) | 城市透明排序、离屏绘制与整体合成 |
-| [intro-entry.ts](../../app/features/terminal/presentation/intro-entry.ts)、[intro-playback.ts](../../app/features/terminal/presentation/intro-playback.ts) | 首次访问、快捷键、短入场及动画冻结、取消与暂停 |
+| [intro-entry.ts](../../app/features/terminal/presentation/intro-entry.ts)、[intro-playback.ts](../../app/features/terminal/presentation/intro-playback.ts) | 会话入口判定、快捷键、短入场及动画冻结、取消与暂停 |
 | [timing.ts](../../app/features/terminal/presentation/timing.ts)、[boot-script.ts](../../app/features/terminal/presentation/boot-script.ts) | 节奏倍率、交接进度与启动日志顺序 |
 | [intro-journey.css](../../app/assets/css/intro-journey.css) | 场景布局与路牌样式 |
+| [intro-session.client.ts](../../app/plugins/intro-session.client.ts) | 在路由跳转前记录本次会话的入口地址 |
 
-场景尺度、节奏倍率和投影阈值由上表源码维护，不在文档另设数值表。`useTerminalPresentation` 直接引用 `CaIntroMark` 的组件类型，`HeroSection` 直接使用终端内部接口。当前未提供独立的入场插件接口。
+场景尺度、节奏倍率和投影阈值由上表源码维护，不在文档另设数值表。`useTerminalPresentation` 直接引用 `CaIntroMark` 的组件类型，`HeroSection` 直接使用终端内部接口。当前不对外提供入场扩展插件接口。
 
 ## 启动与会话
 
-首次进入首页播放完整入场，并将访问记录写入浏览器本地存储 `xca-intro-seen`。同一浏览器后续刷新、新标签页访问和客户端路由返回使用短入场：顶栏及语言、主题控件直接呈现，标题与终端依次从下方进入，终端带轻微缩放并使用共享缓动减速到位，不挂载空间场景或播放启动日志。存储不可用时保留当前文档内的访问记录，刷新后无法保留。首次访问其他路由不消耗首页入场。客户端路由返回保留会话、命令输出和草稿。`xca intro` 重播前复用 `Session.resetWelcome` 恢复初始输出，保留命令历史、身份、目录和外观。重播、跳过和展开共用唯一的真实 TerminalHost，不创建替代终端或第二份会话。
+完整入场按浏览器标签页会话授予：`intro-session.client.ts` 在首次文档加载、路由跳转前记录入口地址并写入 `sessionStorage` 的 `xca-intro-session`，只有入口页是首页时才播放完整入场，每个文档至多一次。同一标签页内的刷新、与其他页面的往返和客户端路由返回使用短入场：顶栏及语言、主题控件直接呈现，标题与终端依次从下方进入，终端带轻微缩放并使用共享缓动减速到位，不挂载空间场景或播放启动日志。新标签页不具备该会话记录，因此重新播放完整入场。入口页不是首页时本次会话已完成入口判定，之后进入首页同样使用短入场。存储不可用时入口判定只在当前文档内有效，刷新后重新播放。客户端路由返回保留会话、命令输出和草稿。`xca intro` 重播前复用 `Session.resetWelcome` 恢复初始输出，保留命令历史、身份、目录和外观。重播、跳过和展开共用唯一的真实 TerminalHost，不创建替代终端或第二份会话。
 
 短入场期间页面保持可交互，不设置全局入场标记、不挂载全屏遮罩，也不显示跳过动画控件。导航、主题切换与命令输入可与短入场并行。离开首页会取消旧动画，展开终端会先结束短入场再执行展开，视口或减少动画偏好变化会恢复稳定布局。入场背景不接收指针事件，完整入场归位时显示的导航也不等待动画结束。
 

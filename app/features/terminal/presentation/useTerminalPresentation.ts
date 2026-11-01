@@ -5,7 +5,7 @@ import type TerminalHost from "../components/TerminalHost.vue";
 import { BOOT_SEQUENCE, type BootLine } from "./boot-script";
 import { refreshGlassDuring as trackGlassMotion } from "./glass-motion";
 import {
-  claimFirstHomeVisit,
+  claimHomeIntro,
   createIntroShortcut,
   entryTerminalFrames,
   playEntryTransition,
@@ -413,7 +413,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     window.addEventListener("keydown", onGlobalKeydown);
     window.addEventListener("resize", onViewportChange);
     document.addEventListener("visibilitychange", playback.onVisibilityChange);
-    if (claimFirstHomeVisit()) void startIntro();
+    if (claimHomeIntro()) void startIntro();
     else void enterHome(true);
   });
   onBeforeUnmount(() => {

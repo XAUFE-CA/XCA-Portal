@@ -28,7 +28,23 @@ app/                    门户应用（Nuxt 4 srcDir）
     terminal/           浏览器终端（当前唯一特性模块，作扩展范例）
       core/             纯逻辑：会话、解析、注册、虚拟工作区
       commands/         命令集合，经命令上下文访问服务
-      presentation/     入场、空间几何与轨迹、CA 网格（intro-mark-mesh.ts）、绘制（intro-mark-renderer.ts）、透明排序（intro-transparency.ts）、城市合成（intro-city-layer.ts）、玻璃刷新（glass-motion.ts）、首次访问与短入场（intro-entry.ts）、动画暂停与冻结（intro-playback.ts）、归位及展开动画、系统识别（terminal-platform.ts）
+      presentation/     入场编排、空间绘制与时间线
+        useTerminalPresentation.ts  入场阶段、启动输出、跳过与清理
+        useTerminalExpansion.ts     终端展开与聚焦遮罩
+        intro-entry.ts              会话入口、首屏判定与快捷键
+        intro-journey.ts            摄像机插值、终端投影与归位轨迹
+        intro-mark.ts               标识绘制与交接
+        intro-mark-mesh.ts          标识网格生成
+        intro-mark-renderer.ts      标识网格绘制
+        intro-geometry.ts           场景尺度、安装坐标与道路生长
+        intro-transparency.ts       城市透明排序
+        intro-city-layer.ts         城市离屏绘制与整体合成
+        glass-motion.ts             入场期间玻璃刷新
+        intro-playback.ts           动画暂停、冻结与取消
+        timing.ts                   节奏倍率、交接进度与阅读单位
+        boot-script.ts              启动日志顺序
+        terminal-platform.ts        系统识别
+        *.test.ts                   标识、几何、轨迹、排序、玻璃与平台单元测试
       components/       终端 Vue 适配组件（Host、输入、Transcript、WindowHeader、StatusBar）
       branding/         终端标识 ASCII 与字符画
       client-session.ts 命令与 Session 的组装入口
@@ -36,7 +52,7 @@ app/                    门户应用（Nuxt 4 srcDir）
   i18n/                 翻译入口与双语资源（locales/zh-CN、en）
   layouts/              默认布局：顶栏与页面容器
   pages/                路由：首页与关于学社，只做组合
-  plugins/              客户端插件：极光玻璃运行时
+  plugins/              客户端插件：极光玻璃运行时与会话入口记录
   utils/                共享工具函数（共享 token 读取）
 content/                可直接编辑的 Markdown 正文与页面元信息
   pages/about/          关于学社：zh-CN.md 与 en.md

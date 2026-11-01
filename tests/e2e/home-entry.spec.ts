@@ -20,7 +20,7 @@ async function watchScenes(page: Page) {
 
 async function holdBriefEntry(page: Page) {
   await page.addInitScript(() => {
-    localStorage.setItem("xca-intro-seen", "1");
+    sessionStorage.setItem("xca-intro-session", "1");
     const animate = Element.prototype.animate;
     Element.prototype.animate = function (frames, options) {
       const animation = animate.call(this, frames, options);
@@ -81,7 +81,7 @@ test("expansion interrupts brief entry without a late reset", async ({ page }) =
 test("saved theme keeps its text and selection background aligned through reload and switching", async ({
   page,
 }) => {
-  await page.addInitScript(() => localStorage.setItem("xca-intro-seen", "1"));
+  await page.addInitScript(() => sessionStorage.setItem("xca-intro-session", "1"));
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await ready(page);
   const themes = page.getByRole("radiogroup", { name: "主题", exact: true });
@@ -190,7 +190,7 @@ test("slow presses, intervening keys, held space and modified keys do not skip",
   await expect(page.locator("#xca-command-input")).toHaveValue("echo   ");
 });
 
-test("refresh and a new tab use a short entry without ever mounting the long scene", async ({
+test("refresh reuses the session entry while a new tab plays the intro", async ({
   page,
   context,
 }) => {
@@ -199,7 +199,7 @@ test("refresh and a new tab use a short entry without ever mounting the long sce
   await expect(page.locator(".xca-ca-intro")).toBeVisible();
   await page.keyboard.press("Escape");
   await ready(page);
-  expect(await page.evaluate(() => localStorage.getItem("xca-intro-seen"))).toBe("1");
+  expect(await page.evaluate(() => sessionStorage.getItem("xca-intro-session"))).toBe("1");
   await page.reload({ waitUntil: "domcontentloaded" });
   await ready(page);
   expect(
@@ -208,25 +208,20 @@ test("refresh and a new tab use a short entry without ever mounting the long sce
     ),
   ).toEqual({ scene: false, boot: false });
   const other = await context.newPage();
-  await watchScenes(other);
   await other.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(other.locator(".xca-ca-intro")).toBeVisible();
+  await other.keyboard.press("Escape");
   await ready(other);
-  expect(
-    await other.evaluate(
-      () => (window as unknown as { entrySeen: { scene: boolean; boot: boolean } }).entrySeen,
-    ),
-  ).toEqual({ scene: false, boot: false });
   await other.close();
 });
 
-test("visiting another route first preserves the first home intro and returning keeps session state", async ({
+test("entering on another route consumes the session entry and returning keeps session state", async ({
   page,
 }) => {
+  await watchScenes(page);
   await page.goto("/about", { waitUntil: "domcontentloaded" });
-  expect(await page.evaluate(() => localStorage.getItem("xca-intro-seen"))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem("xca-intro-session"))).toBe("1");
   await page.getByRole("link", { name: "首页", exact: true }).click();
-  await expect(page.locator(".xca-ca-intro")).toBeVisible();
-  await page.keyboard.press("Escape");
   await ready(page);
   const input = page.locator("#xca-command-input");
   await input.fill("echo retained");
@@ -235,9 +230,13 @@ test("visiting another route first preserves the first home intro and returning 
   await page.getByRole("link", { name: "关于学社", exact: true }).click();
   await page.getByRole("link", { name: "首页", exact: true }).click();
   await ready(page);
-  await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
   await expect(input).toHaveValue("draft text");
   await expect(page.locator(".xca-terminal-line").last()).toHaveText("retained");
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { entrySeen: { scene: boolean; boot: boolean } }).entrySeen,
+    ),
+  ).toEqual({ scene: false, boot: false });
 });
 
 test("explicit replay still works after refresh and can be skipped repeatedly", async ({

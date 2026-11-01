@@ -3,20 +3,37 @@ import type { IntroAnimate } from "./intro-journey";
 import { terminalDockFrames } from "./intro-journey";
 import { expressiveDuration, INTRO_PACING } from "./timing";
 
-const VISIT_KEY = "xca-intro-seen";
-let visitedInDocument = false;
+const SESSION_KEY = "xca-intro-session";
+const LEGACY_KEY = "xca-intro-seen";
+let entryResolved = false;
+let entryIsHome = false;
+let homeIntroClaimed = false;
 
-export function claimFirstHomeVisit(): boolean {
-  let seen = visitedInDocument;
-  visitedInDocument = true;
+// Records the document as the session entry; only a home entry keeps the full intro.
+// 将本次文档加载记为会话入口。只有从首页进入才保留完整入场。
+export function markSessionEntry(pathname: string): void {
+  if (entryResolved) return;
+  entryResolved = true;
+  let first = true;
   try {
-    seen ||= localStorage.getItem(VISIT_KEY) === "1";
-    localStorage.setItem(VISIT_KEY, "1");
+    first = sessionStorage.getItem(SESSION_KEY) !== "1";
+    sessionStorage.setItem(SESSION_KEY, "1");
+    // The previous permanent visit record is superseded by the session entry.
+    // 先前的永久访问记录由按会话的入口记录取代。
+    localStorage.removeItem(LEGACY_KEY);
   } catch {
-    // Keep client navigation usable when browser storage is unavailable.
-    // 浏览器存储不可用时，仍保留客户端导航的访问记录。
+    // Unavailable storage keeps the decision for this document only.
+    // 存储不可用时的判定只在本文档内有效。
   }
-  return !seen;
+  entryIsHome = first && pathname === "/";
+}
+
+// Grants the full intro to the session's home entry, once per document.
+// 完整入场只授予会话的首页入口，每个文档仅一次。
+export function claimHomeIntro(): boolean {
+  if (homeIntroClaimed) return false;
+  homeIntroClaimed = true;
+  return entryIsHome;
 }
 
 export function createIntroShortcut(skip: () => void) {
