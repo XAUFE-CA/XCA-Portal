@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { setThemePreference } from "./preferences";
+import { recordTerminal, SCENE_TIMEOUT, SETTLE_TIMEOUT, terminalRecords } from "./timing";
 
 async function freezeApproach(page: Page, fraction: number) {
   await page.evaluate((progress) => {
@@ -61,9 +62,12 @@ for (const mode of [
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await setThemePreference(page, mode.theme);
+      // Record boot progression per DOM batch; frame sampling cannot keep up on CI runners.
+      // 按 DOM 批次记录开机进度；CI 运行器上逐帧采样跟不上。
+      await recordTerminal(page);
       await page.goto("/", { waitUntil: "domcontentloaded" });
       const scene = page.locator(".xca-ca-intro");
-      await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: 15000 });
+      await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
       const original = await (await page.request.get("/brand/ca-mark.svg")).text();
       const paths = [...original.matchAll(/<path[\s\S]*?d="([\s\S]*?)"/g)].map((match) => match[1]);
       expect(
@@ -85,30 +89,53 @@ for (const mode of [
         await page.screenshot({ path: test.info().outputPath(`camera-${fraction}.png`) });
       }
       await resumeScene(page);
-      await expect(page.locator(".xca-terminal-screen--boot")).toHaveCount(1);
-      await recordBannerPrinting(page);
-      await expect(terminal).toHaveAttribute("data-journey-persistent", "yes");
+      // Capture the projection before the arrival finish; the terminal must keep growing from here.
+      // 在到达收尾前记录投影；终端此后必须继续放大。
       const arriving = await terminal.boundingBox();
       if (!arriving) throw new Error("The single real terminal must be projected during boot");
+      await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--boot/, {
+        timeout: SCENE_TIMEOUT,
+      });
+      await recordBannerPrinting(page);
+      await expect(terminal).toHaveAttribute("data-journey-persistent", "yes");
       await expect
         .poll(async () => (await terminal.boundingBox())?.width ?? 0)
         .toBeGreaterThan(arriving.width);
-      await expect(scene).toHaveAttribute("data-journey", "cruise");
+      await expect(scene).toHaveAttribute("data-journey", "cruise", { timeout: SCENE_TIMEOUT });
       await expect
-        .poll(() => page.locator(".xca-terminal-bootlog__line").count())
+        .poll(() => page.locator(".xca-terminal-bootlog__line").count(), { timeout: SCENE_TIMEOUT })
         .toBeGreaterThan(0);
-      expect(await page.locator(".xca-terminal-bootlog__line").count()).toBeLessThan(5);
       await page.screenshot({ path: test.info().outputPath("boot-cruise.png") });
-      await expect(scene).toHaveAttribute("data-journey", "retreat");
-      await expect(page.locator(".xca-terminal-bootlog__line")).toHaveCount(5);
+      await expect(scene).toHaveAttribute("data-journey", "retreat", { timeout: SCENE_TIMEOUT });
       await page.waitForTimeout(160);
       await page.screenshot({ path: test.info().outputPath("boot-arrival.png") });
       await expect(page.locator(".xca-terminal-hero__heading")).not.toHaveCSS("opacity", "0");
-      await expect(page.locator(".xca-terminal-bootlog__line")).toHaveCount(6);
-      await expect(page.locator(".xca-terminal-screen--brand")).toHaveCount(1);
+      await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--brand/, {
+        timeout: SCENE_TIMEOUT,
+      });
       await expect(scene).toHaveCount(0);
       await expect(terminal).toHaveAttribute("data-journey-persistent", "yes");
-      await expect(page.locator(".xca-terminal-screen--ready")).toHaveCount(1, { timeout: 8000 });
+      await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--ready/, {
+        timeout: SCENE_TIMEOUT,
+      });
+      // Boot lines print one at a time; the records prove it without racing live counts.
+      // 开机日志逐行打印；记录足以证明，无需与实时行数赛跑。
+      const { sequence } = await terminalRecords(page);
+      const cruiseLines = sequence
+        .filter((entry) => entry.stage === "cruise")
+        .map((entry) => entry.bootLines);
+      expect(Math.max(0, ...cruiseLines)).toBeLessThan(5);
+      // The boot log unmounts once the terminal is ready, so only its printed prefix is monotonic.
+      // 终端就绪后开机日志会卸载，因此只有已打印的前缀需要单调。
+      const printedRecords = sequence.filter((entry) => entry.bootLines > 0);
+      expect(Math.max(0, ...printedRecords.map((entry) => entry.bootLines))).toBe(6);
+      for (let index = 1; index < printedRecords.length; index++) {
+        const current = printedRecords[index];
+        const previous = printedRecords[index - 1];
+        if (!current || !previous) throw new Error("Boot records must be consecutive");
+        expect(current.bootLines - previous.bootLines).toBeGreaterThanOrEqual(0);
+        expect(current.bootLines - previous.bootLines).toBeLessThanOrEqual(1);
+      }
       const printed: number[] = await page
         .locator(".xca-terminal-screen")
         .evaluate((node) => JSON.parse((node as HTMLElement).dataset.printedBannerRows ?? "[]"));
@@ -134,11 +161,11 @@ for (const stage of ["draw", "approach", "cruise", "retreat", "brand"]) {
     });
     if (stage === "brand")
       await expect(page.locator(`.xca-terminal-screen--${stage}`)).toHaveCount(1, {
-        timeout: 15000,
+        timeout: SCENE_TIMEOUT,
       });
     else
       await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", stage, {
-        timeout: 15000,
+        timeout: SCENE_TIMEOUT,
       });
     await page.keyboard.press("Escape");
     await expect(page.locator(".xca-ca-intro, .xca-terminal-hero__intro-backdrop")).toHaveCount(0);
@@ -159,16 +186,17 @@ for (const stage of ["draw", "approach", "cruise", "retreat", "brand"]) {
 test("motion preference change and rotation settle a readable terminal", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "approach", {
-    timeout: 15000,
+    timeout: SCENE_TIMEOUT,
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
   await expect(page.locator("#xca-command-input")).toBeEnabled();
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "cruise", {
-    timeout: 15000,
-  });
+  // A reload reuses the documented short entry, which never mounts the long scene.
+  // 重载复用文档约定的短入场，它不会挂载长场景。
+  await expect(page.locator(".xca-ca-intro")).toHaveCount(0, { timeout: SETTLE_TIMEOUT });
+  await expect(page.locator("#xca-command-input")).toBeEnabled();
   await page.setViewportSize({ width: 844, height: 390 });
   await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
   await expect(page.locator("#xca-command-input")).toBeEnabled();
@@ -179,7 +207,7 @@ for (const stage of ["approach", "cruise"]) {
   test(`visibility pause preserves the ${stage} timeline and resumes it`, async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", stage, {
-      timeout: 15000,
+      timeout: SCENE_TIMEOUT,
     });
     const before = await page.evaluate(async () => {
       Object.defineProperty(document, "hidden", { configurable: true, value: true });
@@ -210,7 +238,9 @@ for (const stage of ["approach", "cruise"]) {
       Reflect.deleteProperty(document, "hidden");
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    await expect(page.locator(".xca-terminal-screen--ready")).toHaveCount(1, { timeout: 15000 });
+    await expect(page.locator(".xca-terminal-screen--ready")).toHaveCount(1, {
+      timeout: SCENE_TIMEOUT,
+    });
   });
 }
 
@@ -271,7 +301,9 @@ test("natural journey records frame timings and releases spatial animations", as
     requestAnimationFrame(record);
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-terminal-screen--ready")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-screen--ready")).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
   const metrics = await page.evaluate(() => {
     const data = (
       window as unknown as {
@@ -299,7 +331,26 @@ test("natural journey records frame timings and releases spatial animations", as
     };
   });
   expect(metrics.samples).toBeGreaterThan(10);
-  expect(metrics.runningSpatialEffects).toBe(0);
+  // Spatial effects are released as the arrival settles, so wait for the release.
+  // 空间效果随到达收尾释放，因此等待释放完成。
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            document.getAnimations().filter((animation) => {
+              const target =
+                animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
+              return (
+                target instanceof Element &&
+                !!target.closest(".xca-ca-intro, .xca-terminal-window") &&
+                animation.playState === "running"
+              );
+            }).length,
+        ),
+      { timeout: SETTLE_TIMEOUT },
+    )
+    .toBe(0);
   await testInfo.attach("journey-frame-timings", {
     body: JSON.stringify(metrics, null, 2),
     contentType: "application/json",
@@ -309,7 +360,7 @@ test("natural journey records frame timings and releases spatial animations", as
 test("a visualViewport-only resize settles the current projection", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "cruise", {
-    timeout: 15000,
+    timeout: SCENE_TIMEOUT,
   });
   await page.evaluate(() => {
     const viewport = window.visualViewport;

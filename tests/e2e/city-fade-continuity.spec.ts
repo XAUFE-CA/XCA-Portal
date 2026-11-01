@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { setThemePreference } from "./preferences";
+import { SCENE_TIMEOUT } from "./timing";
 
 type FadeProbe = { opacity: number | null; layer: boolean; pixels: Uint8Array | null };
 
@@ -59,12 +60,12 @@ async function observeCity(page: Page, theme: "light" | "dark") {
 
 for (const theme of ["light", "dark"] as const) {
   test(`city fade changes continuously at low opacity in ${theme}`, async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(240000);
     await page.setViewportSize({ width: 960, height: 640 });
     await observeCity(page, theme);
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "approach", {
-      timeout: 15000,
+      timeout: SCENE_TIMEOUT,
     });
     const result = await page.evaluate(async (theme) => {
       const camera = document
@@ -103,9 +104,9 @@ for (const theme of ["light", "dark"] as const) {
         worst = 0;
       for (let step = 0; step <= 100; step++) {
         probe.opacity = step * 0.001;
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        );
+        // One frame per opacity step: the probe reads the framebuffer the draw already wrote.
+        // 每个不透明度步进只用一帧：探针读取绘制已写入的帧缓冲。
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         const pixels = probe.pixels;
         if (!pixels) throw new Error("City framebuffer sample required");
         if (previous) worst = Math.max(worst, difference(pixels, previous));

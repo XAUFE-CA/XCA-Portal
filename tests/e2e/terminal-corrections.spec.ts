@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { SCENE_TIMEOUT } from "./timing";
 
 test("an older session marker does not suppress first entry and refresh uses brief entry", async ({
   page,
@@ -96,9 +97,12 @@ test("shared header controls fit narrow and intermediate viewports", async ({ pa
   for (const width of [320, 390, 610, 900, 1121, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     const toggle = page.locator(".site-menu").getByRole("button");
-    if (await toggle.isVisible()) {
-      if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
-    }
+    // The toggle can unmount mid-read as the header reflows; read it in one pass.
+    // 顶栏重排时开关可能中途卸载；一次读取完成判断。
+    const expanded = await toggle.evaluateAll((elements) =>
+      elements[0]?.getAttribute("aria-expanded"),
+    );
+    if (expanded === "false") await toggle.click();
     const boxes = await page.evaluate(() =>
       [".site-header__brand", ".site-navigation", ".site-theme-control"].map((selector) => {
         const element = document.querySelector(selector);
@@ -140,9 +144,11 @@ test("INTRO replaces edited output with welcome before replay and after docking"
   await expect(page.locator(".xca-terminal-transcript")).not.toContainText("previous-output");
   await expect(page.locator(".xca-terminal-transcript")).toContainText(
     "XAUFE Computer Association",
-    { timeout: 15000 },
+    { timeout: SCENE_TIMEOUT },
   );
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, { timeout: 12000 });
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
+    timeout: SCENE_TIMEOUT,
+  });
   await expect(page.locator(".xca-terminal-transcript")).not.toContainText("previous-output");
   await expect(input).toBeFocused();
   await input.press("ArrowUp");

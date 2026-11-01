@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
 import { setThemePreference } from "./preferences";
+import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
 interface IntroFrame {
   phase: string;
@@ -50,6 +51,18 @@ async function recordIntro(page: import("@playwright/test").Page) {
       if (!started || phase) requestAnimationFrame(sample);
     }
     requestAnimationFrame(sample);
+    // Mutation batches also feed the recorder; a slow frame must not drop a whole stage.
+    // 变更批次同样写入记录器；慢帧不应丢掉整个阶段。
+    const observe = () => {
+      if (!document.body) return requestAnimationFrame(observe);
+      new MutationObserver(sample).observe(document.documentElement, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        characterData: true,
+      });
+    };
+    observe();
   });
   return () =>
     page.evaluate(() => (window as unknown as { xcaIntroFrames: IntroFrame[] }).xcaIntroFrames);
@@ -132,14 +145,16 @@ test("Linux-style boot lines and Welcome to XCA ASCII rows print progressively",
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const window = page.locator(".xca-terminal-window");
   const lines = page.locator(".xca-terminal-bootlog__line");
-  await expect(page.locator(".xca-terminal-hero--boot")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-hero--boot")).toHaveCount(1, { timeout: SCENE_TIMEOUT });
   await window.evaluate((element) => {
     element.dataset.xcaPersistent = "yes";
   });
 
-  await expect(lines).toHaveCount(6, { timeout: 8000 });
+  await expect(lines).toHaveCount(6, { timeout: SCENE_TIMEOUT });
   await expect(page.locator(".xca-terminal-boot-progress")).toHaveAttribute("aria-valuenow", "100");
-  await expect(page.locator(".xca-terminal-hero--branding")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-hero--branding")).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
 
   const introBanner = page.locator(".xca-terminal-history .xca-terminal-banner");
   await expect
@@ -147,9 +162,13 @@ test("Linux-style boot lines and Welcome to XCA ASCII rows print progressively",
     .toBeGreaterThan(0);
   await expect(introBanner).toHaveAttribute("aria-label", zh["terminal.welcomeLabel"]);
 
-  await expect(page.locator(".xca-terminal-hero--docking")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-hero--docking")).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
   await expect(page.locator(".xca-terminal-hero--revealing")).toHaveCount(1);
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, { timeout: 8500 });
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
+    timeout: SETTLE_TIMEOUT,
+  });
   await expect(window).toHaveAttribute("data-xca-persistent", "yes");
   const frames = await recordedFrames();
   const counts = frames
@@ -175,12 +194,14 @@ test("resizing during the intro settles to the anchor without leaving an overlay
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-terminal-hero--boot")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-hero--boot")).toHaveCount(1, { timeout: SCENE_TIMEOUT });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBe(390);
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, { timeout: 8000 });
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
+    timeout: SCENE_TIMEOUT,
+  });
   await expect(page.locator(".xca-terminal-hero__intro-backdrop")).toHaveCount(0);
   const input = page.locator("#xca-command-input");
   await input.fill("help");
@@ -225,7 +246,9 @@ test("surrounding content reveals while boot and terminal arrival overlap", asyn
   const recordedFrames = await recordIntro(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const hero = page.locator(".xca-terminal-hero");
-  await expect(page.locator(".xca-terminal-screen--boot")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-screen--boot")).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
   await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "retreat");
   await expect(hero).toHaveClass(/xca-terminal-hero--revealing/);
   await expect(page.locator(".xca-terminal-bootlog__line")).toHaveCount(5);
@@ -239,7 +262,7 @@ test("surrounding content reveals while boot and terminal arrival overlap", asyn
       .locator(".xca-terminal-anchor")
       .evaluate((el) => Math.round(el.getBoundingClientRect().width)),
   );
-  await expect(hero).not.toHaveClass(/xca-terminal-hero--intro/, { timeout: 7000 });
+  await expect(hero).not.toHaveClass(/xca-terminal-hero--intro/, { timeout: SETTLE_TIMEOUT });
   const frames = await recordedFrames();
   expect(
     frames.some(
@@ -303,13 +326,17 @@ test("changing viewport during ASCII printing safely settles the single terminal
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-terminal-hero--branding")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-hero--branding")).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
   const terminal = page.locator(".xca-terminal-window");
   await terminal.evaluate((element) => {
     element.dataset.resizePersistence = "yes";
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, { timeout: 6000 });
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
+    timeout: SETTLE_TIMEOUT,
+  });
   await expect(terminal).toHaveAttribute("data-resize-persistence", "yes");
   await expect(page.locator(".xca-terminal-hero__intro-backdrop")).toHaveCount(0);
   const columns = await page.evaluate(() => [
@@ -327,8 +354,10 @@ test("ASCII wordmark remains aligned and unclipped on desktop, mobile and narrow
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 850 });
+    await page.evaluate(() => document.fonts.ready);
     await expect
       .poll(async () =>
         page
@@ -392,6 +421,7 @@ test("immersive scrollbars keep a permanent terminal gutter and never scroll the
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => document.fonts.ready);
   const transcript = page.locator(".xca-terminal-transcript");
   const banner = page.locator(".xca-terminal-banner").first();
   await expect(page.locator(".ui-scrollbar")).toHaveCount(1);

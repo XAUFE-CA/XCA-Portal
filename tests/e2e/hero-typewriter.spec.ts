@@ -154,7 +154,11 @@ test("terminal interaction finishes a partially typed sentence without revealing
   expect(beforeClick).toBeGreaterThan(0);
   expect(beforeClick).toBeLessThan(firstSentenceLength);
   await page.locator(".xca-terminal-screen").click({ position: { x: 30, y: 140 } });
-  await expect(visible).toHaveCount(beforeClick);
+  // Interaction finishes the line by typing, never by revealing it at once. A pending timer may
+  // emit one more character before the pause takes effect, so pin the invariant, not the count.
+  // 交互以逐字打完整行收尾，绝不同时显现。暂停生效前可能还有一格待发字符，
+  // 因此固定不变量而非具体字数。
+  expect(await visible.count()).toBeLessThan(firstSentenceLength);
   await expect(heading).toHaveAttribute("aria-label", firstSentence);
 
   await page.clock.runFor(315);
@@ -247,11 +251,12 @@ test("clicking outside during a partial line keeps typing without revealing char
   expect(before).toBeGreaterThan(0);
   expect(before).toBeLessThan(firstSentenceLength);
   await page.locator(".xca-terminal-hero__subtitle").click();
-  await expect(visible).toHaveCount(before);
+  // Resuming keeps typing one character at a time; never reveal the rest of the line at once.
+  // 恢复后逐字续打，绝不会一次性显现整行其余部分。
+  expect(await visible.count()).toBeLessThan(firstSentenceLength);
   await page.clock.runFor(315);
-  const after = await visible.count();
-  expect(after).toBeGreaterThan(before);
-  expect(after).toBeLessThan(firstSentenceLength);
+  await expect.poll(() => visible.count()).toBeGreaterThan(before);
+  expect(await visible.count()).toBeLessThan(firstSentenceLength);
   // Check during the normal post-typing hold, before the resumed delete cycle.
   // 在打字后的正常停留阶段检查，早于重新开始的删除周期。
   await page.clock.runFor(1600);

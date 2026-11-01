@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { resumeAnimations } from "./timing";
 
 // These tests pin content and image loading states plus the geometry around them.
 // 这些用例固定正文与图片的加载状态及其周围几何。
@@ -116,29 +117,48 @@ test("loaded content crossfades with the skeleton in the same card area", async 
   } finally {
     query.resolve();
   }
+  // Freeze the layer swap at its midpoint; polling frames misses the window on slow renderers.
+  // 在交换中点冻结图层；慢速渲染器上逐帧轮询会错过该窗口。
   await expect
-    .poll(
-      () =>
-        card.evaluate((element) => {
-          const content = element.querySelector(".about-card__layer:has(h1)");
-          const skeleton = element.querySelector(".about-card__content--skeleton")?.parentElement;
-          if (!content || !skeleton) return false;
-          const incoming = Number(getComputedStyle(content).opacity);
-          const outgoing = Number(getComputedStyle(skeleton).opacity);
-          const contentBox = content.getBoundingClientRect();
-          const skeletonBox = skeleton.getBoundingClientRect();
-          return (
-            incoming > 0 &&
-            incoming < 1 &&
-            outgoing > 0 &&
-            outgoing < 1 &&
-            contentBox.y === skeletonBox.y &&
-            contentBox.width === skeletonBox.width
-          );
-        }),
-      { intervals: [16] },
+    .poll(() =>
+      card.evaluate(() => {
+        const content = document.querySelector(".about-card__layer:has(h1)");
+        const skeleton = document.querySelector(".about-card__content--skeleton")?.parentElement;
+        if (!content || !skeleton) return 0;
+        const animations = [content, skeleton].flatMap((element) => element.getAnimations());
+        if (!animations.length) return 0;
+        for (const animation of animations) {
+          const duration = Number(animation.effect?.getComputedTiming().duration ?? 0);
+          animation.pause();
+          animation.currentTime = duration / 2;
+        }
+        return animations.length;
+      }),
     )
-    .toBe(true);
+    .toBeGreaterThan(0);
+  const crossfade = await card.evaluate((element) => {
+    const content = element.querySelector(".about-card__layer:has(h1)");
+    const skeleton = element.querySelector(".about-card__content--skeleton")?.parentElement;
+    if (!content || !skeleton) return null;
+    const incoming = Number(getComputedStyle(content).opacity);
+    const outgoing = Number(getComputedStyle(skeleton).opacity);
+    const contentBox = content.getBoundingClientRect();
+    const skeletonBox = skeleton.getBoundingClientRect();
+    return {
+      incoming,
+      outgoing,
+      sameTop: contentBox.y === skeletonBox.y,
+      sameWidth: contentBox.width === skeletonBox.width,
+    };
+  });
+  if (!crossfade) throw new Error("The card must show both layers during the swap");
+  expect(crossfade.incoming).toBeGreaterThan(0);
+  expect(crossfade.incoming).toBeLessThan(1);
+  expect(crossfade.outgoing).toBeGreaterThan(0);
+  expect(crossfade.outgoing).toBeLessThan(1);
+  expect(crossfade.sameTop).toBe(true);
+  expect(crossfade.sameWidth).toBe(true);
+  await resumeAnimations(page, ".about-card");
   await expect(page.getByRole("heading", { level: 1, name: "About us" })).toBeVisible();
   await expect(card.locator(".about-card__content--skeleton")).toHaveCount(0);
   await expect(card.locator(".about-card__layer")).toHaveCSS("opacity", "1");
@@ -158,16 +178,30 @@ test("a loaded banner fades its skeleton away", async ({ page }) => {
   } finally {
     image.resolve();
   }
+  // Freeze the banner fade at its midpoint instead of sampling frames.
+  // 在淡出中点冻结骨架，而不是逐帧采样。
   await expect
-    .poll(
-      () =>
-        skeleton.evaluateAll((elements) => {
-          const opacity = elements[0] ? Number(getComputedStyle(elements[0]).opacity) : 0;
-          return opacity > 0 && opacity < 1;
-        }),
-      { intervals: [16] },
+    .poll(() =>
+      skeleton.evaluateAll((elements) => {
+        const animations = elements.flatMap((element) => element.getAnimations());
+        if (!animations.length) return 0;
+        for (const animation of animations) {
+          const duration = Number(animation.effect?.getComputedTiming().duration ?? 0);
+          animation.pause();
+          animation.currentTime = duration / 2;
+        }
+        return animations.length;
+      }),
     )
-    .toBe(true);
+    .toBeGreaterThan(0);
+  const fade = await skeleton.evaluateAll((elements) =>
+    elements.map((element) => Number(getComputedStyle(element).opacity)),
+  );
+  for (const opacity of fade) {
+    expect(opacity).toBeGreaterThan(0);
+    expect(opacity).toBeLessThan(1);
+  }
+  await resumeAnimations(page, ".about-card");
   await expect(skeleton).toHaveCount(0);
 });
 

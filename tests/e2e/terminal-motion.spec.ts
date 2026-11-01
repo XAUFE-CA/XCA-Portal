@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
 test("glass edge follows the same terminal throughout docking and settles without a jump", async ({
   page,
@@ -31,7 +32,9 @@ test("glass edge follows the same terminal throughout docking and settles withou
     }
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-terminal-hero--docking")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator(".xca-terminal-hero--docking")).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
   await expect(page.locator("html")).toHaveAttribute("data-neoverse-glass-renderer", "webgl");
   const samples = await page.evaluate(async () => {
     const result: { edgeError: number; edgeFound: boolean; top: number; ready: boolean }[] = [];
@@ -67,7 +70,9 @@ test("glass edge follows the same terminal throughout docking and settles withou
     Math.max(...samples.map((sample) => sample.edgeError)),
     "WebGL edge must stay on the animated DOM frame",
   ).toBeLessThan(4);
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, { timeout: 8000 });
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
+    timeout: SETTLE_TIMEOUT,
+  });
   const terminal = page.locator(".xca-terminal-window");
   await expect(terminal).not.toHaveAttribute("data-neoverse-glass-edge-pass");
   await expect(page.locator("html")).toHaveAttribute("data-neoverse-glass-renderer", "webgl");

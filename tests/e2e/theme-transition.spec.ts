@@ -150,20 +150,35 @@ test("without View Transitions the shared semantic colors interpolate", async ({
   await page.keyboard.press("Escape");
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
   await expect(page.getByRole("radio", { name: "浅色", exact: true })).toBeChecked();
+  // Step the shared color transitions by time instead of sampling frames: a software-rendered
+  // runner delivers too few frames to observe the interpolation window. The transition runs on
+  // the semantic tokens, so measure the token the page canvas resolves.
+  // 按时间推进共享颜色过渡，而不是逐帧采样：软件渲染运行器给出的帧不足以观察插值窗口。
+  // 过渡发生在语义 token 上，因此测量页面画布所使用的那个 token。
   const colors = await page.evaluate(async () => {
-    const shell = document.querySelector(".site-shell");
-    if (!shell) throw new Error("Site shell is missing");
-    const result = [getComputedStyle(shell).backgroundColor];
+    const canvas = () =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--neoverse-color-surface-canvas")
+        .trim();
+    const result = [canvas()];
     const dark = [
       ...document.querySelectorAll<HTMLElement>(".site-theme-control [role=radio]"),
     ].find((el) => el.textContent?.trim() === "深色");
     if (!dark) throw new Error("Dark theme control is missing");
     dark.click();
-    while (document.documentElement.hasAttribute("data-neoverse-theme-transitioning")) {
-      await new Promise(requestAnimationFrame);
-      result.push(getComputedStyle(shell).backgroundColor);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const animations = document.getAnimations();
+    if (!animations.length) throw new Error("The theme change must animate its colors");
+    const span = Math.max(
+      ...animations.map((animation) => Number(animation.effect?.getComputedTiming().duration ?? 0)),
+    );
+    if (!(span > 0)) throw new Error("Theme color transitions need a finite duration");
+    for (const animation of animations) animation.pause();
+    for (const share of [0.2, 0.4, 0.6, 0.8, 1]) {
+      for (const animation of animations) animation.currentTime = span * share;
+      result.push(canvas());
     }
-    result.push(getComputedStyle(shell).backgroundColor);
+    for (const animation of animations) animation.play();
     return result;
   });
   expect(colors.at(-1)).not.toBe(colors[0]);

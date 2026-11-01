@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { setThemePreference } from "./preferences";
+import { SETTLE_TIMEOUT } from "./timing";
 
 test("skipping the journey releases the city texture and framebuffer", async ({ page }) => {
   await page.addInitScript(() => {
@@ -85,6 +86,8 @@ test("the city uses a transparent pass before the depth-writing road pass", asyn
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     () => (window as unknown as { cityDraws: unknown[] }).cityDraws.length >= 6,
+    undefined,
+    { timeout: SETTLE_TIMEOUT },
   );
   for (const fraction of [0.45, 0.84]) {
     await page.evaluate((progress) => {
@@ -113,6 +116,8 @@ test("the city uses a transparent pass before the depth-writing road pass", asyn
     }, fraction);
     await page.waitForFunction(
       () => (window as unknown as { cityDraws: unknown[] }).cityDraws.length >= 6,
+      undefined,
+      { timeout: SETTLE_TIMEOUT },
     );
     expect(
       await page.evaluate(() =>

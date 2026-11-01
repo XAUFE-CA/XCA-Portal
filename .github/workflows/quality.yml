@@ -17,8 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        # Hosted runners render the cinematic intro without a GPU; shards keep each job
+        # inside its timeout instead of stretching a single serial run past the limit.
+        # 托管运行器没有 GPU 渲染影院式入场；分片让每个作业保持在超时限制内，
+        # 而不是把单条串行任务拖过上限。
+        shard: [1, 2, 3]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: XCA-Portal
@@ -65,13 +70,13 @@ jobs:
         if: runner.os == 'Linux'
         # Existing image baselines are Windows-only. All functional assertions still run.
         # 现有图片基线仅限 Windows；所有功能断言仍会运行。
-        run: bunx playwright test --ignore-snapshots
+        run: bunx playwright test --ignore-snapshots --shard=${{ matrix.shard }}/3
       - name: Browser and existing image regression (Windows)
         if: runner.os == 'Windows'
-        run: bunx playwright test
+        run: bunx playwright test --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-${{ runner.os }}
+          name: playwright-${{ runner.os }}-${{ matrix.shard }}
           path: XCA-Portal/test-results
           if-no-files-found: ignore
