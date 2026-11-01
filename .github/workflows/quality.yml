@@ -23,25 +23,25 @@ jobs:
       run:
         working-directory: XCA-Portal
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: XCA-Portal
           persist-credentials: false
       # Early development only: published dependencies need no sibling checkout.
       # 仅早期开发需要：发布版本无需联合检出。
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: SSJ-ZYJ/Neoverse-UI
-          ref: d4238c726d695abebef5f283d5520f8bd9a2cd60
+          ref: 59262b08e19471a8b3741d99e214484943755a19
           path: Neoverse-UI
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('XCA-Portal/bun.lock', 'Neoverse-UI/bun.lock') }}
@@ -69,7 +69,7 @@ jobs:
       - name: Browser and existing image regression (Windows)
         if: runner.os == 'Windows'
         run: bunx playwright test
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-${{ runner.os }}
