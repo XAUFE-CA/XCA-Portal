@@ -69,6 +69,9 @@ export default defineNuxtConfig({
   ],
   devtools: { enabled: false },
   typescript: { strict: true },
+  // Route changes run as a View Transition crossfade instead of a hard cut between pages.
+  // 路由切换以 View Transition 交叉淡化完成，而不是页面之间硬切。
+  experimental: { viewTransition: true },
   app: {
     head: {
       meta: [{ name: "color-scheme", content: "light dark" }],

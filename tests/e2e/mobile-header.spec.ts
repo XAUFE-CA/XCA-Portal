@@ -1,5 +1,18 @@
 import { expect, type Page, test } from "@playwright/test";
 
+/**
+ * Exercise the fallback independently of browsers with native page captures.
+ * 独立覆盖不支持原生页面快照的浏览器回退路径。
+ */
+async function disableViewTransitions(page: Page) {
+  await page.addInitScript(() =>
+    Object.defineProperty(document, "startViewTransition", {
+      value: undefined,
+      configurable: true,
+    }),
+  );
+}
+
 function samplePreferenceResize(page: Page, label: "English" | "中文") {
   return page.evaluate(async (nextLabel) => {
     const shell = document.querySelectorAll<HTMLElement>(
@@ -12,14 +25,19 @@ function samplePreferenceResize(page: Page, label: "English" | "中文") {
     const width = () => Number.parseFloat(getComputedStyle(shell).width);
     const before = width();
     option.click();
-    await new Promise(requestAnimationFrame);
-    const animation = shell
-      .getAnimations()
-      .find(
-        (candidate) =>
-          candidate.effect instanceof KeyframeEffect &&
-          candidate.effect.getKeyframes().some((frame) => typeof frame.width === "string"),
-      );
+    const deadline = performance.now() + 5000;
+    let animation: Animation | undefined;
+    do {
+      await new Promise(requestAnimationFrame);
+      animation = shell
+        .getAnimations()
+        .find(
+          (candidate) =>
+            candidate.effect instanceof KeyframeEffect &&
+            candidate.effect.getKeyframes().some((frame) => typeof frame.width === "string"),
+        );
+      if (animation || option.getAttribute("aria-checked") === "true") break;
+    } while (performance.now() < deadline);
     if (!animation || !(animation.effect instanceof KeyframeEffect)) {
       return { before, start: null, middle: null, after: width(), settled: true };
     }
@@ -178,6 +196,7 @@ test("rapid language reversals continue from the visible width and resize restor
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  await disableViewTransitions(page);
   await page.goto("/about");
   await page.evaluate(() => document.fonts.ready);
   const result = await page.evaluate(async () => {
@@ -251,6 +270,16 @@ test("mobile navigation stays compact until opened and keeps shared theme contro
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator(".site-navigation")).toBeHidden();
   await expect(page.locator(".site-controls")).toBeHidden();
+});
+
+test("the compact menu trigger uses the shared ghost button", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/about", { waitUntil: "domcontentloaded" });
+
+  const trigger = page.locator(".site-menu").getByRole("button");
+  await expect(trigger).toHaveClass(/ui-button--ghost/);
+  await expect(trigger).not.toHaveClass(/ui-button--secondary/);
 });
 
 test("intermediate widths keep primary links grouped beside the brand and settings in the menu", async ({

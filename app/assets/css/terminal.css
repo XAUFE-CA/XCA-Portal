@@ -74,12 +74,16 @@
   font-size: var(--neoverse-typography-body-lg-size);
   line-height: var(--neoverse-line-height-relaxed);
 }
+/* The docked card is page content, not chrome: it claims no layer of its own, so the
+   sticky header keeps painting above it when a short viewport scrolls the card underneath.
+   Intro and focused states raise the card through the hero's own layer instead.
+   停靠状态的卡片属于正文而非固定框架，因此不额外占层，短视口把卡片滚到页头下方时仍由吸顶
+   页头压在上层；开场与聚焦状态改由首页场景自身的层来抬高卡片。 */
 .xca-terminal-anchor {
   width: min(100%, var(--neoverse-layout-reading-wide-width));
   height: clamp(calc(var(--neoverse-space-28) * 4), 38vw, calc(var(--neoverse-space-32) * 4));
   margin: clamp(var(--neoverse-space-6), 2.8vw, var(--neoverse-space-10)) auto 0;
   position: relative;
-  z-index: var(--neoverse-layout-layer-sticky);
 }
 .xca-terminal-window {
   --neoverse-terminal-header-background: var(--neoverse-surface-inset-rest-background);

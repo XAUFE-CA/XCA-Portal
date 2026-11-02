@@ -25,6 +25,7 @@ Status: adopted
 | [site.ts](../../app/config/site.ts) | 标识、路由、导航与主题选项 |
 | [useSiteTheme.ts](../../app/composables/useSiteTheme.ts)、[useSiteLocale.ts](../../app/composables/useSiteLocale.ts) | 主题与语言的公共状态 |
 | [glass.client.ts](../../app/plugins/glass.client.ts) | 唯一共享 Glass Renderer 的挂载、刷新与销毁 |
+| [view-transition.client.ts](../../app/plugins/view-transition.client.ts) | 路由视图过渡的共享节奏标记 |
 | [content.config.ts](../../content.config.ts) | `about` 内容集合与 frontmatter Schema |
 
 ## 导航与响应式布局
@@ -32,6 +33,8 @@ Status: adopted
 顶栏按可用 CSS 视口宽度分三级布局：大于 `70rem` 时标识、主导航与设置同排，主导航在中间栏居中；大于 `38rem` 且不大于 `70rem` 时保留同排主导航，将语言和主题放进菜单；不大于 `38rem` 时主导航也放入菜单。断点定义见 `SiteHeader.vue` 与 `app/assets/css/main.css`，修改时同步核对脚本和样式。
 
 菜单使用共享 `UiPopover`，从四宫格按钮下方靠右弹出，不撑高顶栏。浮层定位、极光玻璃材质、进出动效、外部点击关闭及 Escape 焦点恢复由共享 UI 提供。菜单内语言与主题分组纵向排列，页面跳转或跨响应式断点后收起。宽屏与菜单复用同一组导航和设置组件。
+
+主导航选中标记沿用共享 `spatial` 时长与减速缓动，不使用线性位移或弹性过冲。
 
 顶栏在页顶铺开，滚动超过共享 `space-4` 对应距离后收成悬浮形态。顶栏轮廓在两种状态下都保留底部的共享卡片圆角，收拢只改变宽度、上移量与顶部圆角，形变按共享时长线性推进，避免轮廓在数帧内跳到位。顶栏贴着窗口，页顶背后没有可折射的内容，因此通过共享 UI 的 `data-neoverse-glass-edge-stroke` 启用材质自带的绘制描边，描边取自 `--neoverse-material-edge-stroke`，门户不写自己的边缘实现。包裹区域随实际内容计算高度，文档滚动条按实际顶栏高度避让。标识与菜单容器使用 Flex 居中，避免内联基线影响垂直位置。文档滚动条由布局直接服务端渲染并经 Teleport 移到 `body`，共享样式表据 `data-hide-native` 在首帧即隐藏原生条，刷新时不出现原生条与沉浸式轨道的替换和横向重排；`ClientOnly` 包裹会退回挂载后才隐藏的旧行为。
 
@@ -41,7 +44,13 @@ Status: adopted
 
 根节点通过 `data-theme` 支持 light、dark 和 system，主题选择保存在 `xca-theme` Cookie。`useSiteTheme` 与根组件用同一偏好生成 SSR 的选中项和根节点主题，不在水合后恢复默认选项。根组件只在服务端向 Head 注册初始主题，客户端主题写入由 `useSiteTheme` 在过渡回调中执行，避免 Head 更新覆盖交互选择。`intro-gate.js` 在控件绘制前把旧 localStorage 偏好一次性迁移到 Cookie，迁移成功后移除旧值并重新请求 SSR，后续刷新不再迁移。顶栏及语言、主题控件不参与首页入场位移、缩放或错峰动画。语言存储、服务端首屏与命令输出规则只维护在 [翻译规则](../terminology/translation.md)。
 
-切换选项时，选中背景的滑动与伸缩由共享分段控件提供。语言变化导致外壳宽度改变时，`SiteHeaderPreferences` 在更新前后测量外壳，按共享 `spatial` 时长与缓动对宽度做过渡，不缩放文字。连续切换从当前可见宽度接续，完成后恢复自动宽度。首次渲染与水合不补播放动画，减少动态效果、尺寸变化及组件卸载会结束宽度动画；浏览器不支持动画接口时直接使用内容宽度。
+切换选项时，选中背景的滑动与伸缩由共享分段控件提供。语言变化时，`SiteHeader` 统一测量标识、主导航与偏好外壳的可见宽度，并在更新后先读取全部自然终点，再同时启动共享 `spatial` 宽度过渡，不缩放文字。所有占宽区域按同一进度变化，避免标识宽度先改变、偏好随后伸缩，将整个导航控件推过终点后又拉回。连续切换从当前可见宽度接续，完成后恢复自动宽度。首次渲染与水合不补播放动画，减少动态效果、尺寸变化及组件卸载会结束宽度动画；浏览器不支持动画接口时直接使用内容宽度。文档根节点不参与快照，只在视图过渡期间为正文分配 `root` 过渡名称，并将快照层裁剪到实时页头下方。页头不单独命名或截图，保留实时玻璃背后采样，避免独立快照破坏材质。语言、主题和路由切换期间，选中背景与外壳宽度继续使用自身的平滑移动和伸缩，不被正文的交叉淡化遮住。
+
+## 页面过渡与层级
+
+语言切换与路由切换都通过 View Transitions 完成，一次切换只呈现一个连续过程，不再是硬切。语言切换由 `useSiteLocale` 调用共享 `startViewTransition` 的 crossfade 通道完成，状态与 Cookie 在快照回调内写入，切换后的语言与页面内容在同一次快照中呈现。路由切换由 Nuxt 的 `experimental.viewTransition` 承担，门户不重写路由流程；`view-transition.client.ts` 在过渡开始时给根节点写入共享 `data-neoverse-view-transitioning` 属性，使根快照沿用共享 `spatial` 时长与缓动，只有最新的一次过渡负责移除该属性。两者都遵循减少动态效果偏好与浏览器能力降级：不支持 View Transitions 或启用减少动态效果时直接更新内容，不播放动画。
+
+停靠状态的终端卡片属于页面流，不单独占层。吸顶页头使用共享 `sticky` 层，短视口把终端卡片滚到页头下方时，页头仍绘制在上层。首页入场与终端聚焦态由首页场景自身占层：入场使用 `overlay` 层并隐藏页头，聚焦使用 `modal` 层覆盖整屏。紧凑布局的菜单按钮使用共享 `UiPopover` 的 `trigger-variant="ghost"`，与导航项和设置控件一致，不显示次要按钮的实底色。
 
 `nuxt.config.ts` 在样式表之前声明 CSS 层顺序，使基础重置层始终低于组件层，不依赖开发服务器的 SSR 样式链接顺序。声明使用固定的 `xca-cascade-order` key，服务端输出与客户端 Head 更新按同一标识复用。正文样式与共享控件保持各自的公开样式层，不提高选择器优先级覆盖基础重置。
 
@@ -74,4 +83,4 @@ Markdown 通过原生 MDC 容器标记页面布局：`about-intro` 使用共享�
 
 ## 验证
 
-浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts`、`header-edge-rim.spec.ts` 与 `about-skeleton.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及顶栏底部圆角与描边归属、内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。
+浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts`、`header-edge-rim.spec.ts`、`about-skeleton.spec.ts` 与 `site-transitions.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及顶栏底部圆角与描边归属、内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。过渡回归记录共享时长，确认语言切换与路由切换保留正文交叉淡化，页头不混合旧快照，三组选中背景和偏好外壳仍经过中间几何状态。整组导航回归使用真实鼠标切换中英文，按同一进度推进全部宽度动画，检查外壳起点、单向位移、终点及恢复自动宽度后的几何，防止越界回弹。减少动态效果时不启动视图过渡。层级回归在短视口滚动到底，检查终端卡片与页头重叠处命中页头。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。

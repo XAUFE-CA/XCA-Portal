@@ -3,7 +3,9 @@ import { nextTick } from "vue";
 export type SiteTheme = "light" | "dark" | "system";
 
 const COOKIE_KEY = "xca-theme";
-const VIEW_TRANSITION = "data-neoverse-theme-view-transitioning";
+// Track the active theme capture independently of route and language transitions.
+// 独立于路由与语言过渡跟踪当前主题快照。
+const themeViewTransitionAttribute = "data-neoverse-theme-view-transitioning";
 const COLOR_TRANSITION = "data-neoverse-theme-transitioning";
 // Client document only; all callers (header and terminal) share interruption state.
 // 仅限客户端文档。所有调用方（页头与终端）共享中断状态。
@@ -34,7 +36,7 @@ export function useSiteTheme() {
     if (refreshFrame !== undefined) cancelAnimationFrame(refreshFrame);
     cleanupTimer = undefined;
     refreshFrame = undefined;
-    root.removeAttribute(VIEW_TRANSITION);
+    root.removeAttribute(themeViewTransitionAttribute);
     root.removeAttribute(COLOR_TRANSITION);
     const system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     const resolve = (mode: string | undefined) =>
@@ -54,7 +56,7 @@ export function useSiteTheme() {
     }
     if (typeof document.startViewTransition === "function") {
       try {
-        root.setAttribute(VIEW_TRANSITION, "");
+        root.setAttribute(themeViewTransitionAttribute, "");
         const active = document.startViewTransition(async () => {
           apply();
           await nextTick();
@@ -66,7 +68,7 @@ export function useSiteTheme() {
         const cleanup = () => {
           if (version !== request) return;
           transition = undefined;
-          root.removeAttribute(VIEW_TRANSITION);
+          root.removeAttribute(themeViewTransitionAttribute);
         };
         void active.ready.catch(() => undefined);
         void active.updateCallbackDone.catch(() => {
@@ -76,7 +78,7 @@ export function useSiteTheme() {
         void active.finished.then(cleanup, cleanup);
         return;
       } catch {
-        root.removeAttribute(VIEW_TRANSITION);
+        root.removeAttribute(themeViewTransitionAttribute);
       }
     }
     // Older browsers interpolate the registered color variables in shared motion CSS.

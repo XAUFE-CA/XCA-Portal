@@ -6,6 +6,7 @@
   color: var(--neoverse-color-text-primary);
   scroll-behavior: smooth;
   font-synthesis: none;
+  view-transition-name: none;
 }
 * {
   box-sizing: border-box;
@@ -81,6 +82,14 @@ a {
 .site-main {
   flex: 1;
   min-width: 0;
+}
+/* Capture only the page while keeping glass chrome in the live document.
+   只截取正文，让玻璃页头留在实时文档中采样背后内容。 */
+:root:is([data-neoverse-view-transitioning], [data-neoverse-theme-view-transitioning]) .site-main {
+  view-transition-name: root;
+}
+::view-transition {
+  clip-path: inset(var(--xca-site-header-height, var(--neoverse-space-22)) 0 0);
 }
 
 .site-header-wrap {
