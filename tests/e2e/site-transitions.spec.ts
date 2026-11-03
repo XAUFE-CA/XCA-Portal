@@ -169,7 +169,14 @@ for (const choice of [
     await page.goto("/about");
     await page.evaluate(() => document.fonts.ready);
     await expect(page.locator(choice.selector)).toHaveAttribute("data-ready", "true");
+    let previousLabel: string | undefined;
     for (const label of choice.name === "navigation" ? ["首页", "关于学社"] : [choice.label]) {
+      if (previousLabel !== undefined && choice.name === "navigation") {
+        // Rapid reversals commit without a snapshot; let the reversal window expire first.
+        // 快速反向导航直接提交、不截取快照；先让反向窗口过期。
+        await page.waitForTimeout(1100);
+      }
+      previousLabel = label;
       const result = await sampleSelectionMotion(page, { selector: choice.selector, label });
       expect(result.end).not.toBeCloseTo(result.start, 0);
       expect(result.middle).toBeGreaterThan(Math.min(result.start, result.end));
