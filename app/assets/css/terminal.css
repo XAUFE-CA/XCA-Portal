@@ -137,24 +137,14 @@
   letter-spacing: 0;
   color: var(--neoverse-color-accent-primary);
 }
-/* Mark-only neon ink; the same transcript node carries it through the intro.
-   仅 CA 标识使用的霓虹着色，开场中由同一 transcript 节点延续。 */
+/* Theme accents keep the light wordmark gradient between blue and mint.
+   字标使用主题强调色，使浅色渐变保持在蓝色与薄荷绿之间。 */
 @supports (background-clip: text) {
   .xca-terminal-banner {
     background-image: linear-gradient(
       90deg,
-      color-mix(in srgb, var(--neoverse-color-cyan-300) 85%, var(--neoverse-color-text-primary)),
-      color-mix(
-          in srgb,
-          var(--neoverse-color-accent-primary) 80%,
-          var(--neoverse-color-text-primary)
-        )
-        48%,
-      color-mix(
-        in srgb,
-        var(--neoverse-color-accent-tertiary) 85%,
-        var(--neoverse-color-text-primary)
-      )
+      color-mix(in srgb, var(--neoverse-color-accent-primary) 65%, var(--neoverse-color-white)),
+      color-mix(in srgb, var(--neoverse-color-accent-secondary) 75%, var(--neoverse-color-white))
     );
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -162,7 +152,7 @@
         0 0 0.2em color-mix(in srgb, var(--neoverse-color-accent-primary) 40%, transparent)
       )
       drop-shadow(
-        0 0 0.55em color-mix(in srgb, var(--neoverse-color-accent-tertiary) 25%, transparent)
+        0 0 0.55em color-mix(in srgb, var(--neoverse-color-accent-secondary) 25%, transparent)
       );
   }
 }
