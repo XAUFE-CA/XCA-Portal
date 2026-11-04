@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: SSJ-ZYJ/Neoverse-UI
-          ref: 59262b08e19471a8b3741d99e214484943755a19
+          ref: 7c8f46bc8cce8dff6076713dcf14975d3678293d
           path: Neoverse-UI
           persist-credentials: false
       - uses: actions/setup-node@v7
@@ -82,6 +82,16 @@ jobs:
             shard: 2
           - os: ubuntu-latest
             shard: 3
+          - os: ubuntu-latest
+            shard: 4
+          - os: ubuntu-latest
+            shard: 5
+          - os: ubuntu-latest
+            shard: 6
+          - os: ubuntu-latest
+            shard: 7
+          - os: ubuntu-latest
+            shard: 8
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     defaults:
@@ -97,7 +107,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: SSJ-ZYJ/Neoverse-UI
-          ref: 59262b08e19471a8b3741d99e214484943755a19
+          ref: 7c8f46bc8cce8dff6076713dcf14975d3678293d
           path: Neoverse-UI
           persist-credentials: false
       - uses: actions/setup-node@v7
@@ -138,7 +148,7 @@ jobs:
         # 现有图片基线仅限 Windows；所有功能断言仍会运行。
         # Full-scene geometry runs in the cinematic workflow; a slow renderer cannot host it.
         # 完整场景几何由 cinematic 工作流承担；慢速渲染器跑不动它。
-        run: bunx playwright test --ignore-snapshots --grep-invert @cinematic --shard=${{ matrix.shard }}/3
+        run: bunx playwright test --ignore-snapshots --grep-invert @cinematic --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
