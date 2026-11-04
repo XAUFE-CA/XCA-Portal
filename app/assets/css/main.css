@@ -111,6 +111,14 @@ a {
 ::view-transition {
   clip-path: inset(var(--xca-site-header-height, var(--neoverse-space-22)) 0 0);
 }
+/* Chrome can resample the header's glass plane as white while it captures a language switch
+   snapshot. Keep the translucent plane and stop sampling only until that snapshot is painted.
+   Chrome 在截取语言切换快照时可能把页头玻璃面绘制成一帧白色。保留半透明底面，
+   只在快照绘制完成前暂停背景采样，随后立即恢复。 */
+:where(:root[data-xca-locale-transitioning]) .site-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 
 .site-header-wrap {
   position: sticky;
