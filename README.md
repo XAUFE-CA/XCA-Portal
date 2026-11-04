@@ -32,7 +32,7 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 | 应用框架 | [Nuxt](https://nuxt.com)、[Vue](https://vuejs.org) |
 | 开发语言 | [TypeScript](https://www.typescriptlang.org) |
 | 内容管理 | [Nuxt Content](https://content.nuxt.com) |
-| 界面组件 | Neoverse-UI |
+| 界面组件 | [Neoverse-UI](https://github.com/SSJ-ZYJ/Neoverse-UI) |
 | 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、Prettier、Playwright |
 
 ## 开发
