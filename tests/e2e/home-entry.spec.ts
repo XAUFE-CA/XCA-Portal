@@ -1,9 +1,15 @@
 import { expect, type Page, test } from "@playwright/test";
 import { setThemePreference } from "./preferences";
+import { SETTLE_TIMEOUT } from "./timing";
 
 async function ready(page: Page) {
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
   await expect(page.locator("html")).not.toHaveAttribute("data-xca-intro");
+  // An inert host silently drops keys after skipping; toBeEnabled does not check inert.
+  // 跳过后仍为 inert 的宿主会静默丢弃按键；toBeEnabled 不检查 inert。
+  await expect(page.locator(".xca-terminal-window")).not.toHaveAttribute("inert", {
+    timeout: SETTLE_TIMEOUT,
+  });
   await expect(page.locator("#xca-command-input")).toBeEnabled();
 }
 

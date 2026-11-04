@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { SCENE_TIMEOUT } from "./timing";
+import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
 test("an older session marker does not suppress first entry and refresh uses brief entry", async ({
   page,
@@ -134,6 +134,11 @@ test("INTRO replaces edited output with welcome before replay and after docking"
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(1);
   await page.keyboard.press("Escape");
+  // The host stays inert until skipping settles; commands typed into it are silently dropped.
+  // 跳过收尾前宿主仍为 inert，此时提交的命令会被静默丢弃。
+  await expect(page.locator(".xca-terminal-window")).not.toHaveAttribute("inert", {
+    timeout: SETTLE_TIMEOUT,
+  });
   const input = page.locator("#xca-command-input");
   await input.fill("echo previous-output");
   await input.press("Enter");
