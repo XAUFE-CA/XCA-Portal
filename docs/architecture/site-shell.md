@@ -48,7 +48,7 @@ Status: adopted
 
 ## 页面过渡与层级
 
-语言切换与路由切换都通过 View Transitions 完成，一次切换只呈现一个连续过程，不再是硬切。语言切换由 `useSiteLocale` 调用共享 `startViewTransition` 的 crossfade 通道完成，状态与 Cookie 在快照回调内写入，切换后的语言与页面内容在同一次快照中呈现。路由切换由 Nuxt 的 `experimental.viewTransition` 承担，门户不重写路由流程；`view-transition.client.ts` 在过渡开始时给根节点写入共享 `data-neoverse-view-transitioning` 属性，使根快照沿用共享 `spatial` 时长与缓动。过渡结束前再次导航时，新导航先终结旧快照，并不再为这次被中断的导航截取新快照，直接提交目的页，避免旧页画面在目的页上继续淡入后突然消失；路由落定后 1 秒内返回上一页同样直接提交，之后完成的导航恢复过渡。只有最新的一次过渡负责移除标记，快照准备失败时也会移除。两者都遵循减少动态效果偏好与浏览器能力降级：不支持 View Transitions 或启用减少动态效果时直接更新内容，不播放动画。
+语言切换与路由切换都通过 View Transitions 完成，一次切换只呈现一个连续过程，不再是硬切。语言切换由 `useSiteLocale` 调用共享 `startViewTransition` 的 crossfade 通道完成，状态与 Cookie 在快照回调内写入，切换后的语言与页面内容在同一次快照中呈现。路由切换由 Nuxt 的 `experimental.viewTransition` 承担，门户不重写路由流程；`view-transition.client.ts` 在过渡开始时给根节点写入共享 `data-neoverse-view-transitioning` 属性，使根快照沿用共享 `spatial` 时长与缓动。来源页滚动后，根分组固定在截取时的正文盒模型，进入快照按目标页实时页顶偏移，交叉淡化期间两侧画面不再随分组几何滑动；页头落定引起的高度变化由同一偏移跟随。旧快照保留淡出终点，避免浏览器在移除快照树前的一帧恢复其不透明度。过渡结束前再次导航时，新导航先终结旧快照，并不再为这次被中断的导航截取新快照，直接提交目的页，避免旧页画面在目的页上继续淡入后突然消失；路由落定后 1 秒内返回上一页同样直接提交，之后完成的导航恢复过渡。只有最新的一次过渡负责移除标记，快照准备失败时也会移除。两者都遵循减少动态效果偏好与浏览器能力降级：不支持 View Transitions 或启用减少动态效果时直接更新内容，不播放动画。
 
 停靠状态的终端卡片属于页面流，不单独占层。吸顶页头使用共享 `sticky` 层，短视口把终端卡片滚到页头下方时，页头仍绘制在上层。首页入场与终端聚焦态由首页场景自身占层：入场使用 `overlay` 层并隐藏页头，聚焦使用 `modal` 层覆盖整屏。紧凑布局的菜单按钮使用共享 `UiPopover` 的 `trigger-variant="ghost"`，与导航项和设置控件一致，不显示次要按钮的实底色。
 
@@ -83,4 +83,4 @@ Markdown 通过原生 MDC 容器标记页面布局：`about-intro` 使用共享�
 
 ## 验证
 
-浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts`、`header-edge-rim.spec.ts`、`about-skeleton.spec.ts`、`site-transitions.spec.ts` 与 `route-interruptions.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及顶栏底部圆角与描边归属、内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。过渡回归记录共享时长，确认语言切换与路由切换保留正文交叉淡化，页头不混合旧快照，三组选中背景和偏好外壳仍经过中间几何状态。路由中断回归检查反向导航的实际画面、未完成的正文查询和被取消的快照。整组导航回归使用真实鼠标切换中英文，按同一进度推进全部宽度动画，检查外壳起点、单向位移、终点及恢复自动宽度后的几何，防止越界回弹。减少动态效果时不启动视图过渡。层级回归在短视口滚动到底，检查终端卡片与页头重叠处命中页头。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。
+浏览器回归入口为 `tests/e2e/mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts`、`header-edge-rim.spec.ts`、`about-skeleton.spec.ts`、`site-transitions.spec.ts` 与 `route-interruptions.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及顶栏底部圆角与描边归属、内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。过渡回归记录共享时长，确认语言切换与路由切换保留正文交叉淡化，页头不混合旧快照，三组选中背景和偏好外壳仍经过中间几何状态。路由中断回归检查反向导航的实际画面、未完成的正文查询和被取消的快照。路由过渡回归检查来源页滚动后的快照几何与淡出终点帧，确认两侧画面停在各自页顶且旧快照不会在结束帧恢复不透明。整组导航回归使用真实鼠标切换中英文，按同一进度推进全部宽度动画，检查外壳起点、单向位移、终点及恢复自动宽度后的几何，防止越界回弹。减少动态效果时不启动视图过渡。层级回归在短视口滚动到底，检查终端卡片与页头重叠处命中页头。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。

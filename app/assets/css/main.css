@@ -88,6 +88,26 @@ a {
 :root:is([data-neoverse-view-transitioning], [data-neoverse-theme-view-transitioning]) .site-main {
   view-transition-name: root;
 }
+/* Route captures keep both snapshots still: the group stays on the scrolling page's capture
+   box while the incoming snapshot is moved back to its own top.
+   路由截取保持两张快照静止：分组停留在滚动页面的截取盒模型，进入快照移回自身顶部。 */
+:root[data-neoverse-view-transitioning][data-xca-route-capture]::view-transition-group(root) {
+  animation: none;
+  width: var(--xca-route-snapshot-width);
+  height: var(--xca-route-snapshot-height);
+  transform: translateY(var(--xca-route-snapshot-top));
+}
+:root[data-neoverse-view-transitioning][data-xca-route-capture]::view-transition-new(root) {
+  transform: translateY(var(--xca-route-snapshot-offset, 0px));
+}
+/* The user-agent fade declares no end fill; without one the outgoing snapshot returns to
+   full opacity for the frame before the capture tree is removed. Keeping its final zero
+   holds the fade through that frame.
+   UA 淡出没有结束填充；若不保留末帧，旧快照会在截取树移除前的一帧恢复为完全不透明。
+   保留其终点零值即可让淡出覆盖该帧。 */
+:root[data-neoverse-view-transitioning]::view-transition-old(root) {
+  animation-fill-mode: forwards;
+}
 ::view-transition {
   clip-path: inset(var(--xca-site-header-height, var(--neoverse-space-22)) 0 0);
 }

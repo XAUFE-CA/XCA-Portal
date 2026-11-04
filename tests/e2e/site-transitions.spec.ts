@@ -131,6 +131,121 @@ test("navigating between the pages crossfades instead of swapping the content", 
   expect(transition.headerLive).toBe(true);
 });
 
+/**
+ * Hold the first route capture just after its snapshots are created, before any fade is
+ * visible, and record the source and target boxes for geometry assertions.
+ * 在快照创建后、淡出开始前暂停首个路由截取，并记录来源与目标盒模型供几何断言使用。
+ */
+async function pauseRouteCapture(page: Page) {
+  await page.evaluate(() => {
+    const observations = { paused: false, targetTop: 0, sourceTop: 0, sourceHeight: 0 };
+    Object.assign(window, { routeSnapshots: observations });
+    const native = document.startViewTransition.bind(document);
+    document.startViewTransition = (update) => {
+      // The capture box is read at the same moment the portal records it.
+      // 在与门户记录相同的一刻读取截取盒模型。
+      const source = document.querySelector(".site-main");
+      if (source) {
+        const rect = source.getBoundingClientRect();
+        observations.sourceTop = rect.top;
+        observations.sourceHeight = rect.height;
+      }
+      const transition = native(update);
+      void transition.ready.then(
+        () => {
+          const target = document.querySelector(".site-main");
+          if (target) observations.targetTop = target.getBoundingClientRect().top;
+          for (const animation of document.getAnimations()) {
+            const pseudo = (animation.effect as KeyframeEffect | null)?.pseudoElement;
+            if (!pseudo?.startsWith("::view-transition")) continue;
+            animation.pause();
+            animation.currentTime = 220;
+          }
+          observations.paused = true;
+        },
+        () => undefined,
+      );
+      return transition;
+    };
+  });
+}
+
+test("a scrolled source page keeps both route snapshots at their own viewport tops", async ({
+  page,
+}) => {
+  await page.goto("/about");
+  await expect(page.locator(".about-card")).toHaveAttribute("aria-busy", "false");
+  await page.evaluate(() => window.scrollTo({ top: 600, behavior: "instant" }));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+
+  await pauseRouteCapture(page);
+  await page.getByRole("link", { name: "首页", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const observed = window as unknown as { routeSnapshots: { paused: boolean } };
+        return observed.routeSnapshots.paused;
+      }),
+    )
+    .toBe(true);
+
+  const snapshots = await page.evaluate(() => {
+    const root = document.documentElement;
+    const observed = window as unknown as {
+      routeSnapshots: { targetTop: number; sourceTop: number; sourceHeight: number };
+    };
+    const style = (pseudo: string) => getComputedStyle(root, pseudo);
+    const translate = (value: string) => (value === "none" ? 0 : new DOMMatrixReadOnly(value).m42);
+    const group = style("::view-transition-group(root)");
+    const oldSnapshot = style("::view-transition-old(root)");
+    const newSnapshot = style("::view-transition-new(root)");
+    return {
+      groupTop: translate(group.transform),
+      groupHeight: Number.parseFloat(group.height),
+      oldTop: translate(oldSnapshot.transform),
+      oldHeight: Number.parseFloat(oldSnapshot.height),
+      newOffset: translate(newSnapshot.transform),
+      targetTop: observed.routeSnapshots.targetTop,
+      sourceTop: observed.routeSnapshots.sourceTop,
+      sourceHeight: observed.routeSnapshots.sourceHeight,
+    };
+  });
+
+  // The group stays on the source page's capture box instead of sliding to the new one.
+  // 分组停留在来源页的截取盒模型上，不再滑向新页。
+  expect(snapshots.sourceTop).toBeLessThan(-400);
+  expect(snapshots.groupTop).toBeCloseTo(snapshots.sourceTop, 0);
+  expect(snapshots.groupHeight).toBeCloseTo(snapshots.sourceHeight, 0);
+  expect(snapshots.oldTop).toBeCloseTo(0, 0);
+  expect(snapshots.oldHeight).toBeCloseTo(snapshots.sourceHeight, 0);
+  // The incoming snapshot returns to its own top inside the pinned group.
+  // 进入快照在固定分组内回到自身顶部。
+  expect(snapshots.groupTop + snapshots.newOffset).toBeCloseTo(snapshots.targetTop, 0);
+
+  const end = await page.evaluate(() => {
+    const root = document.documentElement;
+    for (const animation of document.getAnimations()) {
+      const effect = animation.effect;
+      if (
+        !(effect instanceof KeyframeEffect) ||
+        !effect.pseudoElement?.startsWith("::view-transition")
+      )
+        continue;
+      animation.pause();
+      animation.currentTime = Number(effect.getComputedTiming().duration);
+    }
+    return {
+      oldOpacity: Number.parseFloat(getComputedStyle(root, "::view-transition-old(root)").opacity),
+      newOpacity: Number.parseFloat(getComputedStyle(root, "::view-transition-new(root)").opacity),
+    };
+  });
+  // The outgoing snapshot must not return to full opacity in its final frame.
+  // 旧快照不得在结束帧恢复为完全不透明。
+  expect(end.oldOpacity).toBe(0);
+  expect(end.newOpacity).toBe(1);
+});
+
 test("reduced motion switches the language without a View Transition", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await recordViewTransitions(page);
