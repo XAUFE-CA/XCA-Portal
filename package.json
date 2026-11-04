@@ -3,31 +3,39 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "format": "biome check --write --linter-enabled=false . && prettier --write \"**/*.{md,yml,yaml}\"",
+    "format:check": "biome check --linter-enabled=false . && prettier --check \"**/*.{md,yml,yaml}\"",
+    "ui:sync": "bun scripts/sync-neoverse-ui.ts",
     "build": "nuxt build",
+    "typecheck": "nuxt typecheck",
+    "test": "bun test app scripts",
+    "test:e2e": "bun run build && playwright test",
+    "check:terminal": "bun scripts/check-terminal-boundary.ts",
+    "check": "bun scripts/run-gates.ts",
     "dev": "bun run ui:sync && nuxt dev --strictPort",
     "generate": "nuxt generate",
     "preview": "nuxt preview --port 4100 --strictPort",
     "postinstall": "nuxt prepare",
-    "format": "biome check --write --linter-enabled=false . && prettier --write \"**/*.{md,yml,yaml}\"",
-    "format:check": "biome check --linter-enabled=false . && prettier --check \"**/*.{md,yml,yaml}\"",
     "lint": "biome lint .",
-    "typecheck": "nuxt typecheck",
-    "test": "bun test app scripts",
     "check:budgets": "bun scripts/check-budgets.ts",
     "check:docs": "bun scripts/check-docs.ts",
     "check:architecture": "bun scripts/check-architecture.ts",
-    "check:fast": "bun scripts/run-gates.ts --fast",
-    "check": "bun scripts/run-gates.ts",
-    "ui:sync": "bun scripts/sync-neoverse-ui.ts",
-    "test:e2e": "bun run build && playwright test",
-    "check:terminal": "bun scripts/check-terminal-boundary.ts"
+    "check:fast": "bun scripts/run-gates.ts --fast"
   },
   "dependencies": {
+    "@neoverse-ui/glass-runtime": "file:../Neoverse-UI/packages/glass-runtime",
+    "@neoverse-ui/motion": "file:../Neoverse-UI/packages/motion",
+    "@neoverse-ui/overlay-runtime": "file:../Neoverse-UI/packages/overlay-runtime",
+    "@neoverse-ui/tailwind": "file:../Neoverse-UI/packages/tailwind",
+    "@neoverse-ui/tokens": "file:../Neoverse-UI/packages/tokens",
+    "@neoverse-ui/vue": "file:../Neoverse-UI/packages/vue",
     "@nuxt/content": "^3.16.2",
+    "better-sqlite3": "13.0.3",
     "nuxt": "4.6.3",
     "vue": "^3.5.44",
-    "vue-router": "^5.4.0",
-    "better-sqlite3": "13.0.3",
+    "vue-router": "^5.4.0"
+  },
+  "overrides": {
     "@neoverse-ui/glass-runtime": "file:../Neoverse-UI/packages/glass-runtime",
     "@neoverse-ui/motion": "file:../Neoverse-UI/packages/motion",
     "@neoverse-ui/overlay-runtime": "file:../Neoverse-UI/packages/overlay-runtime",
@@ -37,20 +45,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
+    "@playwright/test": "^1.64.1",
+    "@types/bun": "^1.4.4",
     "prettier": "3.9.10",
     "prettier-plugin-markdown-compact-tables": "1.0.0",
     "typescript": "6.0.3",
-    "@types/bun": "^1.4.4",
-    "vue-tsc": "^3.3.13",
-    "@playwright/test": "^1.64.1"
+    "vue-tsc": "^3.3.13"
   },
-  "packageManager": "bun@1.4.4",
-  "overrides": {
-    "@neoverse-ui/glass-runtime": "file:../Neoverse-UI/packages/glass-runtime",
-    "@neoverse-ui/motion": "file:../Neoverse-UI/packages/motion",
-    "@neoverse-ui/overlay-runtime": "file:../Neoverse-UI/packages/overlay-runtime",
-    "@neoverse-ui/tailwind": "file:../Neoverse-UI/packages/tailwind",
-    "@neoverse-ui/tokens": "file:../Neoverse-UI/packages/tokens",
-    "@neoverse-ui/vue": "file:../Neoverse-UI/packages/vue"
-  }
+  "packageManager": "bun@1.4.4"
 }
