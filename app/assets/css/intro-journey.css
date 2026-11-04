@@ -8,7 +8,7 @@
   );
   position: fixed;
   inset: 0;
-  z-index: var(--neoverse-layout-layer-sticky);
+  z-index: 0;
   pointer-events: none;
   color: var(--neoverse-color-text-primary);
 }

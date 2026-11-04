@@ -1,9 +1,11 @@
+const ROAD_END = -12400;
+
 /**
  * Scene units follow the CA mark SVG's centred 1254-unit viewBox.
  * 场景坐标沿用 CA 标识 SVG 居中的 1254 单位 viewBox。
  */
 export const JOURNEY = {
-  depth: 14200,
+  depth: -ROAD_END + 4600,
   perspective: 900,
   roadX: 180,
   floorY: 300,
@@ -11,6 +13,7 @@ export const JOURNEY = {
   bearingInset: 12,
   roadWidth: 960,
   roadStart: -240,
+  roadEnd: ROAD_END,
   roadLookAhead: 4500,
   roadRevealStart: 900,
   roadUnfoldDistance: 2000,
@@ -19,12 +22,22 @@ export const JOURNEY = {
   far: 50000,
 } as const;
 
+export const ARRIVAL_FRAMES = [JOURNEY.roadEnd + 1300, JOURNEY.roadEnd] as const;
+export const ARRIVAL_ENTRY = {
+  front: ARRIVAL_FRAMES[1] + 24,
+  back: JOURNEY.roadEnd - 456,
+  assemblyStart: ARRIVAL_FRAMES[0] + 4000,
+  assemblyEnd: ARRIVAL_FRAMES[0] + 400,
+  width: 1200,
+  height: 720,
+} as const;
+
 /**
  * One broad horizontal bow joins the straight sections with zero slope and curvature.
  * 单个舒展的水平弧线以零斜率和曲率连接两端直线。
  */
 export function roadBend(z: number) {
-  const t = Math.max(0, Math.min(1, (-z - 1400) / 8400));
+  const t = Math.max(0, Math.min(1, (-z - 1400) / (-ARRIVAL_ENTRY.assemblyEnd - 1400)));
   const envelope = Math.sin(Math.PI * t) ** 4;
   return { x: 340 * envelope, y: 0, roll: 0 };
 }
@@ -38,19 +51,35 @@ export function skylineOpacity(eyeZ: number): number {
     const t = Math.max(0, Math.min(1, value));
     return t * t * t * (10 + t * (-15 + 6 * t));
   };
-  return smooth((600 - eyeZ) / 1600) * (1 - smooth((-eyeZ - 8200) / 3500));
+  return smooth((600 - eyeZ) / 1600) * (1 - smooth((-eyeZ + ARRIVAL_FRAMES[0] + 100) / 3500));
 }
 
 /**
- * The destination frame precedes the real terminal and dissolves as it becomes readable.
- * 目的地光框先于真实终端出现，并在终端逐渐可读时消散。
+ * The two entrance frames retain their distance-driven lighting before room arrival.
+ * 两层入口光框在报告厅到达前保留由距离驱动的照明。
  */
 export function arrivalOpacity(eyeZ: number): number {
   const smooth = (value: number) => {
     const t = Math.max(0, Math.min(1, value));
     return t * t * t * (10 + t * (-15 + 6 * t));
   };
-  return smooth((-eyeZ - 6500) / 2000) * (1 - smooth((-eyeZ - 9900) / 2200));
+  return (
+    smooth((-eyeZ + ARRIVAL_FRAMES[0] + 1800) / 2000) *
+    (1 - smooth((-eyeZ + ARRIVAL_FRAMES[1] - 300) / 2200))
+  );
+}
+
+function passageRamp(eyeZ: number, from: number, to: number): number {
+  const t = Math.max(0, Math.min(1, (from - eyeZ) / (from - to)));
+  return t * t * t * (10 + t * (-15 + 6 * t));
+}
+
+/**
+ * Open the portal continuously before reaching the first frame.
+ * 在到达第一层光框前连续展开传送门。
+ */
+export function entryGrowth(eyeZ: number): number {
+  return passageRamp(eyeZ, ARRIVAL_ENTRY.assemblyStart, ARRIVAL_ENTRY.assemblyEnd);
 }
 
 /**
@@ -103,22 +132,24 @@ export const ROAD_MATERIALIZATION = { reach: 0.18, feather: 900 } as const;
  * Shared mounting coordinates for the mesh supports and their Vue sign faces.
  * 网格支架及其 Vue 标志面共用的安装坐标。
  */
-export const JOURNEY_STATIONS = [-2600, -4500, -6400, -8300, -10200, -12100].flatMap(
-  (depth, index) =>
-    ([-1, 1] as const).map((side) => ({
-      index,
-      side,
-      depth,
-      width: 760,
-      height: 860,
-      left: JOURNEY.roadX + side * (JOURNEY.roadWidth / 2 + 140) - (side < 0 ? 760 : 0),
-      top: JOURNEY.floorY - 860,
-      panelLeft: side < 0 ? 340 : -180,
-      panelTop: 260,
-      panelWidth: 600,
-      panelHeight: 340,
-      hasPanel: side === (index % 2 ? 1 : -1),
-    })),
+export const JOURNEY_STATIONS = Array.from(
+  { length: 6 },
+  (_, index) => -2600 + ((JOURNEY.roadEnd + 3100) * index) / 5,
+).flatMap((depth, index) =>
+  ([-1, 1] as const).map((side) => ({
+    index,
+    side,
+    depth,
+    width: 760,
+    height: 860,
+    left: JOURNEY.roadX + side * (JOURNEY.roadWidth / 2 + 140) - (side < 0 ? 760 : 0),
+    top: JOURNEY.floorY - 860,
+    panelLeft: side < 0 ? 340 : -180,
+    panelTop: 260,
+    panelWidth: 600,
+    panelHeight: 340,
+    hasPanel: side === (index % 2 ? 1 : -1),
+  })),
 );
 
 export function sceneryOpacity(growth: number, depth: number): number {

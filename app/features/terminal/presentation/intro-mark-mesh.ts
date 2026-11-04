@@ -1,4 +1,12 @@
-import { bendRoadMesh, CITY_PROFILES, JOURNEY, JOURNEY_STATIONS } from "./intro-geometry";
+import { createAuditoriumMesh } from "./intro-auditorium-mesh";
+import {
+  ARRIVAL_ENTRY,
+  ARRIVAL_FRAMES,
+  bendRoadMesh,
+  CITY_PROFILES,
+  JOURNEY,
+  JOURNEY_STATIONS,
+} from "./intro-geometry";
 
 type Point = readonly [number, number];
 // Each vertex contains position, normal, and body/road material selector.
@@ -135,7 +143,7 @@ function quad(vertices: number[], points: number[][], normal: number[], material
  * Solid boxes keep front, side and underside faces in the same depth buffer.
  * 实心盒体将正面、侧面与底面保留在同一深度缓冲中。
  */
-function box(vertices: number[], origin: number[], size: number[], material = 2) {
+function box(vertices: number[], origin: readonly number[], size: readonly number[], material = 2) {
   const [x = 0, y = 0, z = 0] = origin;
   const [width = 0, height = 0, depth = 0] = size;
   const a = [x, y, z],
@@ -226,9 +234,9 @@ function sweepSection(profile: Point[], material: number, smooth = false): numbe
     return [dy / length, -dx / length];
   };
   for (let segment = 0; segment < segments; segment++) {
-    const start = JOURNEY.roadStart - ((JOURNEY.depth + JOURNEY.roadStart) * segment) / segments;
+    const start = JOURNEY.roadStart + ((JOURNEY.roadEnd - JOURNEY.roadStart) * segment) / segments;
     const end =
-      JOURNEY.roadStart - ((JOURNEY.depth + JOURNEY.roadStart) * (segment + 1)) / segments;
+      JOURNEY.roadStart + ((JOURNEY.roadEnd - JOURNEY.roadStart) * (segment + 1)) / segments;
     for (let index = 0; index < profile.length; index++) {
       const next = (index + 1) % profile.length;
       const a = profile[index],
@@ -248,7 +256,7 @@ function sweepSection(profile: Point[], material: number, smooth = false): numbe
       }
     }
   }
-  for (const z of [JOURNEY.roadStart, -JOURNEY.depth]) {
+  for (const z of [JOURNEY.roadStart, JOURNEY.roadEnd]) {
     for (const index of capTriangles(profile)) {
       const point = profile[index];
       if (point)
@@ -280,7 +288,7 @@ function sceneryVertices(panelRadius: number): number[] {
       const strip = sweepSection(section, material ?? 2, true);
       for (const value of strip) vertices.push(value);
     }
-    for (let z = -600; z > -JOURNEY.depth; z -= 700) {
+    for (let z = -600; z > JOURNEY.roadEnd; z -= 700) {
       const post: number[] = [];
       box(post, [edge - 7, JOURNEY.floorY - 122, z], [14, 122 + JOURNEY.bearingInset, 18]);
       vertices.push(...bendRoadMesh(post, z));
@@ -441,21 +449,22 @@ function skylineVertices(): number[] {
 
 function arrivalVertices(): number[] {
   const vertices: number[] = [];
-  for (const offset of [0, 1300]) {
-    const z = -JOURNEY.depth + 80 + offset;
-    const left = JOURNEY.roadX - 600,
-      top = JOURNEY.floorY - 720;
-    box(vertices, [left, top, z], [7, 720, 9], 7);
-    box(vertices, [left + 1193, top, z], [7, 720, 9], 7);
-    box(vertices, [left, top, z], [1200, 7, 9], 7);
-    box(vertices, [left + 160, JOURNEY.floorY - 3, z], [880, 3, 10], 7);
+  for (const z of ARRIVAL_FRAMES) {
+    const frame: number[] = [];
+    const left = JOURNEY.roadX - ARRIVAL_ENTRY.width / 2,
+      top = JOURNEY.floorY - ARRIVAL_ENTRY.height;
+    box(frame, [left, top, z], [7, ARRIVAL_ENTRY.height, 9], 7);
+    box(frame, [left + ARRIVAL_ENTRY.width - 7, top, z], [7, ARRIVAL_ENTRY.height, 9], 7);
+    box(frame, [left, top, z], [ARRIVAL_ENTRY.width, 7, 9], 7);
+    box(frame, [left + 160, JOURNEY.floorY - 3, z], [880, 3, 10], 7);
+    vertices.push(...bendRoadMesh(frame, z));
   }
   return vertices;
 }
 
 function viaductVertices(): number[] {
   const vertices: number[] = [];
-  for (let z = -1600; z > -JOURNEY.depth; z -= 1700) {
+  for (let z = -1600; z > JOURNEY.roadEnd; z -= 1700) {
     const support: number[] = [];
     box(support, [JOURNEY.roadX - 450, JOURNEY.floorY + 34, z], [900, 92, 200]);
     for (const side of [-1, 1]) {
@@ -472,19 +481,20 @@ function viaductVertices(): number[] {
 
 export function createMarkMesh(paths: SVGPathElement[], panelRadius: number): Float32Array {
   const body = paths.flatMap((path) => [...extrudeContour(sampleContour(path), JOURNEY.bodyDepth)]);
-  const road = roadVertices();
-  const scenery = sceneryVertices(panelRadius);
-  const skyline = skylineVertices();
-  const arrival = arrivalVertices();
-  const viaduct = viaductVertices();
-  const mesh = new Float32Array(
-    skyline.length + body.length + road.length + scenery.length + arrival.length + viaduct.length,
-  );
-  mesh.set(skyline);
-  mesh.set(body, skyline.length);
-  mesh.set(road, skyline.length + body.length);
-  mesh.set(scenery, skyline.length + body.length + road.length);
-  mesh.set(arrival, skyline.length + body.length + road.length + scenery.length);
-  mesh.set(viaduct, skyline.length + body.length + road.length + scenery.length + arrival.length);
+  const parts = [
+    skylineVertices(),
+    body,
+    roadVertices(),
+    sceneryVertices(panelRadius),
+    arrivalVertices(),
+    createAuditoriumMesh(),
+    viaductVertices(),
+  ];
+  const mesh = new Float32Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    mesh.set(part, offset);
+    offset += part.length;
+  }
   return mesh;
 }

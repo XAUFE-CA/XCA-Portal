@@ -1,4 +1,6 @@
-import { JOURNEY, roadBend } from "./intro-geometry";
+import { tokenLength } from "../../../utils/cssTokens";
+import { AUDITORIUM } from "./intro-auditorium";
+import { ARRIVAL_ENTRY, entryGrowth, JOURNEY, roadBend } from "./intro-geometry";
 import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
 
 export type IntroAnimate = (
@@ -9,6 +11,50 @@ export type IntroAnimate = (
 ) => Promise<void>;
 
 type Point = [number, number, number];
+
+interface CameraPose {
+  eye: Point;
+  yaw: number;
+  pitch: number;
+  roll: number;
+}
+
+export interface TerminalPlacement {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+export function centerTerminal(
+  element: HTMLElement,
+  anchor: HTMLElement | null,
+): TerminalPlacement {
+  // The final anchor stays in normal flow while its glass surface travels through the scene.
+  // 玻璃表面穿过场景时，最终锚点始终保留在正常文档流中。
+  const rect = anchor?.getBoundingClientRect() ?? element.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const centerX = (viewport?.width ?? window.innerWidth) / 2;
+  const centerY = (viewport?.height ?? window.innerHeight) / 2;
+  const gutter = tokenLength(element, "--neoverse-layout-gutter-inline");
+  const scale = Math.min(
+    1,
+    ((viewport?.width ?? window.innerWidth) - 2 * gutter) / rect.width,
+    ((viewport?.height ?? window.innerHeight) - 2 * gutter) / rect.height,
+  );
+  const x = centerX - (rect.x + rect.width / 2);
+  const y = centerY - (rect.y + rect.height / 2);
+  element.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  return { x, y, scale };
+}
+
+const CAMERA_OFFSETS = [
+  ...new Set([
+    ...Array.from({ length: 181 }, (_, index) => index / 180),
+    INTRO_HANDOFF.rise,
+    INTRO_HANDOFF.start,
+    INTRO_HANDOFF.boot,
+  ]),
+].sort((a, b) => a - b);
 
 /**
  * Clamped cubic B-spline: C2 continuity, with monotone depth to prevent overshoot.
@@ -53,19 +99,27 @@ function sampledFrames(sample: (at: number) => Keyframe, count = 181): Keyframe[
   }));
 }
 
-export function cameraTransform(eye: Point, target: Point, roll = 0): string {
-  const [x, y, z] = eye;
-  const dx = x - target[0],
-    dy = y - target[1],
-    dz = z - target[2];
-  const yaw = Math.atan2(dx, dz);
-  const pitch = Math.atan2(dy, Math.hypot(dx, dz));
-  return `translateZ(${JOURNEY.perspective}px) rotateZ(${roll}rad) rotateX(${pitch}rad) rotateY(${-yaw}rad) translate3d(${-x}px, ${-y}px, ${-z}px)`;
+function cameraPose(eye: Point, target: Point, roll: number): CameraPose {
+  const dx = eye[0] - target[0],
+    dy = eye[1] - target[1],
+    dz = eye[2] - target[2];
+  return {
+    eye,
+    yaw: Math.atan2(dx, dz),
+    pitch: Math.atan2(dy, Math.hypot(dx, dz)),
+    roll,
+  };
+}
+
+function cameraTransform(pose: CameraPose): string {
+  const [x, y, z] = pose.eye;
+  return `translateZ(${JOURNEY.perspective}px) rotateZ(${pose.roll}rad) rotateX(${pose.pitch}rad) rotateY(${-pose.yaw}rad) translate3d(${-x}px, ${-y}px, ${-z}px)`;
 }
 
 function cameraSamples(markSize: number, terminalHeight: number) {
   const distance = (JOURNEY.perspective * 1254) / markSize;
   const y = JOURNEY.floorY - terminalHeight / 2 - 80;
+  const clearance = Math.max(0, JOURNEY.floorY - ARRIVAL_ENTRY.height + JOURNEY.near * 2 - y);
   const { roadX: x, depth, perspective } = JOURNEY;
   // Original SVG opening: (775, 632), above the crossbars at y=685.
   // 原始 SVG 开口位于 (775, 632)，在 y=685 的横杠之上。
@@ -92,8 +146,13 @@ function cameraSamples(markSize: number, terminalHeight: number) {
     [x, y, -6100],
     [x, y, -8000],
     [x, y, -9900],
-    [x, y, -depth + perspective * 3.2],
-    [x, y, -depth + perspective * 1.7],
+    [x, y, JOURNEY.roadEnd + 600],
+    [x, y, ARRIVAL_ENTRY.front],
+    [x, y, AUDITORIUM.entrance - 450],
+    [x, y, AUDITORIUM.entrance - 1250],
+    [x, y, AUDITORIUM.stageFront + 1900],
+    end,
+    end,
     end,
     end,
     end,
@@ -120,47 +179,182 @@ function cameraSamples(markSize: number, terminalHeight: number) {
     target,
     target,
     target,
+    target,
+    target,
+    target,
+    target,
+    target,
   ];
-  return Array.from({ length: 181 }, (_, index) => {
-    const at = index / 180;
+  return CAMERA_OFFSETS.map((at) => {
     const eye = spline(eyes, at);
     const bend = roadBend(eye[2]);
     const aim = spline(targets, at);
-    const lookAhead = roadBend(eye[2] - 1100);
+    // Elevate the camera to the screen centre while keeping the viewing direction level.
+    // 将机位升到屏幕中心高度，同时保持水平视线。
+    const ahead = roadBend(eye[2] - 1100);
     const follow = ramp(-eye[2], 600, 1800);
-    aim[0] += lookAhead.x * follow;
-    aim[1] += lookAhead.y * follow;
+    const rise = ramp(at, INTRO_HANDOFF.rise, INTRO_HANDOFF.boot);
+    const heightOffset =
+      clearance * entryGrowth(eye[2]) + (AUDITORIUM.screen.y - y - clearance) * rise;
+    aim[0] += ahead.x * follow;
+    aim[1] += ahead.y * follow + heightOffset;
     aim[2] += (eye[2] - 1100 - aim[2]) * follow;
     eye[0] += bend.x;
-    eye[1] += bend.y;
-    return { offset: at, eye, transform: cameraTransform(eye, aim, bend.roll) };
+    eye[1] += bend.y + heightOffset;
+    const focus = ramp(
+      -eye[2],
+      -ARRIVAL_ENTRY.back + JOURNEY.near * 2,
+      JOURNEY.depth - JOURNEY.perspective,
+    );
+    aim[0] += (AUDITORIUM.screen.x - aim[0]) * focus;
+    aim[1] += (eye[1] - aim[1]) * focus;
+    aim[2] += (AUDITORIUM.screen.z - aim[2]) * focus;
+    return { offset: at, ...cameraPose(eye, aim, bend.roll) };
   });
 }
 
 export function cameraFrames(markSize: number, terminalHeight: number): Keyframe[] {
-  return cameraSamples(markSize, terminalHeight).map(({ offset, transform }) => ({
-    offset,
-    transform,
+  return cameraSamples(markSize, terminalHeight).map((pose) => ({
+    offset: pose.offset,
+    transform: cameraTransform(pose),
   }));
 }
 
+function screenProjection(
+  pose: CameraPose,
+  width: number,
+  height: number,
+  centred: TerminalPlacement,
+): number[] {
+  const screen = AUDITORIUM.screen;
+  const cy = Math.cos(pose.yaw),
+    sy = Math.sin(pose.yaw);
+  const cp = Math.cos(pose.pitch),
+    sp = Math.sin(pose.pitch);
+  const cr = Math.cos(pose.roll),
+    sr = Math.sin(pose.roll);
+  const xx = cr * cy + sr * sp * sy,
+    xy = -sr * cp,
+    xz = -cr * sy + sr * sp * cy;
+  const yx = sr * cy - cr * sp * sy,
+    yy = cr * cp,
+    yz = -sr * sy - cr * sp * cy;
+  const zx = cp * sy,
+    zy = sp,
+    zz = cp * cy;
+  const dx = screen.x - pose.eye[0],
+    dy = screen.y - pose.eye[1],
+    dz = screen.z - pose.eye[2];
+  const depth = -(zx * dx + zy * dy + zz * dz);
+  const sx = screen.width / width,
+    vertical = screen.height / height;
+  const wx = (-zx * sx) / depth,
+    wy = (-zy * vertical) / depth;
+  const p = JOURNEY.perspective;
+  // The perspective row keeps the glass on the same camera plane, including pitch and yaw.
+  // 透视行使玻璃与场景沿用同一相机投影，同时包含俯仰和偏航。
+  return [
+    (p * xx * sx) / depth + centred.x * wx,
+    (p * yx * sx) / depth + centred.y * wx,
+    0,
+    wx,
+    (p * xy * vertical) / depth + centred.x * wy,
+    (p * yy * vertical) / depth + centred.y * wy,
+    0,
+    wy,
+    0,
+    0,
+    1,
+    0,
+    centred.x + (p * (xx * dx + xy * dy + xz * dz)) / depth,
+    centred.y + (p * (yx * dx + yy * dy + yz * dz)) / depth,
+    0,
+    1,
+  ];
+}
+
 /**
- * The real terminal follows the same projected camera distance during arrival.
- * 真实终端在到达阶段沿用相同的投影相机距离。
+ * One glass surface leaves its stage projection and becomes the readable terminal.
+ * 同一玻璃表面从舞台投影连续过渡为可读终端。
  */
 export function terminalFrames(
   markSize: number,
+  terminalWidth: number,
   terminalHeight: number,
-  centered: string,
+  centered: TerminalPlacement,
 ): Keyframe[] {
-  return cameraSamples(markSize, terminalHeight)
-    .filter(({ offset }) => offset >= INTRO_HANDOFF.start)
-    .map(({ offset, eye }) => ({
-      offset: (offset - INTRO_HANDOFF.start) / (1 - INTRO_HANDOFF.start),
-      transform: `${centered} scale(${JOURNEY.perspective / (eye[2] + JOURNEY.depth)})`,
-      opacity: ramp(offset, INTRO_HANDOFF.start, 0.94),
-      visibility: "visible",
-    }));
+  const screen = AUDITORIUM.screen;
+  const renderedHeight = terminalHeight * centered.scale;
+  const samples = cameraSamples(markSize, renderedHeight);
+  const passageY = Math.max(
+    JOURNEY.floorY - renderedHeight / 2 - 80,
+    JOURNEY.floorY - ARRIVAL_ENTRY.height + JOURNEY.near * 2,
+  );
+  const above = passageY - screen.y + screen.height / 2;
+  const below = screen.y + screen.height / 2 - passageY;
+  const aperture = Math.min(
+    (ARRIVAL_ENTRY.width / 2 - JOURNEY.near) /
+      (Math.abs(screen.x - JOURNEY.roadX) + screen.width / 2),
+    (passageY - JOURNEY.floorY + ARRIVAL_ENTRY.height - JOURNEY.near) / above,
+    below > 0 ? (JOURNEY.floorY - JOURNEY.near - passageY) / below : Infinity,
+  );
+  const revealDepth = Math.max(
+    -ARRIVAL_ENTRY.assemblyEnd,
+    (-ARRIVAL_ENTRY.back + aperture * screen.z) / (1 - aperture),
+  );
+  const litDepth = revealDepth + ARRIVAL_ENTRY.height / 2;
+  const cues: number[] = [];
+  for (const z of [-revealDepth, -litDepth]) {
+    const index = samples.findIndex((sample) => sample.eye[2] <= z);
+    const before = samples[index - 1],
+      after = samples[index];
+    if (!before || !after) throw new Error("Screen reveal must lie on the camera path");
+    const blend = (z - before.eye[2]) / (after.eye[2] - before.eye[2]);
+    cues.push(before.offset + (after.offset - before.offset) * blend);
+  }
+  // Include reveal and boot boundaries exactly, so WAAPI cannot light the screen early.
+  // 显现和开机边界直接加入关键帧，避免 WAAPI 插值提前点亮屏幕。
+  for (const offset of cues) {
+    const index = samples.findIndex((sample) => sample.offset >= offset);
+    const before = samples[index - 1],
+      after = samples[index];
+    if (!before || !after) throw new Error("Screen handoff must lie on the camera path");
+    const blend = (offset - before.offset) / (after.offset - before.offset);
+    const eye: Point = [
+      before.eye[0] + (after.eye[0] - before.eye[0]) * blend,
+      before.eye[1] + (after.eye[1] - before.eye[1]) * blend,
+      before.eye[2] + (after.eye[2] - before.eye[2]) * blend,
+    ];
+    samples.push({
+      offset,
+      eye,
+      yaw: before.yaw + (after.yaw - before.yaw) * blend,
+      pitch: before.pitch + (after.pitch - before.pitch) * blend,
+      roll: before.roll + (after.roll - before.roll) * blend,
+    });
+  }
+  samples.sort((a, b) => a.offset - b.offset);
+  return samples.map((pose) => {
+    const offset = pose.offset;
+    const matrix = screenProjection(pose, terminalWidth, terminalHeight, centered);
+    const handoff = ramp(offset, INTRO_HANDOFF.start, INTRO_HANDOFF.boot);
+    matrix.forEach((source, index) => {
+      let target = index % 5 === 0 ? 1 : 0;
+      if (index === 0 || index === 5) target = centered.scale;
+      if (index === 12) target = centered.x;
+      if (index === 13) target = centered.y;
+      matrix[index] = source + (target - source) * handoff;
+    });
+    // Light the glass only once the complete screen fits through both portal planes.
+    // 完整屏幕能透过入口前后开口时，再点亮玻璃。
+    const opacity = ramp(-pose.eye[2], revealDepth, litDepth);
+    return {
+      offset,
+      transform: `matrix3d(${matrix.join(",")})`,
+      opacity,
+      visibility: opacity > 0 ? "visible" : "hidden",
+    };
+  });
 }
 
 /** Settle the FLIP translation and scale with the same smooth ramp as the scene. */
@@ -176,11 +370,10 @@ export function terminalDockFrames(from: ArrayLike<number>): Keyframe[] {
   }, 61);
 }
 
-function prepareJourney(root: HTMLElement, terminal: HTMLElement) {
-  const box = terminal.getBoundingClientRect();
+function prepareJourney(root: HTMLElement, terminalHeight: number) {
   const markSize = Math.min(352, root.clientWidth * 0.64, root.clientHeight * 0.52);
   const camera = root.querySelector<HTMLElement>(".xca-ca-intro__camera");
-  if (camera) camera.style.transform = String(cameraFrames(markSize, box.height)[0]?.transform);
+  if (camera) camera.style.transform = String(cameraFrames(markSize, terminalHeight)[0]?.transform);
   root.dataset.journey = "draw";
 }
 function geometryTracks(root: HTMLElement) {
@@ -196,11 +389,10 @@ function geometryTracks(root: HTMLElement) {
   }));
   return depth;
 }
-function approachTracks(root: HTMLElement, terminal: HTMLElement) {
-  const box = terminal.getBoundingClientRect();
+function approachTracks(root: HTMLElement, terminalHeight: number) {
   const markSize = Math.min(352, root.clientWidth * 0.64, root.clientHeight * 0.52);
   return [
-    { selector: ".xca-ca-intro__camera", frames: cameraFrames(markSize, box.height) },
+    { selector: ".xca-ca-intro__camera", frames: cameraFrames(markSize, terminalHeight) },
     ...(root.dataset.markRenderer === "mesh"
       ? []
       : [
@@ -235,10 +427,10 @@ export function createIntroJourney(animate: IntroAnimate) {
       ),
     );
   }
-  function approach(root: HTMLElement, terminal: HTMLElement, unit: number, signal: AbortSignal) {
+  function approach(root: HTMLElement, terminalHeight: number, unit: number, signal: AbortSignal) {
     root.dataset.journey = "approach";
     return Promise.all(
-      approachTracks(root, terminal).map(({ selector, frames }) =>
+      approachTracks(root, terminalHeight).map(({ selector, frames }) =>
         part(root, selector, frames, unit * INTRO_PACING.journey, signal),
       ),
     );

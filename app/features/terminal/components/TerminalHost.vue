@@ -52,6 +52,11 @@ const appLines = ref<readonly string[]>([]);
 const identity = ref<PromptIdentity>(props.session.identity());
 const appearance = ref(props.session.appearanceRegistry.resolve(props.session.appearance));
 const booting = computed(() => props.intro && props.introStage !== "reveal");
+const glassScreen = computed(
+  () =>
+    props.intro &&
+    (props.introStage === "logo" || (props.introStage === "reveal" && !props.bootLines.length)),
+);
 const bootBar = computed(() => {
   // Reserve room for brackets, spacing and the percentage on narrow terminals.
   // 在窄终端上为方括号、间距和百分比预留空间。
@@ -328,11 +333,15 @@ defineExpose({
   <UiTerminalSurface
     :title="t('terminal.title')"
     :aria-label="t('terminal.label')"
+    :aria-hidden="glassScreen || undefined"
+    :inert="glassScreen"
+    :data-neoverse-glass-edge-pass="glassScreen ? 'css' : undefined"
     surface="glass-elevated"
     class="xca-terminal-window scrollbar-immersive"
     :style="appearance"
     :class="{
       'xca-terminal-window--intro': intro,
+      'xca-terminal-window--screen': glassScreen,
       'xca-terminal-window--expanded': expanded,
     }"
   >

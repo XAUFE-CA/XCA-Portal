@@ -93,6 +93,19 @@
   transition: opacity var(--neoverse-motion-duration-standard)
     var(--neoverse-motion-easing-standard);
 }
+.xca-terminal-window--screen {
+  --neoverse-terminal-header-background: transparent;
+}
+.xca-terminal-chrome,
+.xca-terminal-screen,
+.xca-terminal-statusbar {
+  transition: opacity var(--neoverse-motion-duration-standard)
+    var(--neoverse-motion-easing-standard);
+}
+.xca-terminal-window--screen
+  :is(.xca-terminal-chrome, .xca-terminal-screen, .xca-terminal-statusbar) {
+  opacity: 0;
+}
 .xca-terminal-screen {
   display: flex;
   flex: 1 1 auto;
@@ -536,6 +549,9 @@ html[data-xca-intro="running"] .xca-terminal-hero--logo .xca-terminal-window {
 }
 @media (prefers-reduced-motion: reduce) {
   .xca-terminal-window,
+  .xca-terminal-chrome,
+  .xca-terminal-screen,
+  .xca-terminal-statusbar,
   .xca-terminal-transcript,
   .xca-terminal-prompt,
   .xca-terminal-intro-output,

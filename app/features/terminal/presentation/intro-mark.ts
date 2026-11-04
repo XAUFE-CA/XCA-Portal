@@ -1,4 +1,4 @@
-import { createIntroJourney, terminalFrames } from "./intro-journey";
+import { createIntroJourney, type TerminalPlacement, terminalFrames } from "./intro-journey";
 import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
 
 type Animate = (
@@ -11,6 +11,7 @@ type Animate = (
 interface MarkContext {
   root: HTMLElement;
   terminal: HTMLElement;
+  centered: TerminalPlacement;
   unit: number;
   signal: AbortSignal;
   animate: Animate;
@@ -22,11 +23,12 @@ interface MarkContext {
  * 绘制 CA 标识后，同时填充、挤出并启动相机。
  */
 export async function playIntroMark(context: MarkContext) {
-  const { root, terminal, unit, signal, animate, onHandoff } = context;
+  const { root, terminal, centered, unit, signal, animate, onHandoff } = context;
   const paths = root.querySelectorAll<SVGPathElement>(".xca-ca-intro__front path");
   if (!paths.length || typeof terminal.animate !== "function") return;
   const journey = createIntroJourney(animate);
-  journey.prepare(root, terminal);
+  const bounds = terminal.getBoundingClientRect();
+  journey.prepare(root, bounds.height);
   await Promise.all(
     [...paths].map((path, index) =>
       animate(
@@ -46,19 +48,19 @@ export async function playIntroMark(context: MarkContext) {
   const markSize = Math.min(352, root.clientWidth * 0.64, root.clientHeight * 0.52);
   const frames = terminalFrames(
     markSize,
-    terminal.getBoundingClientRect().height,
-    terminal.style.transform || "translateZ(0)",
+    bounds.width / centered.scale,
+    bounds.height / centered.scale,
+    centered,
   );
   const arrival = animate(terminal, [], { duration: duration * INTRO_HANDOFF.arrival }, signal);
   await Promise.all([
-    journey.approach(root, terminal, unit, signal),
+    journey.approach(root, bounds.height, unit, signal),
     arrival,
     animate(
       terminal,
       frames,
       {
-        delay: duration * INTRO_HANDOFF.start,
-        duration: duration * (1 - INTRO_HANDOFF.start),
+        duration,
         easing: "linear",
         fill: "both",
       },

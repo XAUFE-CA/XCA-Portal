@@ -36,7 +36,10 @@ app/                    门户应用（Nuxt 4 srcDir）
         intro-mark.ts               标识绘制与交接
         intro-mark-mesh.ts          标识网格生成
         intro-mark-renderer.ts      标识网格绘制
-        intro-geometry.ts           场景尺度、安装坐标与道路生长
+        intro-mark-shaders.ts       场景光照、材质与主题着色
+        intro-geometry.ts           场景尺度、道路生长与入口显现时机
+        intro-auditorium.ts         报告厅物体、空间范围与家具形体
+        intro-auditorium-mesh.ts    报告厅静态网格与圆角、倒角生成
         intro-transparency.ts       城市透明排序
         intro-city-layer.ts         城市离屏绘制与整体合成
         glass-motion.ts             入场期间玻璃刷新
@@ -44,7 +47,7 @@ app/                    门户应用（Nuxt 4 srcDir）
         timing.ts                   节奏倍率、交接进度与阅读单位
         boot-script.ts              启动日志顺序
         terminal-platform.ts        系统识别
-        *.test.ts                   标识、几何、轨迹、排序、玻璃与平台单元测试
+        *.test.ts                   标识、几何、报告厅、轨迹、排序、玻璃与平台单元测试
       components/       终端 Vue 适配组件（Host、输入、Transcript、WindowHeader、StatusBar）
       branding/         终端标识 ASCII 与字符画
       client-session.ts 命令与 Session 的组装入口

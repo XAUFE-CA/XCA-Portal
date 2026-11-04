@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { JOURNEY, JOURNEY_STATIONS, roadBend } from "./intro-geometry";
+import { ARRIVAL_ENTRY, JOURNEY, JOURNEY_STATIONS, roadBend } from "./intro-geometry";
 import { createMarkMesh, extrudeContour, roundedPanelContour } from "./intro-mark-mesh";
 
 test("extrusion closes a concave cap without filling its opening", () => {
@@ -77,7 +77,7 @@ test("the road is a separate slab behind A, with no crossbar extension or etched
       expect(localY).toBeGreaterThanOrEqual(JOURNEY.floorY);
       expect(localY).toBeLessThanOrEqual(JOURNEY.floorY + 28);
       expect(z).toBeLessThanOrEqual(JOURNEY.roadStart);
-      expect(z).toBeGreaterThanOrEqual(-JOURNEY.depth);
+      expect(z).toBeGreaterThanOrEqual(JOURNEY.roadEnd);
       const edgeDistance = Math.abs((mesh[offset] ?? 0) - roadBend(z).x - JOURNEY.roadX);
       expect(edgeDistance).toBeGreaterThanOrEqual(JOURNEY.roadWidth / 2 - 8.001);
       expect(edgeDistance).toBeLessThanOrEqual(JOURNEY.roadWidth / 2 + 0.001);
@@ -222,4 +222,65 @@ test("bridge supports do not overlap the driving surface with coplanar top faces
       coplanarFaces++;
   }
   expect(coplanarFaces).toBe(0);
+});
+
+test("the curved bridge, entrance and auditorium provide an unbroken walking surface", () => {
+  const mesh = createMarkMesh([], 16);
+  type Point = readonly [number, number];
+  const floors: [Point, Point, Point][] = [];
+  const cross = (a: Point, b: Point, x: number, z: number) =>
+    (b[0] - a[0]) * (z - a[1]) - (b[1] - a[1]) * (x - a[0]);
+  for (let offset = 0; offset < mesh.length; offset += 21) {
+    if (mesh[offset + 4] !== -1) continue;
+    if (![0, 7, 14].every((at) => mesh[offset + at + 1] === JOURNEY.floorY)) continue;
+    const points = [0, 7, 14].map(
+      (at) => [mesh[offset + at] ?? 0, mesh[offset + at + 2] ?? 0] as const,
+    );
+    const [a, b, c] = points;
+    if (a && b && c && Math.abs(cross(a, b, c[0], c[1])) > 0.01) floors.push([a, b, c]);
+  }
+  const covered = (z: number) => {
+    const x = JOURNEY.roadX + roadBend(z).x;
+    return floors.some(([a, b, c]) => {
+      const signs = [cross(a, b, x, z), cross(b, c, x, z), cross(c, a, x, z)];
+      return signs.every((value) => value >= -0.001) || signs.every((value) => value <= 0.001);
+    });
+  };
+  for (let z = JOURNEY.roadStart - 10; z >= -JOURNEY.depth + JOURNEY.perspective; z -= 37)
+    expect(covered(z)).toBe(true);
+  for (const z of [JOURNEY.roadEnd + 0.01, JOURNEY.roadEnd, JOURNEY.roadEnd - 0.01])
+    expect(covered(z)).toBe(true);
+});
+
+test("the entrance cutout meets both bridge edges throughout the connection", () => {
+  const mesh = createMarkMesh([], 16);
+  for (const z of [
+    ARRIVAL_ENTRY.front - 1,
+    (ARRIVAL_ENTRY.front + JOURNEY.roadEnd) / 2,
+    JOURNEY.roadEnd + 1,
+  ]) {
+    const road: number[] = [];
+    const shoulder: number[] = [];
+    for (let offset = 0; offset < mesh.length; offset += 21) {
+      const material = mesh[offset + 6];
+      if (material !== 1 && material !== 14) continue;
+      const section = material === 1 ? road : shoulder;
+      for (const [a, b] of [
+        [0, 7],
+        [7, 14],
+        [14, 0],
+      ] as const) {
+        const ax = mesh[offset + a] ?? 0;
+        const az = mesh[offset + a + 2] ?? 0;
+        const bx = mesh[offset + b] ?? 0;
+        const bz = mesh[offset + b + 2] ?? 0;
+        if (az === bz || z < Math.min(az, bz) || z > Math.max(az, bz)) continue;
+        section.push(ax + ((bx - ax) * (z - az)) / (bz - az));
+      }
+    }
+    const left = shoulder.filter((x) => x < JOURNEY.roadX);
+    const right = shoulder.filter((x) => x > JOURNEY.roadX);
+    expect(Math.max(...left)).toBeCloseTo(Math.min(...road), 3);
+    expect(Math.min(...right)).toBeCloseTo(Math.max(...road), 3);
+  }
 });

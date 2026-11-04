@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { AUDITORIUM_MATERIAL } from "../../app/features/terminal/presentation/intro-auditorium";
+import { ARRIVAL_ENTRY, JOURNEY } from "../../app/features/terminal/presentation/intro-geometry";
+import { FRAGMENT, VERTEX } from "../../app/features/terminal/presentation/intro-mark-shaders";
+import { freezeApproach, roomPortalProbe, sampleRoomPortal } from "./journey";
 import { setThemePreference } from "./preferences";
-import { SETTLE_TIMEOUT } from "./timing";
+import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
 test("skipping the journey releases the city texture and framebuffer", async ({ page }) => {
   await page.addInitScript(() => {
@@ -62,6 +66,72 @@ test("skipping the journey releases the city texture and framebuffer", async ({ 
   await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
   expect(await resources()).toEqual({ textures: 0, framebuffers: 0 });
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`the road stays opaque while the camera enters the auditorium in ${theme}`, async ({
+    page,
+  }) => {
+    await setThemePreference(page, theme);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const scene = page.locator(".xca-ca-intro");
+    await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
+    await expect(scene).toHaveAttribute("data-mark-renderer", "mesh");
+    const positions = await page.evaluate(() => {
+      const camera = document
+        .getAnimations()
+        .find(
+          (animation) =>
+            animation.effect instanceof KeyframeEffect &&
+            animation.effect.target instanceof Element &&
+            animation.effect.target.matches(".xca-ca-intro__camera"),
+        );
+      if (!(camera?.effect instanceof KeyframeEffect)) throw new Error("Camera required");
+      const viewport = document.querySelector(".xca-ca-intro__viewport");
+      if (!viewport) throw new Error("Scene viewport required");
+      const focal = Number.parseFloat(getComputedStyle(viewport).perspective);
+      const frames = camera.effect.getKeyframes().map((frame) => ({
+        progress: frame.computedOffset,
+        z: new DOMMatrixReadOnly(String(frame.transform))
+          .inverse()
+          .transformPoint({ x: 0, y: 0, z: focal }).z,
+      }));
+      return [-8000, -8400, -9400, -9700, -10100, -10500, -11000].map(
+        (depth) =>
+          frames.reduce((nearest, frame) =>
+            Math.abs(frame.z - depth) < Math.abs(nearest.z - depth) ? frame : nearest,
+          ).progress,
+      );
+    });
+    for (const position of positions) {
+      await freezeApproach(page, position);
+      const pixel = await page.evaluate(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>(".xca-ca-intro__mesh");
+        const gl = canvas?.getContext("webgl");
+        if (!canvas || !gl) throw new Error("Scene WebGL required");
+        const { promise, resolve } = Promise.withResolvers<number[]>();
+        requestAnimationFrame(() => {
+          const rgba = new Uint8Array(4);
+          gl.readPixels(
+            Math.floor(canvas.width / 2),
+            Math.floor(canvas.height * 0.15),
+            1,
+            1,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            rgba,
+          );
+          resolve([...rgba]);
+        });
+        return promise;
+      });
+      expect(pixel[3]).toBeGreaterThanOrEqual(235);
+    }
+    await page.keyboard.press("Escape");
+    await expect(scene).toHaveCount(0);
+    await expect(page.locator("#xca-command-input")).toBeEnabled();
+    await expect(page.locator(".xca-terminal-window")).toHaveCount(1);
+  });
+}
 
 test("the city uses a transparent pass before the depth-writing road pass", async ({ page }) => {
   await page.addInitScript(() => {
@@ -203,9 +273,11 @@ test("city fragment opacity stays continuous without threshold discard", async (
       varying mediump float light, road, haze, altitude;
       varying mediump vec2 roadUv, facadeUv;
       varying mediump vec3 surfaceNormal, viewDirection;
+      varying mediump vec3 portalPosition;
       void main() {
         gl_Position = vec4(position, 1.0);
         light = 1.0; road = 5.0; haze = 0.0; altitude = level;
+        portalPosition = vec3(0.0);
         roadUv = vec2(0.0); facadeUv = vec2(0.0);
         surfaceNormal = vec3(0.0, 0.0, 1.0); viewDirection = surfaceNormal;
       }`,
@@ -262,4 +334,70 @@ test("city fragment opacity stays continuous without threshold discard", async (
   expect(pixels.at(-1)).toEqual([0, 0, 0, 0]);
   for (let index = 1; index < pixels.length; index++)
     expect(pixels[index]?.[3] ?? 0).toBeLessThanOrEqual(pixels[index - 1]?.[3] ?? 0);
+});
+
+test("the portal reveals opaque room surfaces only inside its growing aperture", async ({
+  page,
+}) => {
+  const probe = roomPortalProbe(
+    ARRIVAL_ENTRY.assemblyStart,
+    Array.from({ length: 21 }, (_, step) => step / 20),
+  );
+  const phases = await page.evaluate(sampleRoomPortal, {
+    ...probe,
+    vertex: VERTEX,
+    fragment: FRAGMENT,
+  });
+  expect(phases[0]?.covered).toBe(0);
+  let previous = 0;
+  for (const [index, phase] of phases.entries()) {
+    expect(phase.partial).toBe(0);
+    expect(phase.outside).toBe(0);
+    expect(Math.abs(phase.covered - (probe.expected[index] ?? 0))).toBeLessThanOrEqual(
+      probe.tolerance[index] ?? 0,
+    );
+    expect(phase.covered).toBeGreaterThanOrEqual(previous);
+    expect(phase.covered - previous).toBeLessThan((probe.expected.at(-1) ?? 0) / 4);
+    previous = phase.covered;
+  }
+});
+
+test("the portal crossing leaves the complete room independent of aperture progress", async ({
+  page,
+}) => {
+  for (const eyeZ of [
+    ARRIVAL_ENTRY.front + JOURNEY.near * 2,
+    ARRIVAL_ENTRY.front - JOURNEY.near * 2,
+  ]) {
+    const probe = roomPortalProbe(eyeZ, eyeZ > ARRIVAL_ENTRY.front ? [1] : [0, 0.5, 1]);
+    const phases = await page.evaluate(sampleRoomPortal, {
+      ...probe,
+      vertex: VERTEX,
+      fragment: FRAGMENT,
+    });
+    for (const [index, phase] of phases.entries()) {
+      expect(phase.partial).toBe(0);
+      expect(phase.outside).toBe(0);
+      expect(Math.abs(phase.covered - (probe.expected[index] ?? 0))).toBeLessThanOrEqual(
+        probe.tolerance[index] ?? 0,
+      );
+    }
+  }
+});
+
+test("destination geometry in front of the portal cannot form an exterior shell", async ({
+  page,
+}) => {
+  const probe = roomPortalProbe(
+    ARRIVAL_ENTRY.assemblyStart,
+    [1],
+    AUDITORIUM_MATERIAL.gateway,
+    ARRIVAL_ENTRY.front + 48,
+  );
+  const phases = await page.evaluate(sampleRoomPortal, {
+    ...probe,
+    vertex: VERTEX,
+    fragment: FRAGMENT,
+  });
+  expect(phases).toEqual([{ covered: 0, partial: 0, outside: 0 }]);
 });

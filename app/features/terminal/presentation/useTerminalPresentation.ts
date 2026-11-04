@@ -1,6 +1,5 @@
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import type CaIntroMark from "~/components/home/CaIntroMark.vue";
-import { tokenLength } from "~/utils/cssTokens";
 import type TerminalHost from "../components/TerminalHost.vue";
 import { BOOT_SEQUENCE, type BootLine } from "./boot-script";
 import { refreshGlassDuring as trackGlassMotion } from "./glass-motion";
@@ -10,7 +9,12 @@ import {
   entryTerminalFrames,
   playEntryTransition,
 } from "./intro-entry";
-import { createIntroJourney, terminalDockFrames } from "./intro-journey";
+import {
+  centerTerminal,
+  createIntroJourney,
+  type TerminalPlacement,
+  terminalDockFrames,
+} from "./intro-journey";
 import { playIntroMark } from "./intro-mark";
 import { createIntroPlayback } from "./intro-playback";
 import { expressiveDuration, INTRO_PACING, INTRO_READING_UNIT_MS } from "./timing";
@@ -135,12 +139,18 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     });
   }
   const journey = createIntroJourney(animateIntro);
-  async function playMark(element: HTMLElement, unit: number, signal: AbortSignal) {
+  async function playMark(
+    element: HTMLElement,
+    unit: number,
+    signal: AbortSignal,
+    centered: TerminalPlacement,
+  ) {
     const root = (markRef.value?.$el as HTMLElement | undefined) ?? null;
     if (!root) return;
     await playIntroMark({
       root,
       terminal: element,
+      centered,
       unit,
       signal,
       animate: animateIntro,
@@ -155,24 +165,6 @@ export function useTerminalPresentation(getCommandCount: () => number) {
       },
     });
   }
-  function initialTransform(element: HTMLElement): string {
-    // The final anchor never leaves normal flow, preventing layout shifts while docking.
-    // 最终锚点始终留在正常文档流中，避免停靠期间产生布局偏移。
-    const rect = anchor.value?.getBoundingClientRect() ?? element.getBoundingClientRect();
-    const viewport = window.visualViewport;
-    const centerX = (viewport?.width ?? window.innerWidth) / 2;
-    const centerY = (viewport?.height ?? window.innerHeight) / 2;
-    const gutter = tokenLength(element, "--neoverse-layout-gutter-inline");
-    const scale = Math.min(
-      1,
-      ((viewport?.width ?? window.innerWidth) - 2 * gutter) / rect.width,
-      ((viewport?.height ?? window.innerHeight) - 2 * gutter) / rect.height,
-    );
-    const dx = centerX - (rect.x + rect.width / 2);
-    const dy = centerY - (rect.y + rect.height / 2);
-    return `translate(${dx}px, ${dy}px) scale(${scale})`;
-  }
-
   function trackMotion(task: Promise<unknown>, signal: AbortSignal): Promise<void> {
     return task.then(
       () => undefined,
@@ -313,7 +305,8 @@ export function useTerminalPresentation(getCommandCount: () => number) {
     viewportSize = viewportDimensions();
     await nextTick();
     if (signal.aborted) return;
-    element.style.transform = reduce ? "none" : initialTransform(element);
+    element.style.transform = "none";
+    const centered = reduce ? null : centerTerminal(element, anchor.value);
     document.documentElement.dataset.xcaIntro = "running";
 
     try {
@@ -324,7 +317,7 @@ export function useTerminalPresentation(getCommandCount: () => number) {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
       signal.throwIfAborted();
-      if (!reduce) await playMark(element, unit, signal);
+      if (centered) await playMark(element, unit, signal, centered);
       else {
         await playBoot(unit, signal, false);
         await playBrand(unit, signal);

@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import {
   advanceToScreen,
   advanceToStage,
+  expectCenteredTerminal,
+  expectStageGlass,
   freezeApproach,
   recordBannerPrinting,
   resumeScene,
@@ -16,7 +18,31 @@ for (const mode of [
 ]) {
   test.describe(`journey ${mode.theme} ${mode.width}px DPR ${mode.dpr}`, () => {
     test.use({ viewport: mode, deviceScaleFactor: mode.dpr });
-    test("brand geometry reaches the single real terminal without a projection jump @cinematic", async ({
+    test("the stage glass appears after CA without exposing terminal chrome @cinematic", async ({
+      page,
+    }) => {
+      await setThemePreference(page, mode.theme);
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      const scene = page.locator(".xca-ca-intro");
+      await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
+      const terminal = page.locator(".xca-terminal-window");
+      for (const fraction of [0, 0.24, 0.43, 0.57, 0.8, 0.85]) {
+        await freezeApproach(page, fraction);
+        if (fraction >= 0.8) {
+          await expect(terminal).toHaveCSS("visibility", "visible");
+          await expect(terminal).toHaveCSS("opacity", "1");
+          await expect(terminal).toHaveAttribute("inert", "");
+          await expect(page.locator(".xca-terminal-chrome")).toHaveCSS("opacity", "0");
+          await expect(page.locator(".xca-terminal-bootlog__line")).toHaveCount(0);
+          await expectStageGlass(page);
+        } else {
+          await expect(terminal).toHaveCSS("visibility", "hidden");
+        }
+        await page.screenshot({ path: test.info().outputPath(`camera-${fraction}.png`) });
+      }
+    });
+
+    test("the stage glass becomes the single readable terminal through boot and docking @cinematic", async ({
       page,
     }) => {
       const errors: string[] = [];
@@ -28,51 +54,24 @@ for (const mode of [
       await page.goto("/", { waitUntil: "domcontentloaded" });
       const scene = page.locator(".xca-ca-intro");
       await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
-      const original = await (await page.request.get("/brand/ca-mark.svg")).text();
-      const paths = [...original.matchAll(/<path[\s\S]*?d="([\s\S]*?)"/g)].map((match) => match[1]);
-      expect(
-        await scene
-          .locator(".xca-ca-intro__front path")
-          .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("d"))),
-      ).toEqual(paths);
       const terminal = page.locator(".xca-terminal-window");
       await terminal.evaluate((node) => node.setAttribute("data-journey-persistent", "yes"));
-      for (const fraction of [0, 0.24, 0.43, 0.57, 0.8, 0.85]) {
-        await freezeApproach(page, fraction);
-        if (fraction >= 0.8) {
-          await expect(terminal).toHaveCSS("visibility", "visible");
-          const opacity = await terminal.evaluate((node) => Number(getComputedStyle(node).opacity));
-          expect(opacity).toBeGreaterThan(fraction === 0.8 ? 0.05 : 0.4);
-          expect(opacity).toBeLessThan(1);
-          await expect(page.locator(".xca-terminal-bootlog__line")).toHaveCount(0);
-        }
-        await page.screenshot({ path: test.info().outputPath(`camera-${fraction}.png`) });
-      }
+      await freezeApproach(page, 0.85);
       await resumeScene(page);
-      // Capture the projection before the arrival finish; the terminal must keep growing from here.
-      // 在到达收尾前记录投影；终端此后必须继续放大。
-      const arriving = await terminal.boundingBox();
-      if (!arriving) throw new Error("The single real terminal must be projected during boot");
       await advanceToScreen(page, "boot");
       await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--boot/, {
         timeout: SCENE_TIMEOUT,
       });
       await recordBannerPrinting(page);
       await expect(terminal).toHaveAttribute("data-journey-persistent", "yes");
-      // The stepped timeline can already reach the settled width, so require growth, not a jump.
-      // 步进后的时间线可能已达最终宽度，因此只要求不缩小。
-      const grown = (await terminal.boundingBox())?.width ?? 0;
-      expect(grown).toBeGreaterThanOrEqual(arriving.width);
+      await expectCenteredTerminal(page, mode);
       await advanceToStage(page, "cruise");
       await expect(scene).toHaveAttribute("data-journey", "cruise", { timeout: SCENE_TIMEOUT });
       await expect
         .poll(() => page.locator(".xca-terminal-bootlog__line").count(), { timeout: SCENE_TIMEOUT })
         .toBeGreaterThan(0);
-      await page.screenshot({ path: test.info().outputPath("boot-cruise.png") });
       await advanceToStage(page, "retreat");
       await expect(scene).toHaveAttribute("data-journey", "retreat", { timeout: SCENE_TIMEOUT });
-      await page.waitForTimeout(160);
-      await page.screenshot({ path: test.info().outputPath("boot-arrival.png") });
       await expect(page.locator(".xca-terminal-hero__heading")).not.toHaveCSS("opacity", "0");
       await advanceToScreen(page, "brand");
       await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--brand/);
