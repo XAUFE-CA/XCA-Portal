@@ -123,6 +123,12 @@ jobs:
         with:
           name: portal-build
           path: XCA-Portal/.output
+      # Browser binaries do not depend on the portal build, so every shard reuses one cache.
+      # 浏览器二进制不依赖门户构建，各分片复用同一缓存。
+      - uses: actions/cache@v6
+        with:
+          path: "~/.cache/ms-playwright"
+          key: playwright-${{ runner.os }}-${{ hashFiles('XCA-Portal/bun.lock') }}
       - name: Install Chromium (Linux)
         if: runner.os == 'Linux'
         run: bunx playwright install --with-deps chromium

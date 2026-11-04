@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { advanceToScreen } from "./journey";
 import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
 test("motion preference change and rotation settle a readable terminal", async ({ page }) => {
@@ -40,6 +41,9 @@ test("repeated intro replay preserves host, directory, appearance and history", 
     await input.press("Enter");
     await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "draw");
     await page.keyboard.press("Escape");
+    // Skipping settles asynchronously; an inert host silently drops the next keys on fast renderers.
+    // 跳过的收尾是异步的；快渲染器上仍为 inert 的宿主会静默丢弃后续按键。
+    await expect(terminal).not.toHaveAttribute("inert", { timeout: SETTLE_TIMEOUT });
     await expect(input).toBeEnabled();
     await expect(terminal).toHaveAttribute("data-session-host", "retained");
     await expect(terminal.locator(".xca-terminal-statusbar")).toContainText("/community");
@@ -52,7 +56,7 @@ test("repeated intro replay preserves host, directory, appearance and history", 
   await expect(terminal).toHaveCount(1);
 });
 
-test("natural journey records frame timings and releases spatial animations", async ({
+test("journey timeline records frame timings and releases spatial animations", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
@@ -78,6 +82,9 @@ test("natural journey records frame timings and releases spatial animations", as
     requestAnimationFrame(record);
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  // Step the timeline to ready; rAF samples stay real, but cues no longer wait out their wall clock.
+  // 将时间线步进到 ready；rAF 样本仍是真实帧，但提示不再按墙钟等完。
+  await advanceToScreen(page, "ready");
   await expect(page.locator(".xca-terminal-screen--ready")).toHaveCount(1, {
     timeout: SCENE_TIMEOUT,
   });
