@@ -122,7 +122,9 @@ function updateColumns() {
   const cell = context.measureText("M").width;
   const bannerStyle = getComputedStyle(probeNode);
   context.font = `${bannerStyle.fontSize} ${bannerStyle.fontFamily}`;
-  const bannerCell = context.measureText("M").width;
+  // Wordmark cells overlap slightly, so the measured cell width includes that tracking.
+  // 字标字符格轻微重叠，测量的单元格宽度须计入该字距。
+  const bannerCell = context.measureText("M").width + (parseFloat(bannerStyle.letterSpacing) || 0);
   columns.value = Math.max(TERMINAL.layout.minColumns, Math.floor(node.clientWidth / cell));
   if (window.matchMedia("(min-width: 52rem)").matches) {
     // Scale glyphs to the panel width so the desktop welcome wordmark stays on one line.

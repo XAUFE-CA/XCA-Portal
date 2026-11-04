@@ -415,6 +415,7 @@ test("ASCII wordmark remains aligned and unclipped on desktop, mobile and narrow
             parseFloat(rootStyle.fontSize),
           whitespace: style.whiteSpace,
           ligatures: style.fontVariantLigatures,
+          tracking: parseFloat(style.letterSpacing),
         };
       });
     expect(brandStyle.color).toBe(brandStyle.expectedAccent);
@@ -422,6 +423,9 @@ test("ASCII wordmark remains aligned and unclipped on desktop, mobile and narrow
     if (width < 608) expect(brandStyle.size).toBeCloseTo(brandStyle.mobileSize, 2);
     expect(brandStyle.whitespace).toBe("pre");
     expect(brandStyle.ligatures).toBe("none");
+    // Overlapping block cells keep the wordmark free of subpixel seams in dark mode too.
+    // 方块字符格轻微重叠，深色模式下字标同样不出现亚像素接缝。
+    expect(brandStyle.tracking).toBeLessThan(0);
     expect(banner.text).not.toContain("#");
     expect(banner.text).toContain("█");
     expect(banner.text.split("\n").length).toBeGreaterThan(4);

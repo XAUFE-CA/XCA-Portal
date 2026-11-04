@@ -147,7 +147,9 @@
   font-feature-settings:
     "liga" 0,
     "calt" 0;
-  letter-spacing: 0;
+  /* Block glyphs leave a subpixel seam at every cell edge; a slight overlap closes it.
+     方块字形在每个单元格边界留下亚像素缝隙，轻微重叠即可消除。 */
+  letter-spacing: -0.03em;
   color: var(--neoverse-color-accent-primary);
 }
 /* Theme accents keep the light wordmark gradient between blue and mint.
