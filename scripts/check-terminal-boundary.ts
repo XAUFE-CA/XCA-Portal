@@ -1,5 +1,3 @@
-import { resolve } from "node:path";
-
 const failures: string[] = [];
 const checks = [
   { pattern: /<(button|select|textarea)\b/g, message: "交互控件应复用 Neoverse-UI" },
@@ -17,12 +15,15 @@ for await (const path of new Bun.Glob("app/features/terminal/**/*.{ts,vue}").sca
     check.pattern.lastIndex = 0;
   });
 }
-const cssPath = "app/assets/css/terminal.css";
+const terminalStylesheets: string[] = [];
+for await (const path of new Bun.Glob("app/assets/css/terminal*.css").scan("."))
+  terminalStylesheets.push(path);
+terminalStylesheets.sort();
 // Terminal component style blocks carry terminal styling too, so the same rules cover them.
 // 终端组件内的样式块同样属于终端样式，因此适用同一套规则。
-const styleSources: { path: string; css: string }[] = [
-  { path: cssPath, css: await Bun.file(cssPath).text() },
-];
+const styleSources: { path: string; css: string }[] = [];
+for (const path of terminalStylesheets)
+  styleSources.push({ path, css: await Bun.file(path).text() });
 for await (const path of new Bun.Glob("app/features/terminal/**/*.vue").scan(".")) {
   const markup = await Bun.file(path).text();
   for (const match of markup.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
@@ -103,5 +104,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `Terminal UI boundary passed (${resolve(cssPath)} + ${styleSources.length - 1} component style blocks)`,
+  `Terminal UI boundary passed (${terminalStylesheets.join(", ")} + ${styleSources.length - terminalStylesheets.length} component style blocks)`,
 );
+
+export {};

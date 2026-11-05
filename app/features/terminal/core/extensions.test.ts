@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { registerVirtualFiles } from "../client-session";
 import { terminalCommands } from "../commands";
 import { TerminalSession } from "./session";
 import type { TerminalServices } from "./types";
@@ -12,6 +13,7 @@ function makeSession(overrides: Partial<TerminalServices> = {}) {
     ...overrides,
   });
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   return session;
 }
 test("virtual Linux commands share cwd, registered files and argument completion", async () => {
@@ -35,7 +37,7 @@ test("virtual Linux commands share cwd, registered files and argument completion
   await session.execute("cd ../../../../etc");
   expect(session.workspace.cwd).toBe("/etc");
   await session.execute("cat os-release");
-  expect(JSON.stringify(session.entries)).toContain("SIMULATED=true");
+  expect(JSON.stringify(session.entries)).toContain("XCA Browser Terminal");
   await session.execute("cd os-release");
   expect(session.status).toBe(1);
   expect(session.workspace.cwd).toBe("/etc");
@@ -114,7 +116,7 @@ test("interactive cancellation immediately releases session and rejects late eff
         resolve = done;
       });
       try {
-        ctx.setAppearance({ background: "aurora" });
+        ctx.setAppearance({ background: "canvas" });
       } catch {
         late = true;
       }
@@ -159,7 +161,7 @@ test("TUI receives dimensions and keys, then returns to the preserved transcript
   session.resize({ columns: 35, rows: 5 });
   expect(session.application?.lines.length).toBeLessThanOrEqual(2);
   session.application?.onKey("End");
-  expect(session.application?.lines.join("\n")).toContain("SIMULATED=true");
+  expect(session.application?.lines.join("\n")).toContain("XCA Browser/Linux");
   session.application?.onKey("q");
   expect(session.application).toBeNull();
   expect(session.entries.slice(0, entries.length)).toEqual(entries);

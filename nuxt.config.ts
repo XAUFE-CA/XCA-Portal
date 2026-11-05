@@ -66,6 +66,8 @@ export default defineNuxtConfig({
     "~/assets/css/fonts.css",
     "~/assets/css/main.css",
     "~/assets/css/terminal.css",
+    "~/assets/css/terminal-intro.css",
+    "~/assets/css/terminal-adaptive.css",
   ],
   devtools: { enabled: false },
   typescript: { strict: true },

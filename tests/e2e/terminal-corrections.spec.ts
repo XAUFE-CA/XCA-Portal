@@ -19,7 +19,7 @@ test("xca intro is discoverable and explicitly replays, including with reduced m
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   const input = page.locator("#xca-command-input");
-  await input.fill("help xca intro");
+  await input.fill("man xca intro");
   await input.press("Enter");
   await expect(page.locator(".xca-terminal-transcript")).toContainText("重新播放首页启动演出");
   await input.fill("xca intro");

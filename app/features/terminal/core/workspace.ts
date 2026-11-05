@@ -15,27 +15,7 @@ export class VirtualWorkspace {
   private readonly t = createTranslator(() => this.services().getLocale?.() ?? "zh-CN");
   cwd: string = TERMINAL.identity.home;
   private nodes = new Map<string, VirtualNode>();
-  constructor(private services: () => TerminalServices) {
-    for (const path of ["/", "/home", TERMINAL.identity.home, "/community", "/etc"]) {
-      this.register({ path, kind: "directory" });
-    }
-    this.register({
-      path: `${TERMINAL.identity.home}/README.md`,
-      kind: "file",
-      read: () =>
-        this.t("workspace.readme", {
-          name: TERMINAL.brand.name,
-          tagline: this.t("terminal.welcomeTagline"),
-          hint: this.t("terminal.welcomeHint"),
-        }),
-    });
-    this.register({
-      path: "/etc/os-release",
-      kind: "file",
-      read: () =>
-        `NAME="${TERMINAL.brand.acronym} Browser Terminal"\nPRETTY_NAME="${TERMINAL.identity.platform}"\nSIMULATED=true`,
-    });
-  }
+  constructor(private services: () => TerminalServices) {}
   register(node: VirtualNode): void {
     if (!node.path.startsWith("/")) throw new Error(this.t("error.absolutePath"));
     const path = this.resolve(node.path);
@@ -69,6 +49,18 @@ export class VirtualWorkspace {
         !child.path.slice(prefix.length).includes("/"),
     );
   }
+  /**
+   * Lists every descendant of a directory in path order without touching the host.
+   * 按路径顺序列出目录的全部后代节点，不访问宿主。
+   */
+  walk(root = "."): VirtualNode[] {
+    const node = this.node(root);
+    if (node.kind === "file") return [];
+    const prefix = node.path === "/" ? "/" : `${node.path}/`;
+    return [...this.nodes.values()]
+      .filter((child) => child.path.startsWith(prefix) && child.path !== node.path)
+      .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
+  }
   cd(path = "~"): void {
     const node = this.node(path);
     if (node.kind !== "directory") throw new Error(this.t("error.notDirectory", { path }));
@@ -86,9 +78,16 @@ export class VirtualWorkspace {
     const slash = prefix.lastIndexOf("/");
     const base = slash >= 0 ? prefix.slice(0, slash + 1) : "";
     const name = prefix.slice(slash + 1);
+    // Dotfiles stay out of candidates until the typed name starts with a dot.
+    // 在输入名以点开头前，补全候选不包含点开头的文件。
+    const includeHidden = name.startsWith(".");
     try {
       return this.list(base || ".")
-        .filter((node) => node.path.slice(node.path.lastIndexOf("/") + 1).startsWith(name))
+        .filter(
+          (node) =>
+            (includeHidden || !node.path.slice(node.path.lastIndexOf("/") + 1).startsWith(".")) &&
+            node.path.slice(node.path.lastIndexOf("/") + 1).startsWith(name),
+        )
         .map(
           (node) =>
             `${base}${node.path.slice(node.path.lastIndexOf("/") + 1)}${node.kind === "directory" ? "/" : ""}`,

@@ -1,0 +1,6 @@
+# Guest profile for the browser shell. No host file is read.
+
+export TERM=xca-browser
+export SHELL=xca-sh
+
+# Hint: ls -a lists virtual files that start with a dot.

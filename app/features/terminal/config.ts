@@ -12,7 +12,7 @@ export const TERMINAL = {
     host: "xca",
     home: "/home/guest",
     shell: "xca-sh",
-    platform: "XCA Browser/Linux (simulated)",
+    platform: "XCA Browser/Linux",
   },
   limits: { history: 80, output: 300, commandTimeout: 30_000 },
   welcome: ["terminal.welcomeTagline", "terminal.welcomeHint"] satisfies MessageKey[],

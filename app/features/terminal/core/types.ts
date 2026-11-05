@@ -18,6 +18,7 @@ export type EntryInput = TerminalEntry extends infer T
     : never
   : never;
 export type ThemeChoice = "light" | "dark" | "system";
+export type CommandGroup = "session" | "files" | "system" | "site";
 export interface PromptIdentity {
   user: string;
   host: string;
@@ -68,6 +69,9 @@ export interface TerminalServices {
 export interface CommandContext {
   t: Translator;
   services: TerminalServices;
+  // Current terminal width in character cells, so output can fit the measured screen.
+  // 当前终端列数，使输出能够适配实测屏幕宽度。
+  columns(): number;
   listCommands(): CommandDefinition[];
   history(): string[];
   clear(): void;
@@ -90,6 +94,10 @@ export interface CommandDefinition {
   summaryKey?: MessageKey;
   usage: string;
   usageKey?: MessageKey;
+  // Accepted values shown beneath the usage line; functions can read runtime registries.
+  // 显示在用法行下方的可接受值。函数形式用于读取运行时注册表。
+  usageParams?: readonly string[] | ((context: CommandContext) => readonly string[]);
+  group?: CommandGroup;
   aliases?: string[];
   subcommands?: CommandDefinition[];
   complete?(args: string[], context: CommandContext): string[];

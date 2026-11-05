@@ -19,17 +19,17 @@ test("ghost completion previews a suffix and accepts with Right without executin
   await expect(input).toHaveValue("clear");
   await expect(ghost).toHaveCount(0);
   await expect(page.locator(".xca-terminal-command")).toHaveCount(0);
-  await input.fill("xca background a");
-  await expect(ghost).toHaveText("urora");
+  await input.fill("xca background c");
+  await expect(ghost).toHaveText("anvas");
   await input.press("ArrowLeft");
   await expect(ghost).toHaveCount(0);
   await input.press("ArrowRight");
-  await expect(input).toHaveValue("xca background a");
-  await expect(ghost).toHaveText("urora");
+  await expect(input).toHaveValue("xca background c");
+  await expect(ghost).toHaveText("anvas");
   await input.press("Escape");
   await expect(ghost).toHaveCount(0);
   await input.press("ArrowRight");
-  await expect(input).toHaveValue("xca background a");
+  await expect(input).toHaveValue("xca background c");
   await input.fill("cd /c");
   await expect(ghost).toHaveText("ommunity/");
   await input.press("ArrowRight");
@@ -111,15 +111,9 @@ test("Tab cycles background presets but font switching is no longer registered",
   await expect(input).toHaveValue("xca background ");
   await input.press("Tab");
   await expect(input).toHaveValue("xca background default ");
-  const candidates = page
-    .locator(".xca-terminal-line")
-    .filter({ hasText: /^default\s+canvas\s+aurora$/ });
+  const candidates = page.locator(".xca-terminal-line").filter({ hasText: /^default\s+canvas$/ });
   await expect(candidates).toHaveCount(1);
-  for (const value of [
-    "xca background canvas ",
-    "xca background aurora ",
-    "xca background default ",
-  ]) {
+  for (const value of ["xca background canvas ", "xca background default "]) {
     await input.press("Tab");
     await expect(input).toHaveValue(value);
   }
@@ -142,9 +136,6 @@ test("Tab cycles command names and restarts after editing or Escape", async ({ p
   await expect(input).toHaveValue("xca background canvas ");
   await input.press("Escape");
   await expect(input).toHaveValue("xca background canvas ");
-  await input.fill("xca background a");
-  await input.press("Tab");
-  await expect(input).toHaveValue("xca background aurora ");
 });
 
 test("argument cycles execute the selected value and directory completion keeps its slash", async ({
@@ -167,7 +158,6 @@ test("argument cycles execute the selected value and directory completion keeps 
   for (const value of [
     "xca background default ",
     "xca background canvas ",
-    "xca background aurora ",
     "xca background default ",
   ]) {
     await input.press("Tab");
@@ -200,5 +190,7 @@ test("a completed file is not repeated by the ghost or the next Tab", async ({ p
   await input.press("ArrowRight");
   await expect(input).toHaveValue("cat README.md /etc/os-release");
   await input.press("Enter");
-  await expect(page.locator(".xca-terminal-line").last()).toContainText("SIMULATED=true");
+  await expect(page.locator(".xca-terminal-line").last()).toContainText(
+    'NAME="XCA Browser Terminal"',
+  );
 });

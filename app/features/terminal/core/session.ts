@@ -1,4 +1,4 @@
-import { createTranslator } from "../../../i18n";
+import { createTranslator, type SiteLocale } from "../../../i18n";
 import { TERMINAL } from "../config";
 import { AppearanceRegistry, type TerminalAppearance } from "./appearance";
 import { parseCommandLine } from "./parser";
@@ -17,7 +17,8 @@ import type {
 import { VirtualWorkspace } from "./workspace";
 
 export class TerminalSession {
-  readonly t = createTranslator(() => this.services.getLocale?.() ?? "zh-CN");
+  readonly locale = (): SiteLocale => this.services.getLocale?.() ?? "zh-CN";
+  readonly t = createTranslator(this.locale);
   readonly registry = new CommandRegistry(this.t);
   readonly appearanceRegistry = new AppearanceRegistry(this.t);
   readonly workspace = new VirtualWorkspace(() => this.services);
@@ -138,6 +139,7 @@ export class TerminalSession {
       });
     return {
       t: this.t,
+      columns: () => this.size.columns,
       services: {
         ...this.services,
         navigate: (route) => {

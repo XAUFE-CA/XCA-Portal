@@ -31,12 +31,6 @@ export class AppearanceRegistry {
       labelKey: "background.canvas",
       color: "var(--neoverse-color-surface-canvas)",
     });
-    this.registerBackground({
-      id: "aurora",
-      label: "",
-      labelKey: "background.aurora",
-      color: "var(--neoverse-color-ambient-mint)",
-    });
   }
 
   registerBackground(background: TerminalBackground): void {

@@ -120,5 +120,10 @@ test("terminal UI CLI validates every component style block", () => {
     expect(check(root, "terminal-boundary").code).toBe(0);
     write(root, "app/assets/css/terminal.css", ".example { color: #fff; }");
     expect(check(root, "terminal-boundary").code).toBe(1);
+    write(root, "app/assets/css/terminal.css", "");
+    write(root, "app/assets/css/terminal-intro.css", ".example { color: #fff; }");
+    const split = check(root, "terminal-boundary");
+    expect(split.code).toBe(1);
+    expect(split.output.replaceAll("\\", "/")).toContain("terminal-intro.css");
   });
 });

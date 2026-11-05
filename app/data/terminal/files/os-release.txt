@@ -1,0 +1,2 @@
+NAME="XCA Browser Terminal"
+PRETTY_NAME="XCA Browser/Linux"

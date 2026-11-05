@@ -6,6 +6,7 @@
     "format": "biome check --write --linter-enabled=false . && prettier --write \"**/*.{md,yml,yaml}\"",
     "format:check": "biome check --linter-enabled=false . && prettier --check \"**/*.{md,yml,yaml}\"",
     "ui:sync": "bun scripts/sync-neoverse-ui.ts",
+    "texts:stamp": "bun scripts/stamp-terminal-texts.ts",
     "build": "nuxt build",
     "typecheck": "nuxt typecheck",
     "test": "bun test app scripts",

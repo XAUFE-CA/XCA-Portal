@@ -1,52 +1,68 @@
 import type { CommandDefinition } from "../core/types";
+import { fileCommands } from "./files";
 import { commandDetails, completeHelp, line, listHelp, resolveCommand, usage } from "./helpers";
 import { interactiveCommands } from "./interactive";
-import { linuxCommands } from "./linux";
+import { searchCommands } from "./search";
 import { xcaCommand } from "./site";
+import { systemCommands } from "./system";
+import { textCommands } from "./text";
 
 export const terminalCommands: CommandDefinition[] = [
   {
     name: "help",
+    group: "session",
     summary: "",
     summaryKey: "summary.help",
-    usage: "help [command...]",
+    usage: "help",
+    execute: (args, ctx) => (args.length ? usage(ctx, "help") : listHelp(ctx.listCommands(), ctx)),
+  },
+  {
+    name: "man",
+    group: "session",
+    summary: "",
+    summaryKey: "summary.man",
+    usage: "man <command...>",
     complete: (args, ctx) => completeHelp(args, ctx.listCommands()),
     execute: (args, ctx) => {
-      if (!args.length) return listHelp(ctx.listCommands(), ctx);
+      if (!args.length) return usage(ctx, "man");
       const command = resolveCommand(ctx.listCommands(), args);
-      return command ? commandDetails(command, ctx) : [line(ctx.t("command.missing"), "error")];
+      return command
+        ? commandDetails(command, ctx)
+        : [line(ctx.t("command.manMissing", { name: args.join(" ") }), "error")];
     },
   },
   {
     name: "clear",
-    aliases: ["cls"],
+    group: "session",
     summary: "",
     summaryKey: "summary.clear",
     usage: "clear",
     execute: (args, ctx) => {
-      if (args.length) return usage("clear", ctx.t);
+      if (args.length) return usage(ctx, "clear");
       ctx.clear();
     },
   },
   {
     name: "history",
+    group: "session",
     summary: "",
     summaryKey: "summary.history",
     usage: "history",
     execute: (args, ctx) =>
       args.length
-        ? usage("history", ctx.t)
+        ? usage(ctx, "history")
         : ctx
             .history()
             .map((item, i) => line(`${String(i + 1).padStart(2, "0")}  ${item}`, "muted")),
   },
   {
     name: "whoami",
+    group: "session",
     summary: "",
     summaryKey: "summary.whoami",
     usage: "whoami",
     execute: async (args, ctx, signal) => {
-      if (args.length) return usage("whoami", ctx.t);
+      if (args.length) return usage(ctx, "whoami");
       const identity = await ctx.services.auth?.getSession(signal);
       ctx.setIdentity(identity ?? null);
       return identity
@@ -57,7 +73,10 @@ export const terminalCommands: CommandDefinition[] = [
           ];
     },
   },
-  ...linuxCommands,
+  ...fileCommands,
+  ...textCommands,
+  ...searchCommands,
+  ...systemCommands,
   ...interactiveCommands,
   xcaCommand,
 ];

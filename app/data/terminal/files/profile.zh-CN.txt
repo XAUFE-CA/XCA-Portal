@@ -1,0 +1,6 @@
+# 网页 Shell 的访客配置，不读取本机文件。
+
+export TERM=xca-browser
+export SHELL=xca-sh
+
+# 提示：ls -a 会显示以点开头的虚拟文件。

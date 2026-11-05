@@ -11,6 +11,7 @@ export const appearanceCommands: CommandDefinition[] = [
     summary: "",
     summaryKey: "summary.background",
     usage: "xca background [preset]",
+    usageParams: (ctx) => [...ctx.appearance.backgrounds.keys()],
     complete: (args, ctx) =>
       args.length > 1 ? [] : matching([...ctx.appearance.backgrounds.keys()], args.at(-1)),
     execute: (args, ctx) => {
@@ -24,7 +25,7 @@ export const appearanceCommands: CommandDefinition[] = [
         );
       const [preset] = args;
       if (args.length !== 1 || preset === undefined || !profiles.has(preset))
-        return usage(`xca background ${[...profiles.keys()].join(" | ")}`, ctx.t);
+        return usage(ctx, "background");
       ctx.setAppearance({ background: preset });
       return [line(ctx.t("background.changed", { preset }), "success")];
     },

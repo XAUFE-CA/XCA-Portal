@@ -8,8 +8,7 @@ import {
   UiTerminalTranscript,
 } from "@neoverse-ui/vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { BANNERS, bannerWidth, selectBanner } from "../branding/banners";
-import { TERMINAL } from "../config";
+import { selectBanner } from "../branding/banners";
 import type { TerminalSession } from "../core/session";
 import type {
   TerminalInteraction as Interaction,
@@ -17,6 +16,7 @@ import type {
   TerminalApplication,
   TerminalEntry,
 } from "../core/types";
+import { useTerminalMetrics } from "../presentation/useTerminalMetrics";
 import type { BootLine, TerminalPresentationStage } from "./presentation-contract";
 import TerminalCommandInput from "./TerminalCommandInput.vue";
 import TerminalInteraction from "./TerminalInteraction.vue";
@@ -40,12 +40,17 @@ const input = ref(props.session.draft);
 const transcript = ref<InstanceType<typeof UiTerminalTranscript> | null>(null);
 const viewport = computed<HTMLElement | null>(() => transcript.value?.$el ?? null);
 const screen = ref<HTMLElement | null>(null);
+const transcriptScrolled = ref(false);
+const transcriptMoreBelow = ref(false);
 const probe = ref<InstanceType<typeof UiTerminalLine> | null>(null);
+const probeElement = computed<HTMLElement | null>(() => probe.value?.$el ?? null);
 const appRegion = ref<HTMLElement | null>(null);
-let metricsContext: CanvasRenderingContext2D | null = null;
-const columns = ref(props.session.size.columns);
-const bannerColumns = ref(props.session.size.columns);
-const bannerScale = ref(1);
+const { columns, bannerColumns, bannerScale, scheduleMeasurement } = useTerminalMetrics({
+  session: props.session,
+  screen,
+  viewport,
+  probe: probeElement,
+});
 const interaction = ref<Interaction | null>(props.session.interaction);
 const application = ref<TerminalApplication | null>(props.session.application);
 const appLines = ref<readonly string[]>([]);
@@ -84,8 +89,6 @@ const running = ref(props.session.running);
 let draftBeforeHistory = "";
 let completion: { matches: string[]; index: number; value: string } | null = null;
 let unsubscribe: (() => void) | undefined;
-let observer: ResizeObserver | undefined;
-let measureFrame = 0;
 
 function focusInput() {
   if (application.value) appRegion.value?.focus({ preventScroll: true });
@@ -106,50 +109,11 @@ function scrollToLatest() {
   // 只滚动终端。scrollIntoView 会连带滚动周围的页面。
   node.scrollTop = node.scrollHeight;
 }
-function updateColumns() {
+function syncTranscriptScroll() {
   const node = viewport.value;
-  const probeNode = probe.value?.$el;
-  if (!node || !probeNode || !screen.value) return;
-  // Measure real selected font metrics instead of trusting the window's FLIP scale.
-  // 测量所选字体的真实度量，而不依赖窗口的 FLIP 缩放。
-  const editor = screen.value.querySelector<HTMLInputElement>("#xca-command-input");
-  if (!editor) return;
-  const style = getComputedStyle(editor);
-  metricsContext ??= document.createElement("canvas").getContext("2d");
-  const context = metricsContext;
-  if (!context) return;
-  context.font = `${style.fontSize} ${style.fontFamily}`;
-  const cell = context.measureText("M").width;
-  const bannerStyle = getComputedStyle(probeNode);
-  context.font = `${bannerStyle.fontSize} ${bannerStyle.fontFamily}`;
-  // Wordmark cells overlap slightly, so the measured cell width includes that tracking.
-  // 字标字符格轻微重叠，测量的单元格宽度须计入该字距。
-  const bannerCell = context.measureText("M").width + (parseFloat(bannerStyle.letterSpacing) || 0);
-  columns.value = Math.max(TERMINAL.layout.minColumns, Math.floor(node.clientWidth / cell));
-  if (window.matchMedia("(min-width: 52rem)").matches) {
-    // Scale glyphs to the panel width so the desktop welcome wordmark stays on one line.
-    // 按面板宽度缩放字形，使桌面欢迎字标保持单行。
-    const wideBannerColumns = bannerWidth(BANNERS.wide);
-    bannerScale.value = Math.min(1, (node.clientWidth - 2) / (wideBannerColumns * bannerCell));
-    bannerColumns.value = wideBannerColumns;
-  } else {
-    bannerScale.value = 1;
-    bannerColumns.value = Math.max(
-      TERMINAL.layout.minColumns,
-      Math.floor(node.clientWidth / bannerCell),
-    );
-  }
-  props.session.resize({
-    columns: columns.value,
-    rows: Math.max(
-      TERMINAL.layout.minRows,
-      Math.floor(node.clientHeight / parseFloat(style.lineHeight)),
-    ),
-  });
-}
-function scheduleMeasurement() {
-  cancelAnimationFrame(measureFrame);
-  measureFrame = requestAnimationFrame(updateColumns);
+  const top = node?.scrollTop ?? 0;
+  transcriptScrolled.value = top > 0;
+  transcriptMoreBelow.value = node ? node.scrollHeight - node.clientHeight - top > 1 : false;
 }
 function updateFromSession() {
   sessionRevision.value++;
@@ -178,21 +142,17 @@ watch(
     if (!intro) void nextTick(scheduleMeasurement);
   },
 );
+watch(viewport, (node, previous) => {
+  previous?.removeEventListener("scroll", syncTranscriptScroll);
+  node?.addEventListener("scroll", syncTranscriptScroll, { passive: true });
+  syncTranscriptScroll();
+});
 onMounted(() => {
   unsubscribe = props.session.subscribe(updateFromSession);
-  if (screen.value) {
-    observer = new ResizeObserver(scheduleMeasurement);
-    observer.observe(screen.value);
-  }
-  updateColumns();
-  void document.fonts.ready.then(() => {
-    if (screen.value?.isConnected) scheduleMeasurement();
-  });
 });
 onBeforeUnmount(() => {
   unsubscribe?.();
-  observer?.disconnect();
-  cancelAnimationFrame(measureFrame);
+  viewport.value?.removeEventListener("scroll", syncTranscriptScroll);
   props.session.cancel();
 });
 async function submit() {
@@ -378,7 +338,11 @@ defineExpose({
       <UiTerminalTranscript
         ref="transcript"
         class="xca-terminal-transcript"
-        :class="{ 'xca-terminal-transcript--hidden': application }"
+        :class="{
+          'xca-terminal-transcript--hidden': application,
+          'xca-terminal-transcript--scrolled': transcriptScrolled,
+          'xca-terminal-transcript--more-below': transcriptMoreBelow,
+        }"
         :label="t('terminal.output')"
         live="off"
       >

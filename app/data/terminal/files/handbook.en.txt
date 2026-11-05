@@ -1,0 +1,13 @@
+Community handbook
+
+1. What this is
+This is the official portal of XCA, the Computer Science Club at Xi'an University of Finance and Economics.
+
+2. Getting started
+Use help for commands and xca open home to return to the homepage.
+
+3. Reading files
+ls lists the current directory, cat prints a file, less reads it page by page.
+
+4. Boundaries
+Every file is read-only virtual content. Reloading keeps the directory and history.

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { registerVirtualFiles } from "../client-session";
 import { terminalCommands } from "../commands";
 import { parseCommandLine } from "./parser";
 import { CommandRegistry } from "./registry";
@@ -36,10 +37,11 @@ const makeServices = (): TerminalServices => ({
 test("ghost suggestions reuse candidates and prefer the newest matching history", async () => {
   const session = new TerminalSession(makeServices());
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   expect(session.suggest("")).toBe("");
   expect(session.suggest("   ")).toBe("");
   expect(session.suggest("cle")).toBe("clear");
-  expect(session.suggest("xca background a")).toBe("xca background aurora");
+  expect(session.suggest("xca background c")).toBe("xca background canvas");
   expect(session.suggest("cd /c")).toBe("cd /community/");
   expect(session.suggest("no-such-command")).toBe("");
   await session.execute("echo older");
@@ -58,9 +60,10 @@ test("ghost suggestions reuse candidates and prefer the newest matching history"
 test("registered commands execute with virtual files and safe errors", async () => {
   const session = new TerminalSession(makeServices());
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   session.resetWelcome();
   await session.execute("cat /etc/os-release");
-  expect(JSON.stringify(session.entries)).toContain("SIMULATED=true");
+  expect(JSON.stringify(session.entries)).toContain("XCA Browser Terminal");
   await session.execute("unknown-cmd");
   expect(session.entries.at(-1)).toMatchObject({ type: "line", tone: "error" });
   await session.execute("clear");
@@ -98,6 +101,7 @@ test("navigation rejects inherited properties, external paths and extra argument
     },
   });
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   for (const target of [
     "toString",
     "constructor",
@@ -118,10 +122,11 @@ test("xca intro resets the transcript before replay while preserving history and
   const services = makeServices();
   const session = new TerminalSession(services);
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   session.resetWelcome();
   const welcome = session.entries.map(({ id, ...entry }) => entry);
   await session.execute("echo earlier-output");
-  session.setAppearance({ background: "aurora" });
+  session.setAppearance({ background: "canvas" });
   let replayed = false;
   let atReplay: unknown;
   services.replayIntro = () => {
@@ -133,12 +138,13 @@ test("xca intro resets the transcript before replay while preserving history and
   expect(atReplay).toEqual(welcome);
   expect(session.entries.map(({ id, ...entry }) => entry)).toEqual(welcome);
   expect(session.history).toEqual(["echo earlier-output", "XCA INTRO"]);
-  expect(session.appearance).toEqual({ background: "aurora" });
+  expect(session.appearance).toEqual({ background: "canvas" });
 });
 
 test("completed path arguments do not suggest the same file again", () => {
   const session = new TerminalSession(makeServices());
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   expect(session.suggest("cat README.md")).toBe("");
   expect(session.complete("cat README.md ")).toEqual([]);
   expect(session.suggest("cat README.md ")).toBe("");
@@ -158,6 +164,7 @@ test("site commands use the xca namespace and nested help without side effects",
     },
   });
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   for (const name of [
     "intro",
     "about",
@@ -175,12 +182,12 @@ test("site commands use the xca namespace and nested help without side effects",
   expect(session.complete("xca in")).toEqual(["xca intro"]);
   expect(session.complete("xca theme d")).toEqual(["xca theme dark"]);
   expect(session.complete("xca theme dark ")).toEqual([]);
-  expect(session.complete("xca background aurora ")).toEqual([]);
+  expect(session.complete("xca background canvas ")).toEqual([]);
   expect(session.complete("xca open home ")).toEqual([]);
-  expect(session.complete("help xca in")).toEqual(["help xca intro"]);
+  expect(session.complete("help xca in")).toEqual([]);
   expect(session.complete("xca help in")).toEqual(["xca help intro"]);
   expect(session.complete("man xca in")).toEqual(["man xca intro"]);
-  for (const source of ["help xca intro", "xca help intro", "xca intro --help", "man xca intro"]) {
+  for (const source of ["man xca intro", "xca help intro", "xca intro --help"]) {
     session.clear();
     await session.execute(source);
     expect(JSON.stringify(session.entries)).toContain("xca intro");

@@ -13,19 +13,24 @@ import {
 } from "./helpers";
 import { exploreCommand } from "./interactive";
 
+const pages = Object.keys(TERMINAL.routes);
+const themes = ["light", "dark", "system"] as const;
+const isTheme = (value: string | undefined): value is (typeof themes)[number] =>
+  value !== undefined && themes.some((theme) => theme === value);
+
 const subcommands: CommandDefinition[] = [
   {
     name: "open",
     summary: "",
     summaryKey: "summary.open",
-    usage: "xca open home",
-    complete: (args) =>
-      args.length > 1 ? [] : matching(Object.keys(TERMINAL.routes), args.at(-1)),
+    usage: "xca open <page>",
+    usageParams: pages,
+    complete: (args) => (args.length > 1 ? [] : matching(pages, args.at(-1))),
     execute: async (args, ctx) => {
       const paths: Record<string, string> = TERMINAL.routes;
       const [page] = args;
       const route = page !== undefined && Object.hasOwn(paths, page) ? paths[page] : undefined;
-      if (args.length !== 1 || page === undefined || !route) return usage("xca open home", ctx.t);
+      if (args.length !== 1 || page === undefined || !route) return usage(ctx, "open");
       await ctx.services.navigate(route);
       return [line(ctx.t("command.opening", { page }), "success")];
     },
@@ -34,8 +39,9 @@ const subcommands: CommandDefinition[] = [
     name: "theme",
     summary: "",
     summaryKey: "summary.theme",
-    usage: "xca theme [light|dark|system]",
-    complete: (args) => (args.length > 1 ? [] : matching(["light", "dark", "system"], args.at(-1))),
+    usage: "xca theme [theme]",
+    usageParams: themes,
+    complete: (args) => (args.length > 1 ? [] : matching(themes, args.at(-1))),
     execute: (args, ctx) => {
       if (!args.length)
         return [
@@ -45,8 +51,7 @@ const subcommands: CommandDefinition[] = [
           ),
         ];
       const [theme] = args;
-      if (args.length !== 1 || (theme !== "light" && theme !== "dark" && theme !== "system"))
-        return usage("xca theme light | dark | system", ctx.t);
+      if (args.length !== 1 || !isTheme(theme)) return usage(ctx, "theme");
       ctx.services.setTheme(theme);
       return [
         line(
@@ -61,7 +66,7 @@ const subcommands: CommandDefinition[] = [
     summary: "",
     summaryKey: "summary.banner",
     usage: "xca banner",
-    execute: (args, ctx) => (args.length ? usage("xca banner", ctx.t) : [{ type: "banner" }]),
+    execute: (args, ctx) => (args.length ? usage(ctx, "banner") : [{ type: "banner" }]),
   },
   {
     name: "intro",
@@ -69,7 +74,7 @@ const subcommands: CommandDefinition[] = [
     summaryKey: "summary.intro",
     usage: "xca intro",
     execute: (args, ctx) => {
-      if (args.length) return usage("xca intro", ctx.t);
+      if (args.length) return usage(ctx, "intro");
       ctx.services.replayIntro();
     },
   },
@@ -81,6 +86,7 @@ for (const command of subcommands) registry.register(command);
 
 export const xcaCommand: CommandDefinition = {
   name: "xca",
+  group: "site",
   summary: "",
   summaryKey: "summary.xca",
   usage: "xca <command> [args]",
@@ -96,7 +102,7 @@ export const xcaCommand: CommandDefinition = {
     if (!name || ["help", "--help", "-h"].includes(name.toLowerCase())) {
       if (!rest.length) return listHelp(subcommands, ctx, "xca ");
       const command = resolveCommand(subcommands, rest);
-      return command ? commandDetails(command, ctx) : usage("xca help [command]", ctx.t);
+      return command ? commandDetails(command, ctx) : usage(ctx, "help");
     }
     const command = registry.resolve(name);
     if (!command) throw new Error(ctx.t("error.notFound", { name: `xca ${name}` }));

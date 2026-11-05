@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { registerVirtualFiles } from "../features/terminal/client-session";
 import { terminalCommands } from "../features/terminal/commands";
 import { TerminalSession } from "../features/terminal/core/session";
 import { createTranslator, isSiteLocale, type SiteLocale } from "./index";
@@ -38,6 +39,7 @@ test("terminal localizes help, errors and virtual content without resetting the 
     replayIntro: () => {},
   });
   for (const command of terminalCommands) session.registry.register(command);
+  registerVirtualFiles(session);
   session.resetWelcome();
   await session.execute("cd /community");
   session.draft = "echo unfinished";
@@ -62,13 +64,35 @@ test("terminal localizes help, errors and virtual content without resetting the 
     text: "Execution failed: /missing: no such virtual file or directory",
   });
   await session.execute("cat ~/README.md");
-  expect(session.entries.at(-1)).toMatchObject({
+  const readme = session.entries.at(-1);
+  const readmeText = readme?.type === "line" ? readme.text : "";
+  expect(readme).toMatchObject({
     text: expect.stringContaining("read-only virtual workspace"),
   });
-  await session.execute("xca open");
-  expect(session.entries.at(-1)).toMatchObject({ text: expect.stringContaining("Usage:") });
+  expect(readmeText).toContain("XAUFE Computer Association");
+  expect(readmeText).toContain("Explore technology");
+  await session.execute("cat ~/.profile");
+  expect(session.entries.at(-1)).toMatchObject({
+    text: expect.stringContaining("browser shell"),
+  });
+  await session.execute("cat /etc/os-release");
+  expect(session.entries.at(-1)).toMatchObject({
+    text: expect.stringContaining('NAME="XCA Browser Terminal"'),
+  });
   locale = "zh-CN";
-  await session.execute("help clear");
+  await session.execute("cat ~/.profile");
+  expect(session.entries.at(-1)).toMatchObject({
+    text: expect.stringContaining("网页 Shell"),
+  });
+  await session.execute("cat ~/README.md");
+  expect(session.entries.at(-1)).toMatchObject({
+    text: expect.stringContaining("只读虚拟工作区"),
+  });
+  locale = "en";
+  await session.execute("xca open");
+  expect(session.entries.at(-2)).toMatchObject({ text: expect.stringContaining("Usage:") });
+  locale = "zh-CN";
+  await session.execute("man clear");
   expect(session.entries.at(-1)).toMatchObject({ text: "清除终端输出" });
   expect(session.history).toContain("cd /community");
 });

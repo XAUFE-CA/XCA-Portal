@@ -1,0 +1,120 @@
+/* Responsive, reduced-motion and alternate-screen adaptations for the portal terminal.
+   门户终端的响应式、减少动态与备选界面适配。 */
+/* At laptop-height desktop viewports, avoid a scrollbar caused by decorative bottom space.
+   在笔记本高度的桌面视口下，避免装饰性底部留白撑出文档滚动条。 */
+@media (min-width: 52rem) and (max-height: 60rem) {
+  .xca-terminal-hero {
+    padding-bottom: var(--neoverse-space-6);
+  }
+}
+
+@media (max-width: 52rem) {
+  .xca-terminal-hero {
+    padding-top: var(--neoverse-space-16);
+  }
+  .xca-terminal-anchor {
+    height: calc(var(--neoverse-space-32) * 4);
+  }
+}
+@media (max-width: 38rem) {
+  .xca-terminal-hero {
+    padding-top: var(--neoverse-space-12);
+    padding-bottom: var(--neoverse-space-14);
+  }
+  .xca-terminal-hero__subtitle {
+    font-size: var(--neoverse-font-size-sm);
+  }
+  .xca-terminal-anchor {
+    margin-top: var(--neoverse-space-9);
+  }
+  .xca-terminal-anchor {
+    height: min(calc(var(--neoverse-space-29) * 4), 65svh);
+    min-height: calc(var(--neoverse-space-23) * 4 + var(--neoverse-space-2));
+  }
+  .xca-terminal-banner,
+  .xca-terminal-brand-probe {
+    font-size: var(--neoverse-font-size-2xs);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-terminal-title__letter {
+    visibility: visible;
+  }
+  .xca-terminal-title__letter--cursor::after {
+    display: none;
+  }
+  .xca-terminal-hero__intro-backdrop,
+  .xca-terminal-hero__heading,
+  .site-header-wrap,
+  .site-footer {
+    transition: none;
+  }
+}
+
+/* Historical command spacing and product-specific alternate screens.
+   历史命令间距与产品专属备选界面。 */
+.xca-terminal-command {
+  margin: var(--neoverse-space-2) 0;
+}
+.xca-terminal-brand-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+.xca-terminal-transcript--hidden {
+  visibility: hidden;
+}
+.xca-terminal-application {
+  position: absolute;
+  inset: 0;
+  /* The screen starts at the header; keep the reader content at its original body offset.
+     屏幕从页头开始，阅读器内容保持原有的正文偏移。 */
+  padding-top: var(--neoverse-space-4);
+  overflow: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: var(--neoverse-space-3);
+}
+.xca-terminal-application__output {
+  flex: 1;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.xca-terminal-interaction {
+  flex-shrink: 0;
+  max-height: 70%;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding-block: var(--neoverse-space-3);
+}
+.xca-terminal-menu {
+  display: grid;
+  gap: var(--neoverse-space-2);
+  margin-block: var(--neoverse-space-3);
+}
+.xca-terminal-menu__item {
+  justify-content: space-between;
+}
+.xca-terminal-interaction__input {
+  display: flex;
+  align-items: center;
+  gap: var(--neoverse-space-3);
+  margin-block: var(--neoverse-space-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-terminal-window,
+  .xca-terminal-chrome,
+  .xca-terminal-screen,
+  .xca-terminal-statusbar,
+  .xca-terminal-transcript,
+  .xca-terminal-prompt,
+  .xca-terminal-intro-output,
+  .xca-terminal-bootlog {
+    transition: none;
+  }
+  .xca-terminal-bootlog__line {
+    animation: none;
+  }
+}

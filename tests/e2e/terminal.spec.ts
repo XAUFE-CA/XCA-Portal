@@ -105,7 +105,9 @@ test("registered commands, virtual files, completion, and themes work", async ({
   await expect(page.getByText(zh["command.available"], { exact: true })).toBeVisible();
   await input.fill("cat /etc/os-release");
   await input.press("Enter");
-  await expect(page.locator(".xca-terminal-line").last()).toContainText("SIMULATED=true");
+  await expect(page.locator(".xca-terminal-line").last()).toContainText(
+    'NAME="XCA Browser Terminal"',
+  );
   await input.fill("xca theme dark");
   await input.press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

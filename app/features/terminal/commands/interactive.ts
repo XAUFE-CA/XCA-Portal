@@ -1,5 +1,5 @@
 import type { CommandDefinition } from "../core/types";
-import { completePath, line, listHelp, usage } from "./helpers";
+import { completePath, executionError, line, listHelp, usage } from "./helpers";
 
 export const exploreCommand: CommandDefinition = {
   name: "explore",
@@ -7,7 +7,7 @@ export const exploreCommand: CommandDefinition = {
   summaryKey: "summary.explore",
   usage: "xca explore",
   execute: async (args, ctx, signal) => {
-    if (args.length) return usage("xca explore", ctx.t);
+    if (args.length) return usage(ctx, "explore");
     const id = await ctx.choose(ctx.t("command.exploreTitle"), [
       { id: "help", label: ctx.t("summary.help") },
       { id: "theme", label: ctx.t("theme.label") },
@@ -27,6 +27,7 @@ export const exploreCommand: CommandDefinition = {
 export const interactiveCommands: CommandDefinition[] = [
   {
     name: "less",
+    group: "files",
     summary: "",
     summaryKey: "summary.less",
     usage: "less <file>",
@@ -34,8 +35,13 @@ export const interactiveCommands: CommandDefinition[] = [
     complete: (args, ctx) => completePath(args, ctx),
     execute: async (args, ctx, signal) => {
       const [file] = args;
-      if (args.length !== 1 || file === undefined) return usage("less <file>", ctx.t);
-      const text = await ctx.workspace.read(file, signal);
+      if (args.length !== 1 || file === undefined) return usage(ctx, "less");
+      let text: string;
+      try {
+        text = await ctx.workspace.read(file, signal);
+      } catch (error) {
+        return [executionError(ctx, error)];
+      }
       const rows = text.split("\n");
       let offset = 0;
       let pageSize = 10;
@@ -70,12 +76,13 @@ export const interactiveCommands: CommandDefinition[] = [
   },
   {
     name: "login",
+    group: "session",
     summary: "",
     summaryKey: "summary.login",
     usage: "login",
     sensitive: true,
     execute: async (args, ctx, signal) => {
-      if (args.length) return usage("login", ctx.t);
+      if (args.length) return usage(ctx, "login");
       if (!ctx.services.auth) return [line(ctx.t("command.loginUnavailable"), "muted")];
       const identity = await ctx.services.auth.login(ctx, signal);
       ctx.setIdentity(identity);
@@ -84,11 +91,12 @@ export const interactiveCommands: CommandDefinition[] = [
   },
   {
     name: "logout",
+    group: "session",
     summary: "",
     summaryKey: "summary.logout",
     usage: "logout",
     execute: async (args, ctx, signal) => {
-      if (args.length) return usage("logout", ctx.t);
+      if (args.length) return usage(ctx, "logout");
       if (!ctx.services.auth) return [line(ctx.t("command.guest"), "muted")];
       await ctx.services.auth.logout(signal);
       ctx.setIdentity(null);

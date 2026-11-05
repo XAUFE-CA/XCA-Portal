@@ -20,6 +20,47 @@ test("prompt follows output without an empty fixed-height gap", async ({ page })
   expect(gap).toBeLessThanOrEqual(24);
 });
 
+test("scrolled output clips at the header without a fixed gap", async ({ page }) => {
+  const layout = await page.evaluate(() => {
+    const header = document.querySelector(".ui-terminal-surface__header");
+    const body = document.querySelector(".ui-terminal-surface__body");
+    const transcript = document.querySelector(".xca-terminal-transcript");
+    if (!header || !body || !transcript) throw new Error("Terminal chrome is missing");
+    return {
+      gap: transcript.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+      transcriptPadding: parseFloat(getComputedStyle(transcript).paddingTop),
+      bodyPadding: parseFloat(getComputedStyle(body).paddingTop),
+    };
+  });
+  expect(layout.gap).toBe(0);
+  expect(layout.transcriptPadding).toBe(layout.bodyPadding);
+});
+
+test("output fades at both scroll edges", async ({ page }) => {
+  const input = page.locator("#xca-command-input");
+  await input.fill("help");
+  await input.press("Enter");
+  await expect(page.locator(".xca-terminal-line").last()).toContainText("站点导航");
+  const transcript = page.locator(".xca-terminal-transcript");
+  await expect(transcript).toHaveClass(/xca-terminal-transcript--scrolled/);
+  await expect(transcript).not.toHaveClass(/xca-terminal-transcript--more-below/);
+  const mask = () => transcript.evaluate((node) => getComputedStyle(node).maskImage);
+  expect(await mask()).not.toContain("calc(100% - 32px)");
+  await transcript.evaluate((node) => {
+    node.scrollTop = (node.scrollHeight - node.clientHeight) / 2;
+    node.dispatchEvent(new Event("scroll"));
+  });
+  await expect(transcript).toHaveClass(/xca-terminal-transcript--more-below/);
+  expect(await mask()).toContain("calc(100% - 32px)");
+  await transcript.evaluate((node) => {
+    node.scrollTop = 0;
+    node.dispatchEvent(new Event("scroll"));
+  });
+  await expect(transcript).not.toHaveClass(/xca-terminal-transcript--scrolled/);
+  await expect(transcript).toHaveClass(/xca-terminal-transcript--more-below/);
+  expect(await mask()).toContain("to top");
+});
+
 test("submitting preserves the prompt position when it becomes history", async ({ page }) => {
   const input = page.locator("#xca-command-input");
   const position = (selector: string) =>

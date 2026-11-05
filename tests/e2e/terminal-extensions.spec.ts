@@ -24,8 +24,10 @@ test("virtual paths, argument completion, prompt segments and appearance persist
   await input.press("Tab");
   await expect(input).toHaveValue("cat /etc/os-release ");
   await input.press("Enter");
-  await expect(page.locator(".xca-terminal-transcript")).toContainText("SIMULATED=true");
-  await run("xca background aurora");
+  await expect(page.locator(".xca-terminal-transcript")).toContainText(
+    'NAME="XCA Browser Terminal"',
+  );
+  await run("xca background canvas");
   const background = await page
     .locator(".xca-terminal-window")
     .evaluate((node) =>
@@ -66,7 +68,7 @@ test("menu and alternate TUI screen accept keyboard and pointer input without lo
   const application = page.locator(".xca-terminal-application");
   await expect(application).toBeVisible();
   await expect(application).toBeFocused();
-  await expect(application).toContainText("SIMULATED=true");
+  await expect(application).toContainText('NAME="XCA Browser Terminal"');
   await page.keyboard.press("q");
   await expect(application).toHaveCount(0);
   await expect(input).toBeFocused();

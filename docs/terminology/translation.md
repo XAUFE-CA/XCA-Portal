@@ -12,6 +12,7 @@
 ## 内容文件
 
 - `app/data/hero-sentences.json` 按语言维护首页轮播语句。
+- `app/data/terminal/manifest.ts` 维护虚拟工作区结构与文件清单，双语正文按语言分别存放于 `app/data/terminal/files/`，不区分语言的正文只有一份。成对正文按行对应：两种语言的行数、行类型、插值占位符与 `export` 指令逐行一致，段落不硬换行，折行由终端完成。译文基线记录在 `app/data/terminal/translation-baseline.json`，任一侧改字都会失配；完成翻译后运行 `bun run texts:stamp` 重新登记。
 - 关于学社分别维护于 `content/pages/about/zh-CN.md` 与 `en.md`。正文使用 Markdown，frontmatter 的 `locale`、`title`、`description` 与 `banner` 由 `content.config.ts` 的 `about` 集合校验。
 - 页面按 `useSiteLocale().locale` 查询 Markdown，服务端首屏与客户端切换使用同一语言状态。修改标题、章节、段落、链接和页面元信息只需修改对应 Markdown，不调整 Vue。
 
@@ -23,6 +24,6 @@
 
 ## 验证
 
-- `bun test app` 覆盖 locale 键与插值一致性。
+- `bun test app` 覆盖 locale 键与插值一致性，以及终端成对正文的结构与译文基线（`app/data/terminal/text-sync.test.ts`）。
 - 双语 E2E 覆盖切换、刷新、服务端渲染与虚拟文件读取（见 `tests/e2e/`）。
 - 文档侧运行 `bun run format:check` 与 `bun run check:budgets`。

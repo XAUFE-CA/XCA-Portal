@@ -1,0 +1,4 @@
+# Welcome to the XCA browser terminal.
+
+Type help for commands, or tree / to inspect the directory tree.
+Type xca explore to open the interactive menu.
