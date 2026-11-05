@@ -1,5 +1,10 @@
-import { AUDITORIUM, AUDITORIUM_MATERIAL } from "./intro-auditorium";
-import { ARRIVAL_ENTRY, JOURNEY, ROAD_MATERIALIZATION, SCENERY_REVEAL } from "./intro-geometry";
+import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../core/intro-auditorium";
+import {
+  ARRIVAL_ENTRY,
+  JOURNEY,
+  ROAD_MATERIALIZATION,
+  SCENERY_REVEAL,
+} from "../core/intro-geometry";
 
 export const VERTEX = `
 attribute vec3 position;

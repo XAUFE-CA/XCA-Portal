@@ -163,11 +163,28 @@ test("terminal core and commands reject framework, host and reverse dependencies
     "@neoverse-ui/vue",
     "node:child_process",
     "app/components/site/SiteHeader.vue",
-    "app/features/terminal/presentation/timing.ts",
+    "app/features/terminal/components/TerminalHost.vue",
   ])
     expect(boundaryViolation(command, target)).toBe(true);
   expect(boundaryViolation(core, "app/i18n/index.ts")).toBe(false);
   expect(boundaryViolation(command, "app/features/terminal/core/types.ts")).toBe(false);
+});
+
+test("terminal rejects intro dependencies while intro and shared utils stay importable", () => {
+  const terminalExpansion = "app/features/terminal/presentation/useTerminalExpansion.ts";
+  const introPresentation = "app/features/intro/presentation/useIntroPresentation.ts";
+  expect(boundaryViolation(terminalExpansion, "app/features/intro/index.ts")).toBe(true);
+  expect(
+    boundaryViolation(
+      "app/features/terminal/components/TerminalHost.vue",
+      "app/features/intro/core/timing.ts",
+    ),
+  ).toBe(true);
+  expect(
+    boundaryViolation(introPresentation, "app/features/terminal/components/TerminalHost.vue"),
+  ).toBe(false);
+  expect(boundaryViolation(terminalExpansion, "app/utils/glass-motion.ts")).toBe(false);
+  expect(boundaryViolation(introPresentation, "app/utils/motion.ts")).toBe(false);
 });
 
 test("quality typecheck reports errors in scripts, browser configuration and E2E sources", () => {

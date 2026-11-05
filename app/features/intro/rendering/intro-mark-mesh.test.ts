@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { ARRIVAL_ENTRY, JOURNEY, JOURNEY_STATIONS, roadBend } from "./intro-geometry";
+import { ARRIVAL_ENTRY, JOURNEY, JOURNEY_STATIONS, roadBend } from "../core/intro-geometry";
 import { createMarkMesh, extrudeContour, roundedPanelContour } from "./intro-mark-mesh";
 
 test("extrusion closes a concave cap without filling its opening", () => {

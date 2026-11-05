@@ -1,4 +1,4 @@
-import { markSessionEntry } from "~/features/terminal/presentation/intro-entry";
+import { markSessionEntry } from "~/features/intro";
 
 export default defineNuxtPlugin(() => {
   // Only the pre-navigation URL identifies the page this session entered on.

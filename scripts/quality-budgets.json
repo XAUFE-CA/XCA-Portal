@@ -6,9 +6,9 @@
     "function": [60, 100]
   },
   "exceptions": {
-    "app/features/terminal/presentation/useTerminalPresentation.ts:useTerminalPresentation#1": {
-      "ceiling": 402,
-      "reason": "2026-10-27: One presentation lifecycle owns cancellation, docking and shared-renderer refresh; nested helper bodies count in the factory. Exact current function size is 402 lines, reduced from the stale 459-line allowance."
+    "app/features/intro/presentation/useIntroPresentation.ts:useIntroPresentation#1": {
+      "ceiling": 387,
+      "reason": "2026-11-05: One presentation lifecycle owns cancellation, docking and shared-renderer refresh; nested helper bodies count in the factory. Moved from terminal presentation to the intro module; exact current function size is 387 lines, reduced from the stale 402-line allowance."
     },
     "tests/e2e/terminal-visual-acceptance.spec.ts:verifyTerminalThemes#1": {
       "ceiling": 106,

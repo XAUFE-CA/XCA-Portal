@@ -1,4 +1,4 @@
-import { AUDITORIUM_OBJECTS, type AuditoriumObject } from "./intro-auditorium";
+import { AUDITORIUM_OBJECTS, type AuditoriumObject } from "../core/intro-auditorium";
 
 type SectionPoint = readonly [number, number, number, number];
 type Vertex = readonly [number, number, number, number, number, number];

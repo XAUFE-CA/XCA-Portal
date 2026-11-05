@@ -1,7 +1,8 @@
 import { tokenLength } from "~/utils/cssTokens";
+import { expressiveDuration } from "~/utils/motion";
 import type { IntroAnimate } from "./intro-journey";
 import { terminalDockFrames } from "./intro-journey";
-import { expressiveDuration, INTRO_PACING } from "./timing";
+import { INTRO_PACING } from "./timing";
 
 const SESSION_KEY = "xca-intro-session";
 const LEGACY_KEY = "xca-intro-seen";

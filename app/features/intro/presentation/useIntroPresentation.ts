@@ -1,24 +1,29 @@
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import type CaIntroMark from "~/components/home/CaIntroMark.vue";
-import type TerminalHost from "../components/TerminalHost.vue";
-import { BOOT_SEQUENCE, type BootLine } from "./boot-script";
-import { refreshGlassDuring as trackGlassMotion } from "./glass-motion";
+import type {
+  BootLine,
+  TerminalPresentationStage,
+} from "~/features/terminal/components/presentation-contract";
+import type TerminalHost from "~/features/terminal/components/TerminalHost.vue";
+import { useTerminalExpansion } from "~/features/terminal/presentation/useTerminalExpansion";
+import { refreshGlassDuring as trackGlassMotion } from "~/utils/glass-motion";
+import { expressiveDuration, INTRO_READING_UNIT_MS } from "~/utils/motion";
+import type CaIntroMark from "../components/CaIntroMark.vue";
 import {
   claimHomeIntro,
   createIntroShortcut,
   entryTerminalFrames,
   playEntryTransition,
-} from "./intro-entry";
+} from "../core/intro-entry";
 import {
   centerTerminal,
   createIntroJourney,
   type TerminalPlacement,
   terminalDockFrames,
-} from "./intro-journey";
+} from "../core/intro-journey";
+import { createIntroPlayback } from "../core/intro-playback";
+import { INTRO_PACING } from "../core/timing";
+import { BOOT_SEQUENCE } from "./boot-script";
 import { playIntroMark } from "./intro-mark";
-import { createIntroPlayback } from "./intro-playback";
-import { expressiveDuration, INTRO_PACING, INTRO_READING_UNIT_MS } from "./timing";
-import { useTerminalExpansion } from "./useTerminalExpansion";
 
 const IDENTITY_TRANSFORM = "translateZ(0)";
 function reducedMotion(): boolean {
@@ -52,10 +57,9 @@ function waitForVisible(signal: AbortSignal): Promise<void> {
     signal.addEventListener("abort", stop, { once: true });
   });
 }
-export function useTerminalPresentation(getCommandCount: () => number) {
+export function useIntroPresentation(getCommandCount: () => number) {
   const { $glassRenderer } = useNuxtApp();
-  type IntroPhase = "ready" | "logo" | "handoff" | "boot" | "brand" | "dock" | "reveal";
-  const phase = ref<IntroPhase>("ready");
+  const phase = ref<TerminalPresentationStage>("ready");
   const bootLines = ref<BootLine[]>([]);
   const bootProgress = ref(0);
   const bannerRowsVisible = ref(0);

@@ -2,13 +2,16 @@
 import type { VNodeRef } from "vue";
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import heroSentences from "~/data/hero-sentences.json";
+import {
+  CaIntroMark,
+  HERO_TYPING,
+  INTRO_READING_UNIT_MS,
+  useIntroPresentation,
+} from "~/features/intro";
 import { useTerminalSession } from "~/features/terminal/client-session";
 import TerminalFocusBackdrop from "~/features/terminal/components/TerminalFocusBackdrop.vue";
 import TerminalHost from "~/features/terminal/components/TerminalHost.vue";
 import type { TerminalServices } from "~/features/terminal/core/types";
-import { HERO_TYPING, INTRO_READING_UNIT_MS } from "~/features/terminal/presentation/timing";
-import { useTerminalPresentation } from "~/features/terminal/presentation/useTerminalPresentation";
-import CaIntroMark from "./CaIntroMark.vue";
 import { useTitleCursor } from "./useTitleCursor";
 
 const { locale, t } = useSiteLocale();
@@ -152,7 +155,7 @@ const {
   startIntro,
   skipIntro,
   toggleExpanded,
-} = useTerminalPresentation(() => session.registry.list().length);
+} = useIntroPresentation(() => session.registry.list().length);
 const bindTerminal: VNodeRef = (instance) => {
   terminalRef.value = instance as InstanceType<typeof TerminalHost> | null;
 };

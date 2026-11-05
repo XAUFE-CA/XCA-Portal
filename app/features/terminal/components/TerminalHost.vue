@@ -17,7 +17,7 @@ import type {
   TerminalApplication,
   TerminalEntry,
 } from "../core/types";
-import type { BootLine } from "../presentation/boot-script";
+import type { BootLine, TerminalPresentationStage } from "./presentation-contract";
 import TerminalCommandInput from "./TerminalCommandInput.vue";
 import TerminalInteraction from "./TerminalInteraction.vue";
 import TerminalStatusBar from "./TerminalStatusBar.vue";
@@ -27,7 +27,7 @@ import TerminalWindowHeader from "./TerminalWindowHeader.vue";
 const props = defineProps<{
   session: TerminalSession;
   intro: boolean;
-  introStage: "logo" | "handoff" | "boot" | "brand" | "dock" | "reveal" | "ready";
+  introStage: TerminalPresentationStage;
   bootLines: readonly BootLine[];
   bootProgress: number;
   bannerRowsVisible: number;

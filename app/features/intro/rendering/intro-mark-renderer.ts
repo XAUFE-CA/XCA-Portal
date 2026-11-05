@@ -1,5 +1,4 @@
 import { tokenLength } from "~/utils/cssTokens";
-import { compositeCityLayer, createCityLayer } from "./intro-city-layer";
 import {
   ARRIVAL_ENTRY,
   arrivalOpacity,
@@ -9,7 +8,8 @@ import {
   roadGrowth,
   sceneryOpacity,
   skylineOpacity,
-} from "./intro-geometry";
+} from "../core/intro-geometry";
+import { compositeCityLayer, createCityLayer } from "./intro-city-layer";
 import { createMarkMesh } from "./intro-mark-mesh";
 import { FRAGMENT, VERTEX } from "./intro-mark-shaders";
 import { createTransparentCity, sortTransparentCity } from "./intro-transparency";

@@ -1,9 +1,6 @@
 import { expect, type Page } from "@playwright/test";
-import {
-  AUDITORIUM,
-  AUDITORIUM_MATERIAL,
-} from "../../app/features/terminal/presentation/intro-auditorium";
-import { ARRIVAL_ENTRY, JOURNEY } from "../../app/features/terminal/presentation/intro-geometry";
+import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../../app/features/intro/core/intro-auditorium";
+import { ARRIVAL_ENTRY, JOURNEY } from "../../app/features/intro/core/intro-geometry";
 import { advanceUntil } from "./timing";
 
 type ProbeRect = readonly [left: number, top: number, right: number, bottom: number];

@@ -2,10 +2,10 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import "~/assets/css/intro-journey.css";
 import { SITE } from "~/config/site";
-import { JOURNEY_STATIONS, roadBend } from "~/features/terminal/presentation/intro-geometry";
-import { mountMarkRenderer } from "~/features/terminal/presentation/intro-mark-renderer";
 import type { MessageKey } from "~/i18n";
-import mark from "../../../public/brand/ca-mark.svg?raw";
+import mark from "../../../../public/brand/ca-mark.svg?raw";
+import { JOURNEY_STATIONS, roadBend } from "../core/intro-geometry";
+import { mountMarkRenderer } from "../rendering/intro-mark-renderer";
 
 const { t } = useSiteLocale();
 const front = ref<HTMLElement | null>(null);

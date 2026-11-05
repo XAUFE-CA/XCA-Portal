@@ -2,27 +2,27 @@
 
 Status: adopted
 
-本文描述首页场景、启动输出与终端归位的协作。命令和会话接口见 [终端扩展接口](terminal-extending.md)，导航、主题与共享玻璃样式接入见 [站点框架](site-shell.md)。文档职责独立，源码仍由首页组件与终端 presentation 共同承担。
+本文描述首页场景、启动输出与终端归位的协作。命令和会话接口见 [终端扩展接口](terminal-extending.md)，导航、主题与共享玻璃样式接入见 [站点框架](site-shell.md)。文档职责独立，源码由首页组件与入场特性模块共同承担。
 
 ## 源码职责
 
 | 位置 | 职责 |
 | --- | --- |
 | [HeroSection.vue](../../app/components/home/HeroSection.vue) | 创建并注入会话服务、标题轮播、场景与终端视图 |
-| [CaIntroMark.vue](../../app/components/home/CaIntroMark.vue) | CA 标识 SVG 与场景绘制的 Vue 适配 |
-| [useTerminalPresentation.ts](../../app/features/terminal/presentation/useTerminalPresentation.ts) | 入场阶段、启动输出、暂停、跳过与清理 |
-| [intro-geometry.ts](../../app/features/terminal/presentation/intro-geometry.ts) | 场景尺度、道路生长、双框与入口安装位置、入口与室内共用的显现进度 |
-| [intro-auditorium.ts](../../app/features/terminal/presentation/intro-auditorium.ts)、[intro-auditorium-mesh.ts](../../app/features/terminal/presentation/intro-auditorium-mesh.ts) | 报告厅物体名称、空间范围、材质分组与圆角家具网格 |
-| [intro-journey.ts](../../app/features/terminal/presentation/intro-journey.ts) | 摄像机插值、终端居中测量、屏幕投影与归位轨迹 |
-| [intro-mark-mesh.ts](../../app/features/terminal/presentation/intro-mark-mesh.ts)、[intro-mark-renderer.ts](../../app/features/terminal/presentation/intro-mark-renderer.ts) | 网格生成与 WebGL 绘制 |
-| [intro-mark-shaders.ts](../../app/features/terminal/presentation/intro-mark-shaders.ts) | CA、道路、双光框、城市与报告厅的主题着色 |
-| [intro-transparency.ts](../../app/features/terminal/presentation/intro-transparency.ts)、[intro-city-layer.ts](../../app/features/terminal/presentation/intro-city-layer.ts) | 城市透明排序、离屏绘制与整体合成 |
-| [intro-entry.ts](../../app/features/terminal/presentation/intro-entry.ts)、[intro-playback.ts](../../app/features/terminal/presentation/intro-playback.ts) | 会话入口判定、快捷键、短入场及动画冻结、取消与暂停 |
-| [timing.ts](../../app/features/terminal/presentation/timing.ts)、[boot-script.ts](../../app/features/terminal/presentation/boot-script.ts) | 节奏倍率、交接进度与启动日志顺序 |
+| [CaIntroMark.vue](../../app/features/intro/components/CaIntroMark.vue) | CA 标识 SVG 与场景绘制的 Vue 适配 |
+| [useIntroPresentation.ts](../../app/features/intro/presentation/useIntroPresentation.ts) | 入场阶段、启动输出、暂停、跳过与清理 |
+| [intro-geometry.ts](../../app/features/intro/core/intro-geometry.ts) | 场景尺度、道路生长、双框与入口安装位置、入口与室内共用的显现进度 |
+| [intro-auditorium.ts](../../app/features/intro/core/intro-auditorium.ts)、[intro-auditorium-mesh.ts](../../app/features/intro/rendering/intro-auditorium-mesh.ts) | 报告厅物体名称、空间范围、材质分组与圆角家具网格 |
+| [intro-journey.ts](../../app/features/intro/core/intro-journey.ts) | 摄像机插值、终端居中测量、屏幕投影与归位轨迹 |
+| [intro-mark-mesh.ts](../../app/features/intro/rendering/intro-mark-mesh.ts)、[intro-mark-renderer.ts](../../app/features/intro/rendering/intro-mark-renderer.ts) | 网格生成与 WebGL 绘制 |
+| [intro-mark-shaders.ts](../../app/features/intro/rendering/intro-mark-shaders.ts) | CA、道路、双光框、城市与报告厅的主题着色 |
+| [intro-transparency.ts](../../app/features/intro/rendering/intro-transparency.ts)、[intro-city-layer.ts](../../app/features/intro/rendering/intro-city-layer.ts) | 城市透明排序、离屏绘制与整体合成 |
+| [intro-entry.ts](../../app/features/intro/core/intro-entry.ts)、[intro-playback.ts](../../app/features/intro/core/intro-playback.ts) | 会话入口判定、快捷键、短入场及动画冻结、取消与暂停 |
+| [timing.ts](../../app/features/intro/core/timing.ts)、[boot-script.ts](../../app/features/intro/presentation/boot-script.ts) | 节奏倍率、交接进度与启动日志顺序 |
 | [intro-journey.css](../../app/assets/css/intro-journey.css) | 场景布局与路牌样式 |
 | [intro-session.client.ts](../../app/plugins/intro-session.client.ts) | 在路由跳转前记录本次会话的入口地址 |
 
-场景尺度、节奏倍率和投影阈值由上表源码维护，不在文档另设数值表。`useTerminalPresentation` 直接引用 `CaIntroMark` 的组件类型，`HeroSection` 直接使用终端内部接口。当前不对外提供入场扩展插件接口。
+场景尺度、节奏倍率和投影阈值由上表源码维护，不在文档另设数值表。`useIntroPresentation` 直接引用 `CaIntroMark` 的组件类型，`HeroSection` 经入场模块公开入口与终端公开入口装配。入场模块依赖终端，终端不反向依赖入场模块，两侧共用的玻璃刷新与动效时长位于 `app/utils/`。当前不对外提供入场扩展插件接口。
 
 ## 启动与会话
 
@@ -98,4 +98,4 @@ CA 与前段道路阶段不绘制报告厅内部及其宽地面，不让远处�
 
 视口尺寸改变时结束入场并恢复正常布局。偏好变化、跳过和卸载取消同一组动画、异步任务与绘制。暂停与恢复不创建第二条时间线。
 
-几何与网格单元测试位于终端 presentation。[报告厅回归](../../app/features/terminal/presentation/intro-auditorium.test.ts) 检查入口通道与屏幕净空。[网格回归](../../app/features/terminal/presentation/intro-mark-mesh.test.ts) 检查桥面与入口相接。[轨迹回归](../../app/features/terminal/presentation/intro-journey.test.ts) 检查道路前视、门洞净空、机位上升的单调性与速度、终点高度及屏幕中心投影，以及上升与缩屏的重叠。`tests/e2e/intro-fade.spec.ts` 使用实际着色器检查门洞外不出现室内像素、开口连续展开且室内保持不透明、穿过后解除裁切，以及入口前方几何不形成外壳。终端轨迹回归同时检查本地玻璃边缘。其他浏览器回归入口为 `tests/e2e/terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`terminal-motion.spec.ts`、`home-entry.spec.ts` 与 `hero-typewriter.spec.ts`。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，自动化结果不等同最终视觉验收。
+几何与网格单元测试位于入场模块的 `core/` 与 `rendering/`。[报告厅回归](../../app/features/intro/core/intro-auditorium.test.ts) 检查入口通道与屏幕净空。[网格回归](../../app/features/intro/rendering/intro-mark-mesh.test.ts) 检查桥面与入口相接。[轨迹回归](../../app/features/intro/core/intro-journey.test.ts) 检查道路前视、门洞净空、机位上升的单调性与速度、终点高度及屏幕中心投影，以及上升与缩屏的重叠。`tests/e2e/intro-fade.spec.ts` 使用实际着色器检查门洞外不出现室内像素、开口连续展开且室内保持不透明、穿过后解除裁切，以及入口前方几何不形成外壳。终端轨迹回归同时检查本地玻璃边缘。其他浏览器回归入口为 `tests/e2e/terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`terminal-motion.spec.ts`、`home-entry.spec.ts` 与 `hero-typewriter.spec.ts`。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，自动化结果不等同最终视觉验收。

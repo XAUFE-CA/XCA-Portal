@@ -1,5 +1,5 @@
-import { createIntroJourney, type TerminalPlacement, terminalFrames } from "./intro-journey";
-import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
+import { createIntroJourney, type TerminalPlacement, terminalFrames } from "../core/intro-journey";
+import { INTRO_HANDOFF, INTRO_PACING } from "../core/timing";
 
 type Animate = (
   element: Element,

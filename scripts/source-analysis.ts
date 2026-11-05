@@ -106,6 +106,9 @@ export function cycles(graph: Map<string, string[]>): string[] {
 
 export function boundaryViolation(path: string, target: string): boolean {
   if (!path.startsWith("app/features/terminal/")) return false;
+  // The intro may consume terminal types; the reverse dependency is forbidden.
+  // 入场模块可以使用终端类型。终端不能反向依赖入场模块。
+  if (target.startsWith("app/features/intro/")) return true;
   if ((path.includes("/core/") || path.includes("/commands/")) && isBuiltin(target)) return true;
   if (path.includes("/core/")) {
     return (

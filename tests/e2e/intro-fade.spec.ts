@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { AUDITORIUM_MATERIAL } from "../../app/features/terminal/presentation/intro-auditorium";
-import { ARRIVAL_ENTRY, JOURNEY } from "../../app/features/terminal/presentation/intro-geometry";
-import { FRAGMENT, VERTEX } from "../../app/features/terminal/presentation/intro-mark-shaders";
+import { AUDITORIUM_MATERIAL } from "../../app/features/intro/core/intro-auditorium";
+import { ARRIVAL_ENTRY, JOURNEY } from "../../app/features/intro/core/intro-geometry";
+import { FRAGMENT, VERTEX } from "../../app/features/intro/rendering/intro-mark-shaders";
 import { freezeApproach, roomPortalProbe, sampleRoomPortal } from "./journey";
 import { setThemePreference } from "./preferences";
 import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";

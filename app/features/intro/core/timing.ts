@@ -18,25 +18,10 @@ export const INTRO_PACING = {
   briefStagger: 0.2,
 } as const;
 export const INTRO_HANDOFF = { rise: 0.72, start: 0.91, boot: 0.98, arrival: 0.99 } as const;
-export const TERMINAL_EXPAND_UNITS = 0.92;
 /**
- * Text reading interval; independent of reduced-motion's 1ms spatial effects.
- * 文字阅读间隔。它独立于减少动效的 1ms 空间效果。
+ * Hero typewriter rhythm, measured in reading intervals.
+ * 首页标题打字节奏，以阅读间隔计量。
  */
-export const INTRO_READING_UNIT_MS = 420;
-
-export function expressiveDuration(element: HTMLElement): number {
-  const value = getComputedStyle(element)
-    .getPropertyValue("--neoverse-motion-duration-expressive")
-    .trim();
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) && parsed > 0
-    ? value.endsWith("s") && !value.endsWith("ms")
-      ? parsed * 1000
-      : parsed
-    : INTRO_READING_UNIT_MS;
-}
-
 export const HERO_TYPING = {
   hold: 8,
   nextSentence: 5,

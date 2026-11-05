@@ -1,5 +1,7 @@
 import { nextTick, type Ref, ref } from "vue";
-import { expressiveDuration, TERMINAL_EXPAND_UNITS } from "./timing";
+import { expressiveDuration } from "~/utils/motion";
+
+const TERMINAL_EXPAND_UNITS = 0.92;
 
 interface ExpansionState {
   expanded: Ref<boolean>;

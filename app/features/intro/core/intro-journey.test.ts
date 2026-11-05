@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
+import { INTRO_READING_UNIT_MS } from "../../../utils/motion";
 import { AUDITORIUM, AUDITORIUM_OBJECTS } from "./intro-auditorium";
 import { ARRIVAL_ENTRY, entryGrowth, JOURNEY, roadBend, roadGrowth } from "./intro-geometry";
 import { cameraFrames, terminalDockFrames, terminalFrames } from "./intro-journey";
-import { INTRO_HANDOFF, INTRO_PACING, INTRO_READING_UNIT_MS } from "./timing";
+import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
 
 function eye(frame: Keyframe): number[] {
   const match = String(frame.transform).match(

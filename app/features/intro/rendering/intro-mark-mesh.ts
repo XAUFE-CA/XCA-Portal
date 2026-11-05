@@ -1,4 +1,3 @@
-import { createAuditoriumMesh } from "./intro-auditorium-mesh";
 import {
   ARRIVAL_ENTRY,
   ARRIVAL_FRAMES,
@@ -6,7 +5,8 @@ import {
   CITY_PROFILES,
   JOURNEY,
   JOURNEY_STATIONS,
-} from "./intro-geometry";
+} from "../core/intro-geometry";
+import { createAuditoriumMesh } from "./intro-auditorium-mesh";
 
 type Point = readonly [number, number];
 // Each vertex contains position, normal, and body/road material selector.
