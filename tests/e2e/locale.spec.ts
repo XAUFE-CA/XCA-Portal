@@ -99,9 +99,16 @@ test("header navigation and settings remain reachable without overlap in both la
 }) => {
   for (const width of [320, 390, 610, 900, 1121, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    const mobileMenu = page.locator(".site-menu").getByRole("button");
-    if (await mobileMenu.isVisible()) {
-      if ((await mobileMenu.getAttribute("aria-expanded")) === "false") await mobileMenu.click();
+    // The header swaps to its compact layout from a media query; wait for the rendered
+    // markup to follow the viewport before looking for the menu trigger.
+    // 页头按媒体查询切换到紧凑布局；先等渲染结果跟随新视口，再查找菜单触发按钮。
+    await page.waitForFunction(() => {
+      const compact = window.matchMedia("(max-width: 70rem)").matches;
+      return compact === Boolean(document.querySelector(".site-menu"));
+    });
+    const mobileMenu = page.locator(".site-menu > button");
+    if ((await mobileMenu.count()) > 0) {
+      if ((await mobileMenu.getAttribute("aria-expanded")) !== "true") await mobileMenu.click();
       // The panel must report itself open before its controls can be clicked.
       // 面板必须先报告已展开，其控件才可以点击。
       await expect(mobileMenu).toHaveAttribute("aria-expanded", "true");

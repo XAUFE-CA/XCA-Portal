@@ -3,7 +3,8 @@ import type { RouteLocationNormalized } from "vue-router";
 
 // A reversal inside the spatial transition's lifetime would replay the page just left as the
 // incoming snapshot; the short post-settle window covers a tap that lands after the fade ends.
-// 在空间过渡时长内反向导航会把刚离开的页面当作进入快照重放；路由落定后的短窗口覆盖淡出刚结束时的点击。
+// 在空间过渡时长内反向导航会把刚离开的页面当作进入快照重放；落定后（快照结束起算）的短窗口
+// 覆盖淡出刚结束时的点击。
 const QUICK_REVERSAL_WINDOW_MS = 1000;
 const PAGE_SELECTOR = ".site-main";
 const CAPTURE_ATTRIBUTE = "data-xca-route-capture";
@@ -99,6 +100,7 @@ function keepRouteSnapshotsStill(
 export default defineNuxtPlugin((nuxtApp) => {
   let active: ViewTransition | undefined;
   let currentNavigation: RouteLocationNormalized | undefined;
+  let currentOrigin: string | undefined;
   let lastRouteChange: { from: string; at: number } | undefined;
   let captureSequence = 0;
   const suppressed = new WeakSet<RouteLocationNormalized>();
@@ -106,6 +108,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   router.beforeEach((to, from) => {
     currentNavigation = to;
+    currentOrigin = from.fullPath;
     if (to.fullPath === from.fullPath) {
       // Returning to the route already on screen supersedes the capture in flight; it must not
       // keep painting the page the user has returned to.
@@ -144,7 +147,21 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
     active = transition;
     const sequence = ++captureSequence;
+    const origin = currentOrigin;
     document.documentElement.setAttribute(viewTransitionAttribute, "");
+    // The reversal window starts where the fade ends, not at route commit: a slow renderer
+    // commits seconds before the settled capture, and a tap right after the fade would
+    // otherwise get the snapshot the window exists to prevent.
+    // 反向窗口从淡出结束起算而非路由提交：慢速渲染器会早于落定快照数秒提交，淡出刚结束的
+    // 点击否则会得到本应由窗口挡下的快照。
+    void transition.finished.then(
+      () => {
+        if (sequence !== captureSequence) return;
+        if (origin === undefined || lastRouteChange?.from !== origin) return;
+        lastRouteChange = { from: origin, at: performance.now() };
+      },
+      () => undefined,
+    );
     keepRouteSnapshotsStill(
       transition,
       () => sequence === captureSequence,
