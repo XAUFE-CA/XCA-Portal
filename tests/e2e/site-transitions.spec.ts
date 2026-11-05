@@ -16,6 +16,7 @@ function recordViewTransitions(page: Page) {
       groupAnimations: number;
       animationDuration: number;
       headerLive: boolean;
+      captured: boolean;
     }[] = [];
     Object.assign(window, { transitions: observations });
     if (!native) return;
@@ -27,6 +28,7 @@ function recordViewTransitions(page: Page) {
         groupAnimations: 0,
         animationDuration: 0,
         headerLive: false,
+        captured: false,
       };
       observations.push(record);
       void transition.ready.then(
@@ -56,8 +58,11 @@ function recordViewTransitions(page: Page) {
               Number(animation.effect?.getComputedTiming().duration ?? 0),
             ),
           );
+          record.captured = true;
         },
-        () => undefined,
+        () => {
+          record.captured = true;
+        },
       );
       return transition;
     };
@@ -65,6 +70,13 @@ function recordViewTransitions(page: Page) {
 }
 
 async function latestTransition(page: Page) {
+  // The record fills once the snapshots exist; a caller that reads on the language change
+  // alone would sample an empty duration on a slow renderer.
+  // 记录在快照就绪后才填充；仅在语言变更后读取会在慢速渲染器上拿到空时长。
+  await page.waitForFunction(() => {
+    const observed = window as unknown as { transitions: { captured: boolean }[] };
+    return observed.transitions.at(-1)?.captured === true;
+  });
   return page.evaluate(() => {
     const observed = window as unknown as {
       transitions: {

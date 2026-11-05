@@ -127,8 +127,21 @@ test("loaded content crossfades with the skeleton in the same card area", async 
         const content = document.querySelector(".about-card__layer:has(h1)");
         const skeleton = document.querySelector(".about-card__content--skeleton")?.parentElement;
         if (!content || !skeleton) return 0;
-        const animations = [content, skeleton].flatMap((element) => element.getAnimations());
-        if (!animations.length) return 0;
+        const opacityAnimations = (element: Element) =>
+          element.getAnimations().filter((animation) => {
+            const effect = animation.effect;
+            return (
+              effect instanceof KeyframeEffect &&
+              effect.getKeyframes().some((frame) => "opacity" in frame)
+            );
+          });
+        // Both layers must already be blending: the frame right after the swap only carries
+        // the skeleton's exit, whose midpoint would report an untouched incoming layer.
+        // 两层都必须已经在混合：交换后的那一帧只有骨架退出，其中点会读到尚未进入的正文。
+        const contentAnimations = opacityAnimations(content);
+        const skeletonAnimations = opacityAnimations(skeleton);
+        if (!contentAnimations.length || !skeletonAnimations.length) return 0;
+        const animations = [...contentAnimations, ...skeletonAnimations];
         for (const animation of animations) {
           const timing = animation.effect?.getComputedTiming();
           // Skip the delay too: a delayed transition parked at its start reports opacity 0.
