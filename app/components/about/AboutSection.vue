@@ -3,9 +3,10 @@ import { UiCard, UiSkeleton } from "@neoverse-ui/vue";
 import type { AboutCollectionItem } from "@nuxt/content";
 import { computed, reactive, ref, watch } from "vue";
 
-const props = withDefaults(defineProps<{ page: AboutCollectionItem | null; pending?: boolean }>(), {
-  pending: false,
-});
+const props = withDefaults(
+  defineProps<{ page: AboutCollectionItem | null; pending?: boolean; errorText?: string }>(),
+  { pending: false, errorText: "" },
+);
 const { t } = useSiteLocale();
 const loading = computed(() => props.pending || !props.page);
 const banner = ref<HTMLElement>();
@@ -53,7 +54,10 @@ const skeletonBlocks = [
 </script>
 
 <template>
-  <div class="about-page page-container">
+  <div v-if="errorText" class="about-page page-container" role="alert">
+    <p>{{ errorText }}</p>
+  </div>
+  <div v-else class="about-page page-container">
     <UiCard
       as="article"
       surface="glass-elevated"

@@ -258,4 +258,7 @@ test("a failed content query replaces the skeleton with an error page", async ({
   await page.getByRole("link", { name: "关于学社", exact: true }).click();
   await expect(page.locator(".about-card")).toHaveCount(0);
   await expect(page.locator("body")).toContainText("503");
+  // The shell keeps navigation so a failed query never traps the visitor on an error page.
+  // 站点外壳保留导航，查询失败不会把访客困在错误页上。
+  await expect(page.getByRole("link", { name: "首页", exact: true })).toBeVisible();
 });

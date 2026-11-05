@@ -1,10 +1,16 @@
 import { expect, type Page, test } from "@playwright/test";
 import { setThemePreference } from "./preferences";
-import { SETTLE_TIMEOUT } from "./timing";
+import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
 async function ready(page: Page) {
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
-  await expect(page.locator("html")).not.toHaveAttribute("data-xca-intro");
+  // Skipping settles by frames on software renderers; the default 20s window is too short.
+  // 软件渲染器按帧完成跳过收尾，默认 20s 窗口不够。
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
+    timeout: SETTLE_TIMEOUT,
+  });
+  await expect(page.locator("html")).not.toHaveAttribute("data-xca-intro", {
+    timeout: SETTLE_TIMEOUT,
+  });
   // An inert host silently drops keys after skipping; toBeEnabled does not check inert.
   // 跳过后仍为 inert 的宿主会静默丢弃按键；toBeEnabled 不检查 inert。
   await expect(page.locator(".xca-terminal-window")).not.toHaveAttribute("inert", {
@@ -316,7 +322,10 @@ test("blocked browser storage still allows skipping and client navigation", asyn
   await page.keyboard.press("Escape");
   await ready(page);
   await page.getByRole("link", { name: "关于学社", exact: true }).click();
-  await page.getByRole("link", { name: "首页", exact: true }).click();
+  // Wait for the route to commit so the second click proves client navigation actually happened.
+  // 等路由提交后再点第二次，才能证明确实发生了客户端导航。
+  await expect(page).toHaveURL(/\/about/, { timeout: SETTLE_TIMEOUT });
+  await page.getByRole("link", { name: "首页", exact: true }).click({ timeout: SETTLE_TIMEOUT });
   await ready(page);
   await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
 });
@@ -334,7 +343,9 @@ for (const mode of [
     if (!baseURL) throw new Error("The locale cookie needs the test origin");
     await page.context().addCookies([{ name: "xca-locale", value: mode.locale, url: baseURL }]);
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.locator(".xca-terminal-screen--boot")).toHaveCount(1, { timeout: 15000 });
+    await expect(page.locator(".xca-terminal-screen--boot")).toHaveCount(1, {
+      timeout: SCENE_TIMEOUT,
+    });
     // Skip motion is sampled per frame; a software renderer yields only a few samples.
     // 跳过动画按帧采样；软件渲染器只能给出少量样本。
     const sample = await page.evaluate(async () => {

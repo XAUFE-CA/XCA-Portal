@@ -18,7 +18,7 @@ Status: adopted
 | 位置 | 职责 |
 | --- | --- |
 | [default.vue](../../app/layouts/default.vue) | 页顶、页面容器与页脚组合 |
-| [about.vue](../../app/pages/about.vue)、[AboutSection.vue](../../app/components/about/AboutSection.vue) | 按语言查询 Markdown、设置 SEO，组合玻璃卡片与主题横幅 |
+| [about.vue](../../app/pages/about.vue)、[AboutSection.vue](../../app/components/about/AboutSection.vue) | 按语言查询 Markdown、设置 SEO，组合玻璃卡片与主题横幅；查询失败时在站点外壳内呈现降级状态，保留导航 |
 | [SiteHeader.vue](../../app/components/site/SiteHeader.vue) | 响应式导航、菜单与滚动定位 |
 | [SiteHeaderNavigation.vue](../../app/components/site/SiteHeaderNavigation.vue) | 导航项展示与跳转事件 |
 | [SiteHeaderPreferences.vue](../../app/components/site/SiteHeaderPreferences.vue) | 语言、主题分段控件 |

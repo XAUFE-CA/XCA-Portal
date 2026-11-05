@@ -216,8 +216,15 @@ test("a quick return after the forward transition settles commits without a snap
   await skipIntro(page);
   await page.getByRole("link", { name: "关于学社", exact: true }).click();
   await expect(page.locator(".about-card")).toHaveAttribute("aria-busy", "false");
-  // Let the incoming capture finish so the return is the post-settle reversal the window covers.
-  // 等进入快照结束，使反向导航落在窗口覆盖的落定后区间。
+  // Finish the forward capture by animation time; waiting out its wall clock on a software
+  // renderer exhausts the product's quick-reversal window before the return can be clicked.
+  // 按动画时间结束进入快照；软件渲染器按墙钟等完时，产品的快速返回窗口已经过期。
+  await page.evaluate(() => {
+    for (const animation of document.getAnimations()) {
+      const pseudo = (animation.effect as KeyframeEffect | null)?.pseudoElement;
+      if (pseudo?.startsWith("::view-transition")) animation.finish();
+    }
+  });
   await expect.poll(() => routeAnimationCount(page)).toBe(0);
   await expect(page.locator("html")).not.toHaveAttribute("data-neoverse-view-transitioning");
 

@@ -12,7 +12,7 @@ CI 联合检出共享库时固定到具体提交，同一 SHA 必须同步维护
 
 运行时依赖必须显式声明并进入锁文件，不依赖工作区残留副本（Nuxt Content 依赖的 `better-sqlite3` 已显式声明）。早期开发阶段 Neoverse-UI 可使用 `file:` 依赖。正式发布必须改为 npm 精确版本并重新生成锁文件。CI 固定 Node 24，满足该连接器的 Node 22+ 要求。
 
-CI 只缓存 Bun 的下载目录与 Playwright 浏览器二进制（按锁文件哈希，供各分片复用），不缓存 node_modules 和构建输出。门禁与生产构建在一个作业内完成并上传产物，浏览器作业下载同一产物后只跑测试，避免每个分片重复构建。托管运行器没有 GPU，影院式入场在软件渲染下按帧推进，因此功能断言按 `--shard` 分为八片；分片只切分用例、不跳过断言，每个作业仍固定 1 个 worker。调整分片数后须同步更新 GitHub required checks，新增作业不会自动成为必需检查。需要完整场景的用例标注 `@cinematic`，由独立的 `cinematic` 工作流按需运行，推送门禁用 `--grep-invert @cinematic` 排除；图片基线只有 Windows 一份，由 `images` 工作流按需比对。共享运行器偶尔在单帧内跳过某个阶段，CI 允许一次重试，重试后仍失败照常阻断。早期开发阶段每个平台同步一次共享 UI，再构建一次门户并复用该产物运行测试。发布版本改用 npm 精确版本后只安装一次依赖。图片基线只保留 Windows 一份。Linux 运行全部测试中的功能断言，用 Playwright `--ignore-snapshots` 避免把 Windows 图片当作 Linux 基线。Linux 的图片验收要单独建立并人工审核基线，不能自动生成后宣称通过。
+CI 只缓存 Bun 的下载目录与 Playwright 浏览器二进制（按锁文件哈希，供各分片复用），不缓存 node_modules 和构建输出。门禁与生产构建在一个作业内完成并上传产物，浏览器作业下载同一产物后只跑测试，避免每个分片重复构建。托管运行器没有 GPU，影院式入场在软件渲染下按帧推进，因此功能断言按 `--shard` 分为八片；分片只切分用例、不跳过断言，每个作业仍固定 1 个 worker。调整分片数后须同步更新 GitHub required checks，新增作业不会自动成为必需检查。需要完整场景的用例标注 `@cinematic`，由 `cinematic` 工作流按需运行；推送门禁与默认测试配置都排除该标签，该工作流设置 `XCA_CINEMATIC=1` 后才运行；图片基线只有 Windows 一份，由 `images` 工作流按需比对。共享运行器偶尔在单帧内跳过某个阶段，CI 允许一次重试，重试后仍失败照常阻断。早期开发阶段每个平台同步一次共享 UI，再构建一次门户并复用该产物运行测试。发布版本改用 npm 精确版本后只安装一次依赖。图片基线只保留 Windows 一份。Linux 运行全部测试中的功能断言，用 Playwright `--ignore-snapshots` 避免把 Windows 图片当作 Linux 基线。Linux 的图片验收要单独建立并人工审核基线，不能自动生成后宣称通过。
 
 ## 本地开发与共享依赖
 
@@ -54,7 +54,7 @@ bun run dev
 | `bun run typecheck` / `bun run test` | 应用类型与单元测试 |
 | `bun run check` | 全部快速门禁与生产构建 |
 | `bun run build` / `bun run generate` | 生产构建与静态生成 |
-| `bun run test:e2e` | 生产构建与浏览器回归 |
+| `bun run test:e2e` | 生产构建与功能浏览器回归（默认排除 `@cinematic`） |
 | `bun run format` | 按需格式化并整理 import |
 
 开发与预览使用 `4100` 端口和 `strictPort`，端口被占用时失败，不自动更换。E2E 预览默认使用 `4102`，可通过 `XCA_TEST_PORT` 指定。启动前确认占用，不终止无关进程。
@@ -89,7 +89,7 @@ bun audit --registry https://registry.npmjs.org
 
 ## 浏览器回归
 
-相关测试与对应实现同笔提交，保留已有检查及共享 UI 回归，不删除正反例或缩小检查范围来隐藏失败。`bun run test:e2e` 先构建再执行 Playwright，已有构建产物可直接用 `bunx playwright test` 复验。Windows 使用已安装的 Edge，其他平台先执行 `bunx playwright install chromium`。CI 的浏览器准备见 [工作流](../../.github/workflows/quality.yml)。
+相关测试与对应实现同笔提交，保留已有检查及共享 UI 回归，不删除正反例或缩小检查范围来隐藏失败。`bun run test:e2e` 先构建再执行 Playwright，已有构建产物可直接用 `bunx playwright test` 复验；两者默认都排除 `@cinematic`，完整场景须设置 `XCA_CINEMATIC=1` 并配合 `--grep @cinematic`，由 `cinematic` 工作流按需运行。Windows 使用已安装的 Edge，其他平台先执行 `bunx playwright install chromium`。CI 的浏览器准备见 [工作流](../../.github/workflows/quality.yml)。
 
 预览使用 [测试配置](../../playwright.config.ts) 中的独立端口，启动前确认空闲，不复用未知服务。测试结束由 Playwright 清理自己启动的服务。入场阶段与过渡中间态的观测不复用动画帧采样：阶段性状态由 [共享观测模块](../../tests/e2e/timing.ts) 记录 DOM 变更批次，过渡中间态按动画时间推进到指定进度，墙钟预算取自同一模块的常量。软件渲染运行器的帧率不足以在固定时间窗内复现这些状态，按帧采样会把环境性能当成产品缺陷。只验证功能的用例通过 [入场入口开关](../../tests/e2e/entry.ts) 使用产品既有的会话内短入场，长场景只由入场专项用例覆盖，避免每个用例都承担一次完整编排。帧观测用例仍需要完整入场，改用共享观测模块的时间线步进到达就绪阶段，不按墙钟等完每个提示；帧样本仍由真实 requestAnimationFrame 采集，空间效果释放仍逐次断言。重播用例在每次跳过入场后等待宿主解除 inert，再继续下一轮与历史快捷键：快渲染器上收尾是异步的，inert 期间的按键会被丢弃，而 `toBeEnabled` 不检查 inert。全局时间线步进同样不适用于重播：它只检查当前阶段值，无法区分上一轮场景。每个分片固定 1 个 worker，避免多个软件渲染的 Chromium 争抢帧率；并行度由 `--shard` 在独立作业上提供。等宽字符画按一个字符格判定溢出：不同字体光栅器每字形存在亚像素差异，把零溢出当成唯一判据会让平台差异表现为回归。[共享 UI 用例](../../tests/e2e/shared-ui.spec.ts) 检查公开 CSS 变量、运行错误与 Hydration 警告。其余用例覆盖终端、主题、双语、菜单、入场和滚动。
 

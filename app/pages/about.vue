@@ -15,12 +15,15 @@ const {
   { lazy: true },
 );
 
-if (error.value) throw error.value;
-
-// Errors raised after the awaited first load surface through the error page.
-// 首次等待加载之后发生的错误通过错误页呈现。
-watch(error, (value) => {
-  if (value) showError(value);
+// A failed content query keeps the site shell and its navigation; only the card is replaced.
+// 内容查询失败时保留站点外壳与导航，只替换卡片。
+const errorText = computed(() => {
+  const value = error.value as
+    | { statusCode?: number; statusMessage?: string; message?: string }
+    | null
+    | undefined;
+  if (!value) return "";
+  return [value.statusCode, value.statusMessage ?? value.message].filter(Boolean).join(" ");
 });
 
 // Missing content only counts once the query settled, so loading never 404s.
@@ -40,5 +43,5 @@ useSeoMeta({
 </script>
 
 <template>
-  <AboutSection :page="page ?? null" :pending="status !== 'success'" />
+  <AboutSection :page="page ?? null" :pending="status !== 'success'" :error-text="errorText" />
 </template>
