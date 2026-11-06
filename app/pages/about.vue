@@ -2,18 +2,17 @@
 import AboutSection from "~/components/about/AboutSection.vue";
 
 const { locale } = useSiteLocale();
-// Lazy keeps client navigation and locale switches on a skeleton instead of
-// freezing the previous page; the server still awaits the query for SEO.
-// 懒加载让客户端导航与语言切换显示骨架而非冻结旧页，服务端仍为 SEO 等待查询。
+// One query holds both languages, so switching language swaps the card content in place. Keying
+// the query by language re-fetched it on every switch, which dropped the card back to its
+// skeleton — the visible "content disappears, then comes back" during a language change.
+// 一次查询同时取回两种语言，语言切换就地替换卡片内容。按语言分键会在每次切换时重新取数，
+// 使卡片退回骨架，表现为切换语言时内容消失再出现。
 const {
-  data: page,
+  data: pages,
   status,
   error,
-} = await useAsyncData(
-  () => `about-${locale.value}`,
-  () => queryCollection("about").where("locale", "=", locale.value).first(),
-  { lazy: true },
-);
+} = await useAsyncData("about", () => queryCollection("about").all(), { lazy: true });
+const page = computed(() => pages.value?.find((entry) => entry.locale === locale.value) ?? null);
 
 // A failed content query keeps the site shell and its navigation; only the card is replaced.
 // 内容查询失败时保留站点外壳与导航，只替换卡片。

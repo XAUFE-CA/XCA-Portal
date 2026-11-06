@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { motionRoles, prefersReducedMotion } from "@neoverse-ui/motion";
 import { UiCard, UiSkeleton } from "@neoverse-ui/vue";
 import type { AboutCollectionItem } from "@nuxt/content";
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { motionDuration } from "~/utils/motion";
 
 const props = withDefaults(
   defineProps<{ page: AboutCollectionItem | null; pending?: boolean; errorText?: string }>(),
@@ -10,7 +12,66 @@ const props = withDefaults(
 const { t } = useSiteLocale();
 const loading = computed(() => props.pending || !props.page);
 const banner = ref<HTMLElement>();
+const stage = ref<HTMLElement>();
 const settledBanners = reactive(new Set<string>());
+
+// A language swap replaces the copy in place — no fade, no crossfade: any overlay of two text
+// layers reads as a flicker while the glyphs blend. Only the box follows the new height, starting
+// from wherever it currently stands, so a quick second switch continues the resize instead of
+// snapping back. The first load keeps its own skeleton crossfade.
+// 语言切换就地替换文案——不淡入、不交叉淡化：两层文字叠加在任何中途都会被看成闪烁。只有盒子跟随
+// 新高度，并从当前高度继续，因此快速再次切换会接续伸缩而不是弹回。首次加载仍走自身的骨架交叉淡化。
+let cardAnimation: Animation | undefined;
+// Height of the running box before the copy changes: on an interrupted switch this is the height
+// the animation has already reached, so the next one continues from the visible edge.
+// 文案替换前盒子的运行高度；被打断的切换读到的正是动画已经到达的高度，下一次因此从可见边沿接续。
+let fromHeight = 0;
+let swapping = false;
+
+watch(
+  () => props.page,
+  (next, previous) => {
+    swapping = Boolean(next) && Boolean(previous);
+    fromHeight = swapping ? (stage.value?.parentElement?.getBoundingClientRect().height ?? 0) : 0;
+  },
+  { flush: "pre" },
+);
+watch(
+  () => props.page,
+  () => {
+    const card = stage.value?.parentElement;
+    if (!swapping || !card || fromHeight <= 0) return;
+    const duration = motionDuration(card, motionRoles.spatial.duration);
+    cardAnimation?.cancel();
+    cardAnimation = undefined;
+    const target = card.getBoundingClientRect().height;
+    if (prefersReducedMotion() || duration <= 0 || Math.abs(target - fromHeight) < 1) {
+      card.style.removeProperty("overflow");
+      return;
+    }
+    // The incoming copy is already taller or shorter than the running height, so the box clips it
+    // until the edge arrives at the new size.
+    // 新正文已经比当前高度更高或更矮，因此盒子先裁剪它，直到边沿抵达新尺寸。
+    card.style.overflow = "clip";
+    const animation = card.animate([{ height: `${fromHeight}px` }, { height: `${target}px` }], {
+      duration,
+      easing: getComputedStyle(card).getPropertyValue(motionRoles.spatial.easing).trim(),
+    });
+    cardAnimation = animation;
+    const settle = () => {
+      if (cardAnimation !== animation) return;
+      cardAnimation = undefined;
+      card.style.removeProperty("overflow");
+    };
+    void animation.finished.then(settle, settle);
+  },
+  { flush: "post" },
+);
+onBeforeUnmount(() => {
+  cardAnimation?.cancel();
+  cardAnimation = undefined;
+  stage.value?.parentElement?.style.removeProperty("overflow");
+});
 
 function hideLeavingLayer(element: Element) {
   element.setAttribute("aria-hidden", "true");
@@ -65,7 +126,7 @@ const skeletonBlocks = [
       :aria-label="page?.title ?? t('about.loading')"
       :aria-busy="loading"
     >
-      <div class="about-card__stage">
+      <div ref="stage" class="about-card__stage">
         <Transition name="about-reveal" @before-leave="hideLeavingLayer">
           <div v-if="page && !loading" key="content" class="about-card__layer">
             <div ref="banner" class="about-card__banner">

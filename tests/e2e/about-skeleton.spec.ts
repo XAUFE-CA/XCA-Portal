@@ -86,26 +86,109 @@ test("the banner keeps its own skeleton until the selected image loads", async (
     .toBeGreaterThan(0);
 });
 
-test("switching the about locale lands on the new language content", async ({ page }) => {
+test("switching the about locale lands on the new language content without a skeleton", async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/about");
   await expect(page.getByRole("heading", { level: 1, name: "关于我们" })).toBeVisible();
+  const card = page.locator(".about-card");
+  await expect(card).toHaveAttribute("aria-busy", "false");
 
+  // Both languages arrive with the first query, so a delayed endpoint must not be hit again and
+  // the card keeps its content instead of dropping back to the skeleton.
+  // 两种语言随首次查询一起返回，被延迟的接口不应再次被请求，卡片保留正文而不退回骨架。
   await delayContentQuery(page, 900);
   await page.getByRole("radio", { name: "English", exact: true }).click();
-  const card = page.locator(".about-card");
-  await expect(card).toHaveAttribute("aria-busy", "true");
-  await expect(card.locator(".about-card__skeleton-column")).toHaveCount(2);
   await expect(page.getByRole("heading", { level: 1, name: "About us" })).toBeVisible();
   await expect(card).toHaveAttribute("aria-busy", "false");
   await expect(card.locator(".about-card__skeleton-column")).toHaveCount(0);
   await expect(card.locator(".about-card__layer")).toHaveCSS("opacity", "1");
 });
 
+test("the about card swaps the copy in place and resizes when the language needs more room", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await page.goto("/about");
+  const card = page.locator(".about-card");
+  await expect(card).toHaveAttribute("aria-busy", "false");
+  const before = await card.evaluate((element) => element.getBoundingClientRect().height);
+
+  await page.getByRole("radio", { name: "English", exact: true }).click();
+  // The copy is replaced outright — one layer, no glyph animation to catch in a faded state — while
+  // a height animation carries the box to the size the English text needs.
+  // 文案直接替换：只有一个内容层、没有会停在半透明状态的文字动画；盒子同时由高度动画带到英文正文
+  // 所需的尺寸。
+  await expect(page.getByRole("heading", { level: 1, name: "About us" })).toBeVisible();
+  await expect(card.locator(".about-card__layer")).toHaveCount(1);
+  const duration = await page.evaluate(async () => {
+    const element = document.querySelector<HTMLElement>(".about-card");
+    const deadline = performance.now() + 3000;
+    while (performance.now() < deadline) {
+      const running = element?.getAnimations().find((candidate) => {
+        const effect = candidate.effect;
+        return (
+          effect instanceof KeyframeEffect &&
+          effect.getKeyframes().some((frame) => typeof frame.height === "string")
+        );
+      });
+      if (running?.effect) return Number(running.effect.getComputedTiming().duration);
+      await new Promise(requestAnimationFrame);
+    }
+    return 0;
+  });
+  expect(duration).toBeGreaterThan(0);
+  await expect
+    .poll(() => card.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThan(before + 1);
+});
+
+test("an interrupted language switch keeps resizing from the current edge", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await page.goto("/about");
+  const card = page.locator(".about-card");
+  await expect(card).toHaveAttribute("aria-busy", "false");
+  const before = await card.evaluate((element) => element.getBoundingClientRect().height);
+
+  const heights = await page.evaluate(async () => {
+    const element = document.querySelector<HTMLElement>(".about-card");
+    const option = (label: string) =>
+      [...document.querySelectorAll<HTMLElement>(".site-header [role=radio]")].find(
+        (candidate) => candidate.textContent?.trim() === label,
+      );
+    const samples: number[] = [];
+    const loop = () => {
+      samples.push(element.getBoundingClientRect().height);
+      if (samples.length < 90) requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+    option("English")?.click();
+    // Reverse before the first resize settles: the second animation has to continue from the
+    // height the first one reached instead of snapping to either endpoint.
+    // 在第一次伸缩结束前反向切换：第二次动画必须从第一次已经到达的高度接续，而不是弹回任一端点。
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    option("中文")?.click();
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    return samples;
+  });
+
+  // A snap shows up as one frame covering the whole distance; a continuous resize steps through it.
+  const steps = heights
+    .slice(1)
+    .map((height, index) => Math.abs(height - (heights[index] ?? height)));
+  expect(Math.max(...steps)).toBeLessThan(40);
+  expect(Math.max(...heights)).toBeGreaterThan(before + 20);
+  await expect
+    .poll(() => card.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeCloseTo(before, 0);
+});
+
 test("loaded content crossfades with the skeleton in the same card area", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/about");
-  await expect(page.getByRole("heading", { level: 1, name: "关于我们" })).toBeVisible();
+  await page.goto("/");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
   const query = Promise.withResolvers<void>();
   await page.route(contentQuery, async (route) => {
     await query.promise;
@@ -113,7 +196,7 @@ test("loaded content crossfades with the skeleton in the same card area", async 
   });
   const card = page.locator(".about-card");
   try {
-    await page.getByRole("radio", { name: "English", exact: true }).click();
+    await page.getByRole("link", { name: "关于学社", exact: true }).click();
     await expect(card).toHaveAttribute("aria-busy", "true");
     await expect(card.locator(".about-card__layer:has(h1)")).toHaveCount(0);
   } finally {
@@ -176,7 +259,7 @@ test("loaded content crossfades with the skeleton in the same card area", async 
   expect(crossfade.sameTop).toBe(true);
   expect(crossfade.sameWidth).toBe(true);
   await resumeAnimations(page, ".about-card");
-  await expect(page.getByRole("heading", { level: 1, name: "About us" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "关于我们" })).toBeVisible();
   await expect(card.locator(".about-card__content--skeleton")).toHaveCount(0);
   await expect(card.locator(".about-card__layer")).toHaveCSS("opacity", "1");
 });

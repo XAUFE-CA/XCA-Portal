@@ -1,4 +1,5 @@
 import { nextTick } from "vue";
+import { hasOpenTopLayerSurface } from "~/utils/top-layer";
 
 export type SiteTheme = "light" | "dark" | "system";
 
@@ -13,6 +14,15 @@ let transition: ViewTransition | undefined;
 let request = 0;
 let cleanupTimer: number | undefined;
 let refreshFrame: number | undefined;
+
+// A newer request owns the document; pending timers and frames from the previous one are stale.
+// 较新的请求接管文档，上一请求遗留的计时器与帧都已经失效。
+function resetPendingWork(): void {
+  window.clearTimeout(cleanupTimer);
+  if (refreshFrame !== undefined) cancelAnimationFrame(refreshFrame);
+  cleanupTimer = undefined;
+  refreshFrame = undefined;
+}
 
 export function useSiteTheme() {
   const saved = useCookie<string>(COOKIE_KEY, { sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
@@ -32,10 +42,7 @@ export function useSiteTheme() {
     const version = ++request;
     transition?.skipTransition();
     transition = undefined;
-    window.clearTimeout(cleanupTimer);
-    if (refreshFrame !== undefined) cancelAnimationFrame(refreshFrame);
-    cleanupTimer = undefined;
-    refreshFrame = undefined;
+    resetPendingWork();
     root.removeAttribute(themeViewTransitionAttribute);
     root.removeAttribute(COLOR_TRANSITION);
     const system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -47,6 +54,10 @@ export function useSiteTheme() {
     };
     if (
       options.animate === false ||
+      // An open menu owns a glass surface in the native top layer, which a capture cannot
+      // back-drop: commit the new colors directly so the glass material survives.
+      // 打开的菜单在原生顶层持有玻璃表面，快照无法为其采样背景；直接提交新配色以保留玻璃材质。
+      hasOpenTopLayerSurface() ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
       resolve(root.dataset.theme) === resolve(value)
     ) {

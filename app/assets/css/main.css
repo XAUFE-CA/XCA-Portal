@@ -83,10 +83,21 @@ a {
   flex: 1;
   min-width: 0;
 }
-/* Capture only the page while keeping glass chrome in the live document.
-   只截取正文，让玻璃页头留在实时文档中采样背后内容。 */
-:root:is([data-neoverse-view-transitioning], [data-neoverse-theme-view-transitioning]) .site-main {
+/* Route captures keep the glass chrome in the live document so it keeps sampling the page
+   behind it; the overlay is clipped to the content area below the header.
+   路由过渡保留实时玻璃页头继续采样背后内容，快照层裁剪到页头下方的正文区域。 */
+:root[data-neoverse-view-transitioning]:not([data-neoverse-theme-view-transitioning]) .site-main {
   view-transition-name: root;
+}
+/* A theme change repaints the canvas, the header and the footer as well, so the document itself
+   is the snapshot: capturing only the body would leave the rest hard-cutting around the fade.
+   主题切换同时改写画布、页头与页脚，因此以整个文档作为快照；只截取正文会让其余部分在淡化
+   之外硬切。 */
+:root[data-neoverse-theme-view-transitioning] {
+  view-transition-name: root;
+}
+:root[data-neoverse-theme-view-transitioning]::view-transition {
+  clip-path: none;
 }
 /* Route captures keep both snapshots still: the group stays on the scrolling page's capture
    box while the incoming snapshot is moved back to its own top.
@@ -110,14 +121,6 @@ a {
 }
 ::view-transition {
   clip-path: inset(var(--xca-site-header-height, var(--neoverse-space-22)) 0 0);
-}
-/* Chrome can resample the header's glass plane as white while it captures a language switch
-   snapshot. Keep the translucent plane and stop sampling only until that snapshot is painted.
-   Chrome 在截取语言切换快照时可能把页头玻璃面绘制成一帧白色。保留半透明底面，
-   只在快照绘制完成前暂停背景采样，随后立即恢复。 */
-:where(:root[data-xca-locale-transitioning]) .site-header {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 
 .site-header-wrap {

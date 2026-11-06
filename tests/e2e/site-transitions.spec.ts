@@ -16,6 +16,7 @@ function recordViewTransitions(page: Page) {
       groupAnimations: number;
       animationDuration: number;
       headerLive: boolean;
+      documentCaptured: boolean;
       captured: boolean;
     }[] = [];
     Object.assign(window, { transitions: observations });
@@ -28,6 +29,7 @@ function recordViewTransitions(page: Page) {
         groupAnimations: 0,
         animationDuration: 0,
         headerLive: false,
+        documentCaptured: false,
         captured: false,
       };
       observations.push(record);
@@ -45,6 +47,14 @@ function recordViewTransitions(page: Page) {
             getComputedStyle(header).viewTransitionName === "none" &&
             getComputedStyle(content).viewTransitionName === "root" &&
             getComputedStyle(root, "::view-transition").clipPath !== "none";
+          // A theme change repaints the canvas and the chrome, so the document is the snapshot
+          // instead of the page body; the overlay is no longer clipped below the header.
+          // 主题切换会同时改写画布与页头，因此快照是整个文档而不是正文，快照层也不再裁剪到页头下方。
+          record.documentCaptured =
+            getComputedStyle(root).viewTransitionName === "root" &&
+            !!content &&
+            getComputedStyle(content).viewTransitionName === "none" &&
+            getComputedStyle(root, "::view-transition").clipPath === "none";
           // The root group carries the crossfade; its animation proves the page blends.
           // 根分组承载交叉淡化，该动画证明页面确实在混合。
           const groups = document.getAnimations().filter((animation) => {
@@ -85,6 +95,7 @@ async function latestTransition(page: Page) {
         groupAnimations: number;
         animationDuration: number;
         headerLive: boolean;
+        documentCaptured: boolean;
       }[];
     };
     const latest = observed.transitions.at(-1);
@@ -104,25 +115,34 @@ test.beforeEach(async ({ page }) => {
   await setThemePreference(page, "light");
 });
 
-test("switching the language crossfades the page through the shared motion timing", async ({
+test("switching the language swaps the copy in place and keeps every material sampling", async ({
   page,
 }) => {
   await recordViewTransitions(page);
   await page.goto("/");
   await skipIntro(page);
+  const materials = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll(".site-main .material-glass-elevated")].map((element) => {
+        const style = getComputedStyle(element);
+        return [style.backdropFilter, style.backgroundColor, style.borderColor].join("|");
+      }),
+    );
+  const before = await materials();
+  expect(before.length).toBeGreaterThan(0);
+  expect(before.every((material) => material.includes("blur"))).toBe(true);
 
   await page
     .getByRole("radiogroup", { name: "语言" })
     .getByRole("radio", { name: "English" })
     .click();
+  // The copy swaps immediately: no capture and no crossfade, so nothing can flash.
+  // 文案立即替换：既没有快照也没有交叉淡化，不会产生闪烁。
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-
-  const transition = await latestTransition(page);
-  expect(parseFloat(transition.duration)).toBeGreaterThan(0);
-  expect(transition.shared).toBe(true);
-  expect(transition.groupAnimations).toBeGreaterThan(0);
-  expect(transition.animationDuration).toBeGreaterThan(0);
-  expect(transition.headerLive).toBe(true);
+  expect(
+    await page.evaluate(() => (window as unknown as { transitions: unknown[] }).transitions.length),
+  ).toBe(0);
+  expect(await materials()).toEqual(before);
 });
 
 test("navigating between the pages crossfades instead of swapping the content", async ({
@@ -289,9 +309,7 @@ for (const choice of [
     label: "首页",
   },
 ] as const) {
-  test(`${choice.name} selection moves continuously while the page transition is active`, async ({
-    page,
-  }) => {
+  test(`${choice.name} selection moves continuously while the page updates`, async ({ page }) => {
     await recordViewTransitions(page);
     await page.goto("/about");
     await page.evaluate(() => document.fonts.ready);
@@ -308,7 +326,28 @@ for (const choice of [
       expect(result.end).not.toBeCloseTo(result.start, 0);
       expect(result.middle).toBeGreaterThan(Math.min(result.start, result.end));
       expect(result.middle).toBeLessThan(Math.max(result.start, result.end));
-      await expect.poll(async () => (await latestTransition(page)).headerLive).toBe(true);
+      if (choice.name === "language") {
+        // A capture would strip the shared glass rim for the whole fade, so the language change
+        // commits in place and starts none; the selection still travels on its own animation.
+        // 快照会让共享玻璃边缘在整段淡化中消失，因此语言切换就地提交、不启动快照；
+        // 选中背景仍按自身动画移动。
+        expect(
+          await page.evaluate(
+            () => (window as unknown as { transitions: unknown[] }).transitions.length,
+          ),
+        ).toBe(0);
+      } else {
+        // Theme changes capture the document so the chrome fades with the canvas; routes keep
+        // the header live and capture only the page body.
+        // 主题切换以整个文档为快照，页头与画布一同淡化；路由保留实时页头，只截取正文。
+        await expect
+          .poll(async () =>
+            choice.name === "theme"
+              ? (await latestTransition(page)).documentCaptured
+              : (await latestTransition(page)).headerLive,
+          )
+          .toBe(true);
+      }
       await expect(page.locator("html")).not.toHaveAttribute("data-neoverse-view-transitioning");
     }
   });
@@ -406,7 +445,18 @@ async function sampleSelectionMotion(page: Page, choice: { selector: string; lab
     let motion: Animation[] = [];
     while (performance.now() < deadline) {
       await new Promise(requestAnimationFrame);
-      motion = indicator.getAnimations();
+      // The language fade also runs a text-fill transition on the indicator; only animations that
+      // move its geometry describe the selection travelling.
+      // 语言淡化同时会在选中背景上跑一条文字填充色过渡；只有改变其几何的动画才表示选中在移动。
+      motion = indicator.getAnimations().filter((animation) => {
+        const effect = animation.effect;
+        return (
+          effect instanceof KeyframeEffect &&
+          effect
+            .getKeyframes()
+            .some((frame) => "left" in frame || "transform" in frame || "width" in frame)
+        );
+      });
       if (motion.length > 0) break;
     }
     if (motion.length === 0) throw new Error("Selection must travel instead of swapping endpoints");

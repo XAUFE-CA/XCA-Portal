@@ -2,16 +2,32 @@ import { expect, type Page, test } from "@playwright/test";
 import zh from "../../app/i18n/locales/zh-CN.json" with { type: "json" };
 import { setThemePreference } from "./preferences";
 
-async function openLightPage(page: Page, path = "/") {
-  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
-  await setThemePreference(page, "light");
-  await page.addInitScript(() => {
+/**
+ * Record every theme capture together with the snapshot scope it chose.
+ * 记录每次主题截取以及它选用的快照范围。
+ */
+function recordThemeTransitions(page: Page) {
+  return page.addInitScript(() => {
     const native = document.startViewTransition.bind(document);
-    const observations: { duration: string; opacity: number[]; finished: boolean }[] = [];
+    const observations: {
+      duration: string;
+      opacity: number[];
+      finished: boolean;
+      rootName: string;
+      contentName: string;
+      clip: string;
+    }[] = [];
     Object.assign(window, { themeTransitions: observations });
     document.startViewTransition = (update) => {
       const transition = native(update);
-      const record = { duration: "", opacity: [] as number[], finished: false };
+      const record = {
+        duration: "",
+        opacity: [] as number[],
+        finished: false,
+        rootName: "",
+        contentName: "",
+        clip: "",
+      };
       observations.push(record);
       void transition.ready.then(
         () => {
@@ -19,6 +35,13 @@ async function openLightPage(page: Page, path = "/") {
             document.documentElement,
             "::view-transition-new(root)",
           ).animationDuration;
+          // A theme change alters the canvas and the chrome too, so the document itself has to
+          // be the snapshot instead of the page body alone.
+          // 主题切换同时改写画布与页头，因此快照必须是整个文档而不是单独正文。
+          record.rootName = getComputedStyle(document.documentElement).viewTransitionName;
+          const content = document.querySelector(".site-main");
+          record.contentName = content ? getComputedStyle(content).viewTransitionName : "";
+          record.clip = getComputedStyle(document.documentElement, "::view-transition").clipPath;
           const sample = () => {
             if (record.finished) return;
             record.opacity.push(
@@ -43,6 +66,12 @@ async function openLightPage(page: Page, path = "/") {
       return transition;
     };
   });
+}
+
+async function openLightPage(page: Page, path = "/") {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await setThemePreference(page, "light");
+  await recordThemeTransitions(page);
   await page.goto(path);
   await expect(page.locator(".site-theme-control .ui-segmented-control__slider")).toHaveAttribute(
     "data-ready",
@@ -81,7 +110,13 @@ test("header theme changes crossfade the whole page using shared motion", async 
       // The init script records these observations on the page's window.
       // 初始化脚本将这些观测记录在页面 window 上。
       const observedWindow = window as unknown as {
-        themeTransitions: { duration: string; opacity: number[] }[];
+        themeTransitions: {
+          duration: string;
+          opacity: number[];
+          rootName: string;
+          contentName: string;
+          clip: string;
+        }[];
       };
       const latest = observedWindow.themeTransitions.at(-1);
       if (!latest) throw new Error("Theme transition observation is missing");
@@ -89,6 +124,12 @@ test("header theme changes crossfade the whole page using shared motion", async 
     });
     expect(parseFloat(transition.duration)).toBeGreaterThan(0);
     expect(transition.opacity.some((opacity) => opacity > 0 && opacity < 1)).toBe(true);
+    // Capturing the document is what makes the canvas, the header and the footer fade with the
+    // page instead of hard-cutting around the captured body.
+    // 以整个文档作为快照，画布、页头与页脚才会与正文一同淡化，而不是在正文之外硬切。
+    expect(transition.rootName).toBe("root");
+    expect(transition.contentName).toBe("none");
+    expect(transition.clip).toBe("none");
   }
 });
 

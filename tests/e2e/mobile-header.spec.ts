@@ -272,6 +272,46 @@ test("mobile navigation stays compact until opened and keeps shared theme contro
   await expect(page.locator(".site-controls")).toBeHidden();
 });
 
+test("an open menu keeps its glass while the language changes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "no-preference", colorScheme: "light" });
+  await page.addInitScript(() => {
+    const native = document.startViewTransition?.bind(document);
+    const starts: number[] = [];
+    Object.assign(window, { menuTransitions: starts });
+    if (!native) return;
+    document.startViewTransition = (update) => {
+      starts.push(performance.now());
+      return native(update);
+    };
+  });
+  await page.goto("/about", { waitUntil: "domcontentloaded" });
+
+  await page.locator(".site-menu").getByRole("button").click();
+  // The panel label follows the language, so locate it structurally instead of by name.
+  // 浮层标签会随语言改变，因此按结构而非名称定位。
+  const panel = page.locator(".site-menu .ui-popover__content");
+  await expect(panel).toBeVisible();
+  const material = await panel.evaluate((element) => getComputedStyle(element).backdropFilter);
+  expect(material).toContain("blur");
+
+  await page.getByRole("radio", { name: "English", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+  // Language changes never start a capture, so the open panel keeps its own material and the
+  // menu stays usable for a follow-up theme choice.
+  // 语言切换从不启动快照，因此打开的浮层保留自身材质，可继续在同一菜单里切换主题。
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { menuTransitions: number[] }).menuTransitions.length,
+    ),
+  ).toBe(0);
+  await expect(panel).toBeVisible();
+  expect(await panel.evaluate((element) => getComputedStyle(element).backdropFilter)).toBe(
+    material,
+  );
+});
+
 test("the compact menu trigger uses the shared ghost button", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
