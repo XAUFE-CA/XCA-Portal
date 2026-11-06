@@ -18,6 +18,9 @@ function recordViewTransitions(page: Page) {
       headerLive: boolean;
       documentCaptured: boolean;
       captured: boolean;
+      glassPaused: boolean;
+      headerBackdrop: string;
+      headerBackground: string;
     }[] = [];
     Object.assign(window, { transitions: observations });
     if (!native) return;
@@ -31,6 +34,9 @@ function recordViewTransitions(page: Page) {
         headerLive: false,
         documentCaptured: false,
         captured: false,
+        glassPaused: false,
+        headerBackdrop: "",
+        headerBackground: "",
       };
       observations.push(record);
       void transition.ready.then(
@@ -68,6 +74,10 @@ function recordViewTransitions(page: Page) {
               Number(animation.effect?.getComputedTiming().duration ?? 0),
             ),
           );
+          record.glassPaused = root.hasAttribute("data-xca-route-glass-pause");
+          const surface = document.querySelector(".site-header");
+          record.headerBackdrop = surface ? getComputedStyle(surface).backdropFilter : "";
+          record.headerBackground = surface ? getComputedStyle(surface).backgroundColor : "";
           record.captured = true;
         },
         () => {
@@ -96,6 +106,9 @@ async function latestTransition(page: Page) {
         animationDuration: number;
         headerLive: boolean;
         documentCaptured: boolean;
+        glassPaused: boolean;
+        headerBackdrop: string;
+        headerBackground: string;
       }[];
     };
     const latest = observed.transitions.at(-1);
@@ -161,6 +174,10 @@ test("navigating between the pages crossfades instead of swapping the content", 
   expect(transition.groupAnimations).toBeGreaterThan(0);
   expect(transition.animationDuration).toBeGreaterThan(0);
   expect(transition.headerLive).toBe(true);
+  // Ordinary routes keep sampling the live header; only an in-flight header resize pauses it.
+  // 普通路由保持实时页头采样；只有进行中的页头尺寸动画才会暂停。
+  expect(transition.glassPaused).toBe(false);
+  expect(transition.headerBackdrop).toContain("blur");
 });
 
 /**
@@ -201,6 +218,121 @@ async function pauseRouteCapture(page: Page) {
     };
   });
 }
+
+async function recordGlassPauseWindows(page: Page) {
+  await page.addInitScript(() => {
+    const events: { at: number; paused: boolean; path: string }[] = [];
+    Object.assign(window, { glassPauses: events });
+    new MutationObserver(() => {
+      events.push({
+        at: performance.now(),
+        paused: document.documentElement.hasAttribute("data-xca-route-glass-pause"),
+        path: location.pathname,
+      });
+    }).observe(document, {
+      attributes: true,
+      attributeFilter: ["data-xca-route-glass-pause"],
+      subtree: true,
+    });
+  });
+}
+
+/**
+ * Keep the header's width animations alive for the whole route so the sampling pause is
+ * deterministic on slow renderers instead of depending on the 420ms spatial window.
+ * 让页头宽度动画在整个路由期间保持运行，使采样暂停在慢速运行器上也可确定，
+ * 而不是依赖 420ms 的空间动画窗口。
+ */
+async function stretchHeaderWidthAnimations(page: Page) {
+  await page.addInitScript(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (keyframes, options) {
+      if (
+        this.closest(".site-header") &&
+        Array.isArray(keyframes) &&
+        keyframes.some((frame) => "width" in frame)
+      ) {
+        const settings = typeof options === "object" && options !== null ? options : {};
+        return animate.call(this, keyframes, { ...settings, duration: 10_000 });
+      }
+      return animate.call(this, keyframes, options);
+    };
+  });
+}
+
+test("a header width animation pauses glass sampling only for the route capture", async ({
+  page,
+}) => {
+  await stretchHeaderWidthAnimations(page);
+  await recordViewTransitions(page);
+  await recordGlassPauseWindows(page);
+  await page.goto("/about");
+  await expect(page.locator(".about-card")).toHaveAttribute("aria-busy", "false");
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => window.scrollTo({ top: 600, behavior: "instant" }));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+
+  // Start the resize and leave in the same turn, as a reader does after a language tap.
+  // 启动尺寸过渡后立刻离开，对应读者点击语言后的快速导航。
+  await page.evaluate(() => {
+    const radios = [
+      ...document.querySelectorAll(
+        '.site-controls [role="radiogroup"]:first-of-type [role="radio"]',
+      ),
+    ];
+    (
+      radios.find((radio) => radio.textContent?.trim() === "English") as HTMLElement | undefined
+    )?.click();
+  });
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (document.querySelector(".site-header__brand")?.getAnimations() ?? []).some(
+          (animation) =>
+            (animation.effect as KeyframeEffect | null)
+              ?.getKeyframes()
+              .some((frame) => "width" in frame) ?? false,
+        ),
+      ),
+    )
+    .toBe(true);
+  await page.evaluate(() =>
+    (document.querySelector('.site-navigation a[href="/"]') as HTMLElement | null)?.click(),
+  );
+  await expect(page).toHaveURL(/\/$/);
+
+  const transition = await latestTransition(page);
+  expect(transition.headerLive).toBe(true);
+  expect(transition.glassPaused).toBe(true);
+  expect(transition.headerBackdrop).toBe("none");
+  // The paused plane stays opaque instead of letting the page text show through.
+  // 暂停期间底面保持不透明，页面文字不会透出。
+  expect(transition.headerBackground).not.toMatch(/\/\s*0?\.\d+\)/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.hasAttribute("data-xca-route-glass-pause")),
+    )
+    .toBe(false);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const header = document.querySelector(".site-header");
+        return header ? getComputedStyle(header).backdropFilter : "";
+      }),
+    )
+    .toContain("blur");
+  // Only the incoming snapshot pauses; the outgoing capture and the navigation load keep
+  // sampling the live glass, so the header never turns into a long-lived opaque bar.
+  // 只有进入快照暂停；退出快照与导航加载保持实时采样，页头不会长时间变成不透明条。
+  const pauses = await page.evaluate(() => {
+    const events = (window as unknown as { glassPauses: { paused: boolean; path: string }[] })
+      .glassPauses;
+    return events.filter((event) => event.paused).map((event) => event.path);
+  });
+  expect(pauses.length).toBeGreaterThanOrEqual(1);
+  expect(pauses.every((path) => path === "/")).toBe(true);
+});
 
 test("a scrolled source page keeps both route snapshots at their own viewport tops", async ({
   page,

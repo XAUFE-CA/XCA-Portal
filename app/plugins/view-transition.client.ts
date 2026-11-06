@@ -8,6 +8,60 @@ import type { RouteLocationNormalized } from "vue-router";
 const QUICK_REVERSAL_WINDOW_MS = 1000;
 const PAGE_SELECTOR = ".site-main";
 const CAPTURE_ATTRIBUTE = "data-xca-route-capture";
+const GLASS_PAUSE_ATTRIBUTE = "data-xca-route-glass-pause";
+const HEADER_RESIZE_TARGETS =
+  ".site-header__brand, .site-navigation > [data-surface], .site-preference-group > [data-surface]";
+let glassPauses = 0;
+
+// Chrome can resample the live header glass as white while it captures the incoming route
+// snapshot; an in-flight language width animation keeps the glass repainting and makes that
+// frame likely. Pause only the backdrop sampling before that capture, then restore the live
+// sample once the snapshot is painted. The shared fallback keeps the plane opaque meanwhile.
+// Chrome 在截取进入路由快照时可能把实时页头玻璃重新采样为一帧白色；语言宽度动画进行中会持续
+// 重绘玻璃，使这一帧更容易出现。只在该次截取开始前暂停背景采样，快照绘制完成后恢复实时采样；
+// 暂停期间使用共享回退底面保持不透明。
+function headerIsResizing(): boolean {
+  return [...document.querySelectorAll<HTMLElement>(HEADER_RESIZE_TARGETS)].some((element) =>
+    element
+      .getAnimations()
+      .some(
+        (animation) =>
+          typeof KeyframeEffect !== "undefined" &&
+          animation.effect instanceof KeyframeEffect &&
+          animation.effect.getKeyframes().some((frame) => "width" in frame),
+      ),
+  );
+}
+
+function pauseHeaderGlass(force = false): (() => void) | undefined {
+  // The width animation may finish before the incoming capture; the resize it started is
+  // still the trigger, so the caller decides whether the capture needs the opaque plane.
+  // 宽度动画可能在进入截取前结束，但触发它的是同一次尺寸变化；由调用方决定该次截取
+  // 是否需要不透明底面。
+  if (!force && !headerIsResizing()) return undefined;
+  const root = document.documentElement;
+  glassPauses += 1;
+  root.setAttribute(GLASS_PAUSE_ATTRIBUTE, "");
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    glassPauses = Math.max(glassPauses - 1, 0);
+    if (glassPauses === 0) root.removeAttribute(GLASS_PAUSE_ATTRIBUTE);
+  };
+}
+
+// Keep the opaque fallback through the frame that paints the incoming snapshot; sampling
+// resumes immediately afterwards, and the navigation itself keeps the live glass.
+// 暂停需覆盖进入快照绘制的那一帧；随后立即恢复采样，导航过程保持实时玻璃。
+function resumeHeaderGlassAfterPaint(resume: () => void): void {
+  requestAnimationFrame(() => requestAnimationFrame(resume));
+}
+
+function resumeHeaderGlassAfterCapture(transition: ViewTransition, resume: () => void): void {
+  void transition.ready.then(() => resumeHeaderGlassAfterPaint(resume), resume);
+  void transition.finished.then(resume, resume);
+}
 const SNAPSHOT_PROPERTIES = {
   top: "--xca-route-snapshot-top",
   width: "--xca-route-snapshot-width",
@@ -103,6 +157,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   let currentOrigin: string | undefined;
   let lastRouteChange: { from: string; at: number } | undefined;
   let captureSequence = 0;
+  let captureNeedsGlass = false;
   const suppressed = new WeakSet<RouteLocationNormalized>();
   const router = useRouter();
 
@@ -123,17 +178,38 @@ export default defineNuxtPlugin((nuxtApp) => {
       lastRouteChange !== undefined &&
       to.fullPath === lastRouteChange.from &&
       performance.now() - lastRouteChange.at <= QUICK_REVERSAL_WINDOW_MS;
-    if (!active && !quickReturn) return;
+    if (!active && !quickReturn) {
+      // Remember the resize that preceded the navigation; it may end before the incoming
+      // capture, but it is still the reason that capture can resample the glass white.
+      // 记下导航前正在进行的尺寸变化；它可能在进入截取前结束，但仍是该次截取可能把玻璃
+      // 重新采样成白色的原因。
+      captureNeedsGlass = headerIsResizing();
+      return;
+    }
+    captureNeedsGlass = false;
     suppressed.add(to);
     active?.skipTransition();
   });
 
   router.afterEach((to, from, failure) => {
+    if (failure) captureNeedsGlass = false;
     suppressed.delete(to);
     if (failure || from.matched.length === 0 || to.fullPath === from.fullPath) return;
     // Only settled client navigations set the reversal origin; a canceled one never arrived.
     // 只有落定的客户端导航记录反向起点；被取消的导航从未到达。
     lastRouteChange = { from: from.fullPath, at: performance.now() };
+  });
+
+  nuxtApp.hook("page:finish", () => {
+    if (!captureNeedsGlass) return;
+    captureNeedsGlass = false;
+    // Resolve immediately before the incoming snapshot is taken, not after its promise
+    // resolves: the capture has already happened by then.
+    // 在进入快照截取前立即暂停，而不是等其 Promise 解析后：那时截取已经完成。
+    const resume = pauseHeaderGlass(true);
+    if (!resume) return;
+    if (active) resumeHeaderGlassAfterCapture(active, resume);
+    else resume();
   });
 
   nuxtApp.hook("page:view-transition:start", (transition) => {

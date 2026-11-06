@@ -154,6 +154,20 @@ a {
     border-radius var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-linear),
     padding var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-linear);
 }
+/* Chrome can resample the live header glass as white while it captures the incoming route
+   snapshot, especially with a language width animation in flight. Pause only the backdrop
+   sampling for that capture window and keep the shared fallback plane opaque, so page text
+   cannot show through; the painted edge and layout stay, and the live sample returns at once.
+   Chrome 在截取进入路由快照时可能把实时页头玻璃重新采样为一帧白色，语言宽度动画进行中尤甚。
+   只在该截取窗口暂停背景采样，并以共享回退底面保持不透明，页面文字不会透出；绘制描边与
+   布局不变，随后立即恢复实时采样。 */
+:where(:root[data-xca-route-glass-pause]) .site-header {
+  /* The shared reduced-transparency plane stays opaque while sampling is paused.
+     采样暂停期间使用共享的降透明底面，保持不透明。 */
+  background-color: var(--neoverse-material-background-fallback);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 .site-header-wrap--floating .site-header {
   width: min(
     calc(100% - 2 * var(--neoverse-layout-gutter-inline)),

@@ -78,3 +78,18 @@ Chrome，1280×800，以点击为起点逐帧截取（CDP `Page.screencastFrame`
 | 玻璃边缘画布 | `@neoverse-ui/glass-runtime`（画布挂在 `body` 下，`position: fixed`） |
 | 关于学社取数 | `app/pages/about.vue`、`content.config.ts` |
 | 回归 | `tests/e2e/site-transitions.spec.ts`、`about-skeleton.spec.ts`、`theme-transition.spec.ts`、`mobile-header.spec.ts` |
+
+## 后续：路由截取期间的页头采样暂停
+
+同日晚间补记：语言切换不再启动快照后，用户报告“关于学社滚动到悬浮页头 → 反复切换语言 → 迅速点主页”时页头闪烁。页头宽度动画（标识、导航外壳、偏好外壳，共享 `spatial` 420ms）在路由截取开始时仍在运行；Chrome 在截取路由快照时可能重新采样实时页头玻璃并绘制一帧白色，与上文“语言切换页头玻璃闪白”属同一浏览器行为，只是触发点从语言快照变成了路由快照。
+
+首版从 `router.beforeEach` 一直暂停到 `transition.ready`，覆盖了两次快照，但导航加载通常需要 150–200ms，页头在这段时间只剩 20% 底面，用户随即报告“下方文字透到标题栏上、标题栏边透明”。`requestAnimationFrame` 在截取与导航期间不执行，无法用帧回调缩短该窗口。
+
+最终修复只在**页头确实有宽度动画在运行**时暂停进入快照：
+
+- `router.beforeEach` 记录页头是否仍在伸缩；`page:finish`（路由更新完成、进入快照截取前）写入 `data-xca-route-glass-pause` 并立即安排恢复；`transition.ready` 后两个合成帧恢复，`finished`/失败路径兜底。退出快照、导航加载与淡出过程保持实时采样。
+- `app/assets/css/main.css` 在属性存在时把 `.site-header` 的 `backdrop-filter` 置为 `none`，同时使用共享 `--neoverse-material-background-fallback` 保持底面不透明；绘制描边与布局不变，页面文字不会透出。
+- `tests/e2e/site-transitions.spec.ts` 拉长页头宽度动画，断言进入快照时 `glassPaused` 为真、`backdropFilter` 为 `none`、底面不透明，过渡后属性清除并恢复模糊；暂停事件只在路由已切到目的页后发生，普通导航不暂停。
+- `docs/architecture/site-shell.md` 同步进入快照窗口、回退底面与恢复时机。
+
+证据边界：与 2026-11-04 的记录一致，软件截取（CDP `Page.screencastFrame`，Chrome/Edge 无头，含 DPR 1.5 与 CPU 节流）没有稳定复现白色单帧。首版的透明窗口由逐帧计算样式直接测得（`backdrop-filter: none`、20% 底面持续约 170ms），最终版本的暂停窗口约 20ms、位于路由切换之后且使用不透明回退底面；白色闪帧本身仍以用户 Chrome 的观感为准。相关浏览器行为沿用上文 2026-11-04 的结论。
