@@ -149,3 +149,49 @@ test("long output keeps the next prompt visible and clear resets its position", 
     .toBe(0);
   await expect(input).toBeFocused();
 });
+
+async function hoverTranscript(page: import("@playwright/test").Page) {
+  const bounds = await page.locator(".xca-terminal-transcript").boundingBox();
+  if (!bounds) throw new Error("Terminal transcript is missing");
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+}
+
+test("wheel over the terminal scrolls the page until the visitor engages it", async ({ page }) => {
+  const input = page.locator("#xca-command-input");
+  const transcript = page.locator(".xca-terminal-transcript");
+  const history = page.locator(".xca-terminal-history");
+  await input.fill("help");
+  await input.press("Enter");
+  await expect(history).toContainText(zh["command.available"]);
+  await transcript.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event("scroll"));
+  });
+  // Clicking page content outside the terminal returns wheel scrolling to the page.
+  // 点击终端外的页面内容，把滚轮滚动交还页面。
+  await page.locator(".xca-terminal-hero__heading").click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await hoverTranscript(page);
+  await page.mouse.wheel(0, 200);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect(await transcript.evaluate((element) => element.scrollTop)).toBe(0);
+});
+
+test("wheel over the engaged terminal scrolls its output while the page stays still", async ({
+  page,
+}) => {
+  const input = page.locator("#xca-command-input");
+  const transcript = page.locator(".xca-terminal-transcript");
+  await input.fill("help");
+  await input.press("Enter");
+  await expect(page.locator(".xca-terminal-history")).toContainText(zh["command.available"]);
+  await transcript.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event("scroll"));
+  });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await hoverTranscript(page);
+  await page.mouse.wheel(0, 200);
+  await expect.poll(() => transcript.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});

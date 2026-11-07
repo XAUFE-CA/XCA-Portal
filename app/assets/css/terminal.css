@@ -140,6 +140,18 @@
      可滚动的内边距保持首屏位置，同时让滚动输出抵达页头。 */
   padding-top: var(--neoverse-space-4);
 }
+/* Wheel and touch scrolling belong to the page until the visitor starts using the terminal;
+   a non-user-scrollable box still keeps its scrollTop, gutter and automatic tail following.
+   访客开始使用终端前，滚轮与触摸滚动归页面所有；不可由用户滚动的盒模型仍保留 scrollTop、
+   滚动条槽位与自动跟随末尾。 */
+.xca-terminal-screen--idle
+  :is(.xca-terminal-transcript, .xca-terminal-application, .xca-terminal-interaction) {
+  overflow: hidden;
+  /* The shared output area contains overscroll to keep a reader's position; an idle area
+     instead hands the wheel and touch scroll back to the page.
+     共享输出区用 overscroll 保持阅读位置；空闲区域改为把滚轮与触摸滚动交还页面。 */
+  overscroll-behavior: auto;
+}
 /* Edge fades soften both ends of the scrollport: above under the header, below toward the prompt.
    两端渐隐柔化滚动视口：上方贴近页头，下方指向命令行。 */
 .xca-terminal-transcript--scrolled {

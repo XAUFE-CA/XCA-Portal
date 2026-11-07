@@ -288,6 +288,7 @@ onBeforeUnmount(() => {
         :banner-rows-visible="bannerRowsVisible"
         :banner-caption-visible="bannerCaptionVisible"
         :expanded="expanded"
+        :engaged="terminalEngaged"
         @skip="skipIntro"
         @expand="toggleExpanded"
       />

@@ -33,6 +33,7 @@ const props = defineProps<{
   bannerRowsVisible: number;
   bannerCaptionVisible: boolean;
   expanded: boolean;
+  engaged: boolean;
 }>();
 const emit = defineEmits<{ skip: []; expand: [] }>();
 const entries = ref<TerminalEntry[]>([...props.session.entries]);
@@ -324,7 +325,7 @@ defineExpose({
       :aria-label="t('terminal.output')"
       class="xca-terminal-screen"
       :style="{ '--xca-terminal-banner-scale': bannerScale }"
-      :class="`xca-terminal-screen--${introStage}`"
+      :class="[`xca-terminal-screen--${introStage}`, { 'xca-terminal-screen--idle': !engaged }]"
       @click="focusFromScreen"
       @keydown.self.enter="focusInput"
     >
