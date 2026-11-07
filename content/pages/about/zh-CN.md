@@ -11,7 +11,6 @@ banner:
 ---
 
 ::section{.about-intro .neoverse-prose}
-[XCA / 计算机学社]{.about-eyebrow}
 
 # 关于我们
 

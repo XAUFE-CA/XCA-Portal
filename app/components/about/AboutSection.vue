@@ -361,12 +361,6 @@ const skeletonBlocks = [
 .about-card__content :deep(.about-intro > h1) {
   margin-block: var(--neoverse-space-3) var(--neoverse-space-5);
 }
-.about-card__content :deep(.about-eyebrow) {
-  color: var(--neoverse-color-accent-primary);
-  font-size: var(--neoverse-font-size-sm);
-  font-weight: var(--neoverse-font-weight-semibold);
-  letter-spacing: var(--neoverse-letter-spacing-wide);
-}
 .about-card__content :deep(.about-values) {
   --neoverse-prose-strong-foreground: var(--neoverse-color-accent-primary);
   padding-block: var(--neoverse-space-6);
