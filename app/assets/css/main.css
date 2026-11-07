@@ -142,7 +142,10 @@ a {
   min-height: var(--neoverse-space-18);
   padding: var(--neoverse-space-2) var(--neoverse-layout-gutter-inline);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* Equal side tracks keep the middle track on the bar's midline, so the navigation stays
+     centred even while the brand and settings animate to another language's width. */
+  /* 两侧轨道等宽，中间轨道落在顶栏中线上；标识与设置切换语言时宽度动画也不会推偏导航。 */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--neoverse-space-5);
   /* The card radius stays on the silhouette the bar always shows, so the library

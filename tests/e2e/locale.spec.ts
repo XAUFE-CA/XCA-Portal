@@ -92,9 +92,19 @@ function measureHeaderIssues() {
     return group.getBoundingClientRect();
   });
   issues.push(...overlappingGroups(groups));
+  // The bar centres the navigation on its own midline, not on the space left between the
+  // brand and the settings, so unequal localized widths never shift it sideways.
+  // 顶栏以自身中线居中导航，而不是以标识与设置之间的剩余空间居中，两侧宽度不等也不会偏移。
+  const surface = header.querySelector<HTMLElement>(":scope > .site-navigation > [data-surface]");
+  if (surface) {
+    const bar = header.getBoundingClientRect();
+    const anchor = surface.getBoundingClientRect();
+    if (Math.abs(anchor.left + anchor.width / 2 - (bar.left + bar.width / 2)) > 1)
+      issues.push("off-centre navigation");
+  }
   return issues;
 }
-test("header navigation and settings remain reachable without overlap in both languages", async ({
+test("header navigation stays centred and settings remain reachable without overlap in both languages", async ({
   page,
 }) => {
   for (const width of [320, 390, 610, 900, 1121, 1440]) {

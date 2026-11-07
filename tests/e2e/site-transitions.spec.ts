@@ -502,7 +502,7 @@ for (const choice of [
   });
 }
 
-test("language changes move the whole navigation shell without overshooting or rebounding", async ({
+test("language changes resize the brand shell without rebounding and keep the navigation centred", async ({
   page,
 }) => {
   await recordViewTransitions(page);
@@ -526,10 +526,10 @@ test("language changes move the whole navigation shell without overshooting or r
       return animation;
     };
   });
-  const shell = page.locator(".site-navigation > [data-surface]");
+  const shell = page.locator(".site-header__brand");
   for (const label of ["English", "中文"]) {
     const before = await shell.boundingBox();
-    if (!before) throw new Error("The navigation shell is required");
+    if (!before) throw new Error("The brand shell is required");
     await page.getByRole("radio", { name: label, exact: true }).click();
     await expect
       .poll(() =>
@@ -541,21 +541,32 @@ test("language changes move the whole navigation shell without overshooting or r
       .toBeGreaterThan(0);
     const samples = await page.evaluate(async () => {
       const observed = window as unknown as { headerWidths: Animation[] };
-      const element = document.querySelector(".site-navigation > [data-surface]");
-      if (!element) throw new Error("The navigation shell is required");
+      const brand = () => {
+        const element = document.querySelector(".site-header__brand");
+        if (!element) throw new Error("The brand shell is required");
+        const rect = element.getBoundingClientRect();
+        return { x: rect.x, width: rect.width };
+      };
+      const navigationCentre = () => {
+        const element = document.querySelector(".site-navigation > [data-surface]");
+        if (!element) throw new Error("The navigation shell is required");
+        const rect = element.getBoundingClientRect();
+        return rect.x + rect.width / 2;
+      };
       const positions = [0, 0.1, 0.25, 0.5, 0.75, 1].map((progress) => {
         for (const animation of observed.headerWidths) {
           animation.currentTime = Number(animation.effect?.getComputedTiming().duration) * progress;
         }
-        const rect = element.getBoundingClientRect();
-        return { x: rect.x, width: rect.width };
+        return { ...brand(), centre: navigationCentre() };
       });
       const finished = observed.headerWidths.map((animation) => animation.finished);
       for (const animation of observed.headerWidths) animation.finish();
       await Promise.all(finished);
       observed.headerWidths = [];
-      const rect = element.getBoundingClientRect();
-      return { positions, after: { x: rect.x, width: rect.width } };
+      const header = document.querySelector(".site-header");
+      if (!header) throw new Error("The header is required to read its midline");
+      const bar = header.getBoundingClientRect();
+      return { positions, after: brand(), barCentre: bar.x + bar.width / 2 };
     });
     const first = samples.positions[0];
     const last = samples.positions.at(-1);
@@ -564,16 +575,22 @@ test("language changes move the whole navigation shell without overshooting or r
     expect(first.width).toBeCloseTo(before.width, 0);
     expect(last.x).toBeCloseTo(samples.after.x, 0);
     expect(last.width).toBeCloseTo(samples.after.width, 0);
-    expect(Math.abs(last.x - first.x)).toBeGreaterThan(1);
-    const direction = Math.sign(last.x - first.x);
-    for (let index = 1; index < samples.positions.length; index += 1) {
-      const previous = samples.positions[index - 1];
+    // The brand shell only travels towards the other language's width, and the navigation keeps
+    // its place on the bar's midline for the whole resize instead of being pushed sideways.
+    // 标识外壳只朝另一语言的宽度单向变化，导航在整段伸缩中停在顶栏中线上，不被推向一侧。
+    expect(Math.abs(last.width - first.width)).toBeGreaterThan(1);
+    const direction = Math.sign(last.width - first.width);
+    for (const index of samples.positions.keys()) {
       const current = samples.positions[index];
-      if (!previous || !current) throw new Error("Consecutive positions are required");
-      expect((current.x - previous.x) * direction).toBeGreaterThanOrEqual(-0.1);
-      expect(current.x).toBeGreaterThanOrEqual(Math.min(first.x, last.x) - 0.1);
-      expect(current.x).toBeLessThanOrEqual(Math.max(first.x, last.x) + 0.1);
+      const previous = samples.positions[index - 1];
+      if (!current) throw new Error("A sampled position is required");
+      expect(current.centre).toBeCloseTo(first.centre, 0);
+      if (!previous) continue;
+      expect((current.width - previous.width) * direction).toBeGreaterThanOrEqual(-0.1);
+      expect(current.width).toBeGreaterThanOrEqual(Math.min(first.width, last.width) - 0.1);
+      expect(current.width).toBeLessThanOrEqual(Math.max(first.width, last.width) + 0.1);
     }
+    expect(last.centre).toBeCloseTo(samples.barCentre, 0);
     await expect(page.locator("html")).not.toHaveAttribute("data-neoverse-view-transitioning");
   }
 });
