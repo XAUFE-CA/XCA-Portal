@@ -15,9 +15,14 @@ const meshReady = ref(false);
 let releaseMesh: (() => void) | null = null;
 // The draw phase and non-WebGL fallback keep the CA mark SVG paths.
 // 绘制阶段与非 WebGL 回退都沿用 CA 标识 SVG 路径。
+// The scene keeps the 1254-unit coordinate space; pages render the cropped square mark.
+// 场景保留 1254 单位坐标系，页面使用裁剪后的方形标识。
 const svg = mark
   .replace(/<title[\s\S]*?<\/title>/, "")
   .replace(/\s(?:role|aria-labelledby)="[^"]*"/g, "")
+  .replace(/viewBox="[^"]*"/, 'viewBox="0 0 1254 1254"')
+  .replace(/width="\d+"/, 'width="1254"')
+  .replace(/height="\d+"/, 'height="1254"')
   .replaceAll("<path", '<path pathLength="1"')
   .replace(/fill="#[\da-f]+"/gi, 'fill="currentColor"');
 const depthLayers = Array.from({ length: 18 }, (_, index) => (index + 1) * 4);

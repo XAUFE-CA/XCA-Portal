@@ -18,7 +18,7 @@ app/                    门户应用（Nuxt 4 srcDir）
   app.vue               根组件，挂载全局样式与默认布局
   assets/               门户 CSS（含 intro-journey.css 场景几何）与自托管字体子集
   components/           跨页面展示组件，按场景分子目录
-    site/               站点框架：顶栏、导航、菜单、语言与主题控件
+    site/               站点框架：顶栏、导航、菜单、语言与主题控件、页脚
     home/               首页 Hero、标题轮播与终端视图组合
     about/              关于学社：玻璃卡片、主题横幅与 Markdown 渲染
   composables/          跨组件状态与能力：主题、语言、内容适配
@@ -50,6 +50,16 @@ app/                    门户应用（Nuxt 4 srcDir）
         intro-mark.test.ts         标识交接单元测试
       components/       CaIntroMark.vue：CA 标识 SVG 与场景绘制的 Vue 适配
       index.ts          特性唯一对外入口
+    tagline-flame/      页脚标语火焰：余烬粒子、画布绘制与 Vue 适配
+      core/             纯逻辑：粒子生成、推进与密度
+        flame-particles.ts       余烬生成、推进与密度规则
+        flame-particles.test.ts  粒子规则单元测试
+      rendering/        画布：字形测量、配色解析与绘制生命周期
+        flame-canvas.ts          字形测量、可见性与绘制
+        flame-palette.ts         token 配色与余烬精灵图
+        flame-palette.test.ts    配色工具单元测试
+      components/       TaglineFlame.vue：文案与装饰画布的 Vue 适配
+      index.ts          特性唯一对外入口
     terminal/           浏览器终端
       core/             纯逻辑：会话、解析、注册、虚拟工作区
       commands/         命令集合，经命令上下文访问服务
@@ -76,13 +86,13 @@ app/                    门户应用（Nuxt 4 srcDir）
   layouts/              默认布局：顶栏与页面容器
   pages/                路由：首页与关于学社，只做组合
   plugins/              客户端插件：极光玻璃运行时、会话入口记录与视图过渡标记
-  utils/                共享工具函数（token 读取、玻璃刷新与动效时长）
+  utils/                共享工具函数（token 读取、玻璃刷新、动效时长与版权年份）
 content/                可直接编辑的 Markdown 正文与页面元信息
   pages/about/          关于学社：zh-CN.md 与 en.md
 docs/                   架构说明、现行接口与术语体系（写法见 docs/AGENTS.md）
-scripts/                门禁与检查脚本、quality-budgets.json、字体工具
+scripts/                门禁与检查脚本、构建信息、quality-budgets.json、字体工具
 tests/e2e/              随功能提交的 Playwright 用例与 Windows 图片基线
-public/                 静态资产：学社标识、字体许可证、intro-gate.js
+public/                 静态资产：学社标识、共享库字标、字体许可证、intro-gate.js
 .agents/notes/          未解决事项与必要过程记录，其余子目录预留给 skills 等
 .github/                CI 工作流（quality.yml）与 PR 模板
 ```

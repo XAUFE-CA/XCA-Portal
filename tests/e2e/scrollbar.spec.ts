@@ -74,8 +74,8 @@ test("document scrollbar uses the viewport, not the clipped XCA layout", async (
   }
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  // The home page has only a hero. Inject temporary content to test the document rail.
-  // 当前首页只有主视觉区，注入临时内容以测试文档滚动条，且不改动生产布局。
+  // The home footer already sits below the fold; inject extra height to exercise the rail.
+  // 首页页脚已在首屏之外，额外注入高度以测试文档滚动条，且不改动生产布局。
   await page.locator(".site-main").evaluate((element) => {
     const fixture = document.createElement("div");
     fixture.dataset.scrollFixture = "true";

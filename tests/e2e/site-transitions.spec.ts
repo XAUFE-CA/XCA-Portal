@@ -383,9 +383,26 @@ test("a scrolled source page keeps both route snapshots at their own viewport to
   expect(snapshots.groupHeight).toBeCloseTo(snapshots.sourceHeight, 0);
   expect(snapshots.oldTop).toBeCloseTo(0, 0);
   expect(snapshots.oldHeight).toBeCloseTo(snapshots.sourceHeight, 0);
-  // The incoming snapshot returns to its own top inside the pinned group.
-  // 进入快照在固定分组内回到自身顶部。
-  expect(snapshots.groupTop + snapshots.newOffset).toBeCloseTo(snapshots.targetTop, 0);
+  // The footer extends the home document, so scroll position and header shape settle across
+  // frames after the capture; compare the final geometry rather than one early sample.
+  // 首页页脚加长了文档，截取后滚动位置与页头形态会跨帧落定；比较最终几何而不是早期单帧。
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const root = document.documentElement;
+        const translate = (value: string) =>
+          value === "none" ? 0 : new DOMMatrixReadOnly(value).m42;
+        const groupTop = translate(
+          getComputedStyle(root, "::view-transition-group(root)").transform,
+        );
+        const newOffset = translate(
+          getComputedStyle(root, "::view-transition-new(root)").transform,
+        );
+        const target = document.querySelector(".site-main");
+        return Math.abs(groupTop + newOffset - (target?.getBoundingClientRect().top ?? 0));
+      }),
+    )
+    .toBeLessThanOrEqual(1);
 
   const end = await page.evaluate(() => {
     const root = document.documentElement;

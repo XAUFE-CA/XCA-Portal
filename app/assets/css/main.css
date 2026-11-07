@@ -83,6 +83,12 @@ a {
   flex: 1;
   min-width: 0;
 }
+/* Keep the home terminal immersive: the footer starts below the first viewport on
+   desktop and mobile, so reaching it always requires a deliberate scroll.
+   首页终端保持沉浸式：桌面与移动端的页脚都在首屏之外，需要滚动才能看到。 */
+.site-shell--home .site-main {
+  min-height: calc(100svh - var(--xca-site-header-height, var(--neoverse-space-22)));
+}
 /* Route captures keep the glass chrome in the live document so it keeps sampling the page
    behind it; the overlay is clipped to the content area below the header.
    路由过渡保留实时玻璃页头继续采样背后内容，快照层裁剪到页头下方的正文区域。 */
@@ -190,33 +196,36 @@ a {
   gap: var(--neoverse-space-4);
   white-space: nowrap;
 }
+/* The cropped artwork keeps square padding above and below the glyph, so the box is taller
+   than the mark itself; this size keeps the visible CA just above the brand name's height.
+   裁切后的图稿在字形上下保留方形留白，盒子高于标识本身；此尺寸使可见的 CA 略高于学社名。 */
 .site-logo__icon {
-  width: var(--neoverse-space-12);
-  height: var(--neoverse-space-12);
+  width: var(--neoverse-space-9);
+  height: var(--neoverse-space-9);
   object-fit: contain;
   flex: 0 0 auto;
 }
 [data-theme="dark"] .site-logo__icon {
   filter: invert(1);
 }
+/* The two footer marks read as pure white rather than the inverted ink.
+   页脚两张标识读作纯白，而不是反相后的墨色。 */
+[data-theme="dark"] .site-footer__mark,
+[data-theme="dark"] .site-footer__wordmark {
+  filter: brightness(0) invert(1);
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) .site-logo__icon {
     filter: invert(1);
   }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .site-footer__mark,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .site-footer__wordmark {
+    filter: brightness(0) invert(1);
+  }
 }
-.site-logo__mark,
 .site-logo__name {
   line-height: var(--neoverse-line-height-snug);
   text-box: trim-both cap alphabetic;
-}
-.site-logo__mark {
-  color: var(--neoverse-color-text-primary);
-  font-size: var(--neoverse-font-size-2xl);
-  font-weight: var(--neoverse-font-weight-display);
-  letter-spacing: var(--neoverse-typography-display-lg-letter-spacing);
-}
-.site-logo__mark span {
-  color: var(--neoverse-color-accent-primary);
 }
 .site-logo__divider {
   height: var(--neoverse-space-5);
@@ -312,29 +321,173 @@ a {
   z-index: var(--neoverse-layout-layer-overlay);
 }
 
+/* The footer carries the lockup, tagline, copyright and the exact build commit.
+   页脚承载联合标识、标语、版权与本次构建的提交信息。 */
 .site-footer {
   margin-top: var(--neoverse-space-12);
-  padding-block: var(--neoverse-space-10);
+  padding-block: var(--neoverse-space-10) var(--neoverse-space-8);
   border-top: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
-  display: flex;
-  justify-content: space-between;
-  gap: var(--neoverse-space-6);
-  color: var(--neoverse-color-text-muted);
-  font-size: var(--neoverse-font-size-md);
+  color: var(--neoverse-color-text-secondary);
+  font-size: var(--neoverse-font-size-sm);
+  line-height: var(--neoverse-line-height-relaxed);
 }
 .site-footer p {
   margin: 0;
-  line-height: var(--neoverse-line-height-relaxed);
 }
-.site-footer__brand {
+/* Footer links answer hover the way the blog's plain links do: a rounded plate grows from
+   slightly smaller to the link box, drawn in the shared hover field, and presses in on click.
+   脚注链接沿用博客 plain 链接的悬停反馈：圆角底板由略小长到链接盒子大小，
+   使用共享 hover 底色，按下时再向内收一下。 */
+.site-footer a {
+  position: relative;
+  z-index: 0;
+}
+.site-footer a::before {
+  content: "";
+  position: absolute;
+  /* Fill the row, which already covers the glyph ink with a little margin, and stop the plate
+     from inflating further; sideways it runs a little wider than the text.
+     底板填满行盒，行盒本身已比字形墨迹略大；不再向外膨胀；左右比文字略宽。 */
+  inset: 0 calc(var(--neoverse-space-1) * -1);
+  z-index: -1;
+  border-radius: var(--neoverse-radius-sm);
+  background: var(--neoverse-effect-hover-field);
+  opacity: 0;
+  transform: scale(0.85);
+}
+.site-footer a:hover::before,
+.site-footer a:focus-visible::before {
+  opacity: 1;
+  transform: none;
+}
+/* Pressing deepens the plate instead of fading it: a second layer of the same hover field
+   stacks on the first, and the plate pulls in slightly.
+   按下时底板变深而不是变淡：同一种 hover 底色再叠一层，透明度相加，并略微收紧。 */
+.site-footer a:active::before {
+  opacity: 1;
+  background-image: linear-gradient(
+    var(--neoverse-effect-hover-field),
+    var(--neoverse-effect-hover-field)
+  );
+  transform: scale(var(--neoverse-effect-press-scale));
+}
+.site-footer a:hover,
+.site-footer a:focus-visible,
+.site-footer a:active {
+  color: var(--neoverse-color-accent-primary);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .site-footer a {
+    transition: color var(--neoverse-motion-state-duration) var(--neoverse-motion-easing-standard);
+  }
+  .site-footer a::before {
+    transition:
+      opacity var(--neoverse-motion-state-duration) var(--neoverse-motion-easing-standard),
+      transform var(--neoverse-motion-feedback-duration) var(--neoverse-motion-feedback-easing);
+  }
+}
+.site-footer__top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--neoverse-space-4) var(--neoverse-space-10);
+  /* Centre both columns so a different line count (zh vs en) never leaves the quotation
+     hanging from the top against the credits.
+     两列垂直居中，使中英文行数不同时引语不会贴顶而显得与左侧错位。 */
+  align-items: center;
+}
+.site-footer__identity {
+  display: grid;
+  justify-items: start;
+  gap: var(--neoverse-space-2);
+}
+.site-footer__lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--neoverse-space-4);
+}
+.site-footer__mark {
+  width: var(--neoverse-space-10);
+  height: var(--neoverse-space-10);
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.site-footer__lockup-divider {
+  width: var(--neoverse-border-width-thin);
+  height: var(--neoverse-space-6);
+  background: var(--neoverse-color-border-default);
+}
+.site-footer__wordmark {
+  width: auto;
+  height: var(--neoverse-space-6);
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.site-footer__tagline {
+  justify-self: end;
+  max-width: var(--neoverse-layout-reading-wide-width);
+  color: var(--neoverse-color-text-primary);
+  font-size: var(--neoverse-font-size-md);
+  text-align: left;
+  /* The copy carries authored sentence breaks, so the lines follow the quotation.
+     文案自带按句断行，让每行跟随引语本身的节奏。 */
+  white-space: pre-line;
+}
+/* Copyright and licenses close the footer as one centered column.
+   版权与许可作为居中单列收尾。 */
+.site-footer__bottom {
+  display: grid;
+  justify-items: center;
+  gap: var(--neoverse-space-2);
+  margin-top: var(--neoverse-space-8);
+  padding-top: var(--neoverse-space-5);
+  border-top: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
+  color: var(--neoverse-color-text-muted);
+  font-size: var(--neoverse-font-size-sm);
+  text-align: center;
+}
+/* Keep word gaps at one space so mixed Chinese and Latin lines do not read as double spaced.
+   词间距保持单倍空格，使中英混排不会读成双倍行距。 */
+.site-footer__copyright,
+.site-footer__licenses,
+.site-footer__license,
+.site-footer__shared-ui,
+.site-footer__build {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--neoverse-space-1);
+}
+/* The shared-UI credit and the build stamp read as two separate lines.
+   共享库署名与构建信息各占一行，分两行阅读。 */
+.site-footer__meta {
+  display: grid;
+  justify-items: start;
+  gap: var(--neoverse-space-1);
+}
+/* Centered rows keep their own line breaks centered when the copy wraps.
+   居中行在换行时仍保持居中。 */
+.site-footer__copyright,
+.site-footer__licenses {
+  justify-content: center;
+}
+.site-footer__build {
+  font-variant-numeric: tabular-nums;
+}
+.site-footer__build-status {
   color: var(--neoverse-color-text-primary);
   font-weight: var(--neoverse-font-weight-semibold);
 }
-.site-footer__meta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--neoverse-space-2);
-  align-items: end;
+/* Below the desktop breakpoint the quotation needs the whole footer width, otherwise its
+   authored lines wrap again and the block collapses into a narrow column.
+   桌面断点以下，引语需要页脚整行宽度，否则自带断行会再折一次，整块缩成窄栏。 */
+@media (max-width: 70rem) {
+  .site-footer__top {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  .site-footer__tagline {
+    justify-self: start;
+  }
 }
 
 @media (max-width: 70rem) {
@@ -367,18 +520,12 @@ a {
   .site-menu {
     grid-column: 2;
   }
-  .site-logo {
-    gap: var(--neoverse-space-2);
-  }
-  .site-logo__icon {
-    width: var(--neoverse-space-10);
-    height: var(--neoverse-space-10);
-  }
-  .site-footer {
-    flex-direction: column;
-  }
-  .site-footer__meta {
-    align-items: start;
+
+  /* A phone is too narrow for the authored lines, so the quotation flows as one paragraph.
+     手机宽度容不下自带断行，引语改为整段自然排列。 */
+  .site-footer__tagline {
+    white-space: normal;
+    text-wrap: balance;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -389,6 +536,9 @@ a {
 
 @media (prefers-reduced-motion: reduce) {
   .site-header {
+    transition: none;
+  }
+  .site-footer a {
     transition: none;
   }
 }

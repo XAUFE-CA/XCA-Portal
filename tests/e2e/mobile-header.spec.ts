@@ -411,16 +411,26 @@ test("interacting with the terminal settles the heading while preserving command
   ).toHaveCount(0);
 });
 
-test("laptop-height homepage does not scroll just for bottom padding", async ({ page }) => {
+test("laptop-height homepage keeps the immersive terminal above the footer", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const width of [1440, 1600]) {
-    await page.setViewportSize({ width, height: 900 });
+  for (const [width, height] of [
+    [1440, 900],
+    [1600, 900],
+    [1920, 1080],
+  ]) {
+    await page.setViewportSize({ width, height });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.keyboard.press("Escape");
     await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    const footer = page.getByRole("contentinfo");
+    await expect(footer).toHaveCount(1);
+    const top = await page
+      .locator(".site-footer")
+      .evaluate((node) => node.getBoundingClientRect().top);
+    expect(top, `footer visible above the fold at ${width}px`).toBeGreaterThanOrEqual(height - 1);
+    await page.evaluate(() =>
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
     );
-    expect(overflow, `unexpected page scroll at ${width}px`).toBeLessThanOrEqual(1);
+    await expect(footer).toBeInViewport();
   }
 });

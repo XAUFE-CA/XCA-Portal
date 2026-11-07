@@ -14,7 +14,7 @@ const route = useRoute();
     <main id="main-content" class="site-main">
       <slot />
     </main>
-    <SiteFooter v-if="route.path !== SITE.routes.home" />
+    <SiteFooter />
     <!-- The rail is server rendered so the shared stylesheet removes the native bar on the
          first paint; teleporting it to body keeps it out of the site layout container's
          clipping and stacking isolation.

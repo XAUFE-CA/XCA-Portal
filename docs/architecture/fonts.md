@@ -21,9 +21,9 @@ Status: adopted
 
 字体放在 `app/assets/fonts/`，由 Vite 输出到带内容哈希的 `/_nuxt/` 路径。首页通过 `useHead` 预加载常规字重。
 
-Maple Mono NF CN 上游使用 SIL OFL 1.1，许可证随站点发布在 [public/fonts/OFL.txt](../../public/fonts/OFL.txt)。CA 图形标识来自 SVG，与字体资源分开维护。
+Maple Mono NF CN 上游使用 SIL OFL 1.1，许可证随站点发布在 [public/fonts/OFL.txt](../../public/fonts/OFL.txt)。CA 图形标识来自 SVG，与字体资源分开维护。页脚联合标识中的 [neoverse-wordmark.svg](../../public/brand/neoverse-wordmark.svg) 取自共享库 `apps/playground/src/assets/neoverse-wordmark.svg`，上游为 MIT 许可；门户副本只把 `viewBox` 从 `0 0 2172 724` 裁剪为 `40 200 2100 300`，路径与填色不变。
 
-浏览器标签页图标以 [ca-mark.svg](../../public/brand/ca-mark.svg) 为唯一图稿来源，不修改源文件或维护图标副本。`nuxt.config.ts` 读取 SVG，仅将 favicon 内存副本的 `viewBox` 调整为 `176 178 928 928`，再编码为 Data URL，使 CA 主体占图标画布宽度约 96%。顶栏与首页继续使用原始 SVG。
+浏览器标签页图标以 [ca-mark.svg](../../public/brand/ca-mark.svg) 为唯一图稿来源，不维护图标副本。源文件的 `viewBox` 裁剪为 `169 171 940 940`，保持 1:1 并去掉左右透明留白，路径坐标不变；顶栏与页脚直接使用该文件。`nuxt.config.ts` 读取 SVG，仅将 favicon 内存副本的 `viewBox` 调整为 `176 178 928 928`，再编码为 Data URL，使 CA 主体占图标画布宽度约 96%。首页入场把导入的 SVG 还原为 `0 0 1254 1254` 并恢复 1254 的宽高，因为场景几何使用该坐标系，见 [首页入场](home-intro.md#场景绘制)。
 
 ## 子集生成
 
