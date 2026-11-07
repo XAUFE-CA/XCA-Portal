@@ -407,13 +407,15 @@ defineExpose({
         @keydown="appKeydown"
         @click.stop="appRegion?.focus({ preventScroll: true })"
       >
-        <UiTerminalLine class="xca-terminal-line" kind="command">
+        <UiTerminalLine class="xca-terminal-line xca-terminal-application__title" kind="command">
           {{ application.title }}
         </UiTerminalLine>
         <UiTerminalLine class="xca-terminal-application__output" :text="appLines.join('\n')" />
-        <UiButton variant="ghost" size="sm" @click.stop="session.closeApplication()">{{
-          t("terminal.exitReader")
-        }}</UiButton>
+        <div class="xca-terminal-application__footer">
+          <UiButton variant="ghost" size="sm" @click.stop="session.closeApplication()">{{
+            t("terminal.exitReader")
+          }}</UiButton>
+        </div>
       </div>
       <div v-if="intro" class="xca-terminal-intro-output" aria-hidden="true">
         <div class="xca-terminal-bootlog">

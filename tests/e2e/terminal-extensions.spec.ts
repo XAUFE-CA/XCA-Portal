@@ -59,6 +59,18 @@ test("menu and alternate TUI screen accept keyboard and pointer input without lo
   await input.fill("xca explore");
   await input.press("Enter");
   await expect(page.locator(".xca-terminal-menu")).toBeVisible();
+  // The shared focus ring must stay inside the scrollport instead of being clipped at its left edge.
+  // 共享焦点环必须完整落在滚动视口内，不能在左边缘被裁切。
+  const focusRingFits = await page.evaluate(() => {
+    const item = document.querySelector<HTMLElement>(".xca-terminal-menu__item");
+    const region = document.querySelector<HTMLElement>(".xca-terminal-interaction");
+    if (!item || !region) return false;
+    const style = getComputedStyle(item);
+    const ring = Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset);
+    return item.getBoundingClientRect().left - ring >= region.getBoundingClientRect().left;
+  });
+  expect(focusRingFits).toBe(true);
+  await expect(page.locator(".xca-terminal-menu__item").first()).toHaveClass(/--selected/);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.locator(".xca-terminal-menu")).toHaveCount(0);

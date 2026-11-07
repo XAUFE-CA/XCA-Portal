@@ -61,7 +61,11 @@ function keydown(event: KeyboardEvent) {
     @click.stop
   >
     <template v-if="interaction.type === 'menu'">
-      <UiTerminalLine class="xca-terminal-line" kind="command" :text="interaction.title" />
+      <UiTerminalLine
+        class="xca-terminal-line xca-terminal-interaction__title"
+        kind="command"
+        :text="interaction.title"
+      />
       <div class="xca-terminal-menu" role="menu" :aria-label="interaction.title">
         <UiButton
           v-for="(item, index) in interaction.items"
@@ -69,14 +73,25 @@ function keydown(event: KeyboardEvent) {
           role="menuitem"
           :tabindex="selected === index ? 0 : -1"
           data-menu-item
-          class="xca-terminal-menu__item"
+          :class="[
+            'xca-terminal-menu__item',
+            { 'xca-terminal-menu__item--selected': selected === index },
+          ]"
           variant="ghost"
           size="sm"
           @focus="selected = index"
           @click="interaction.type === 'menu' && interaction.select(item.id)"
         >
-          <span>{{ selected === index ? "❯" : "·" }} {{ item.label }}</span>
-          <UiTerminalLine tone="muted" :text="item.description" />
+          <span class="xca-terminal-menu__marker" aria-hidden="true">{{
+            selected === index ? "❯" : "·"
+          }}</span>
+          <span class="xca-terminal-menu__label">{{ item.label }}</span>
+          <UiTerminalLine
+            v-if="item.description"
+            class="xca-terminal-menu__description"
+            tone="muted"
+            :text="item.description"
+          />
         </UiButton>
       </div>
     </template>
@@ -98,16 +113,18 @@ function keydown(event: KeyboardEvent) {
         </div>
       </UiField>
     </form>
-    <UiButton
-      variant="ghost"
-      size="sm"
-      @click="
-        value = '';
-        cancel();
-      "
-      >{{
-        t("interaction.cancel")
-      }}</UiButton
-    >
+    <div class="xca-terminal-interaction__footer">
+      <UiButton
+        variant="ghost"
+        size="sm"
+        @click="
+          value = '';
+          cancel();
+        "
+        >{{
+          t("interaction.cancel")
+        }}</UiButton
+      >
+    </div>
   </section>
 </template>

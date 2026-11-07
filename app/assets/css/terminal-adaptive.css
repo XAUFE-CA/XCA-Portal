@@ -40,7 +40,7 @@
   .xca-terminal-title__letter {
     visibility: visible;
   }
-  .xca-terminal-title__letter--cursor::after {
+  .xca-terminal-title__caret {
     display: none;
   }
   .xca-terminal-hero__intro-backdrop,
@@ -67,14 +67,18 @@
 .xca-terminal-application {
   position: absolute;
   inset: 0;
-  /* The screen starts at the header; keep the reader content at its original body offset.
-     屏幕从页头开始，阅读器内容保持原有的正文偏移。 */
-  padding-top: var(--neoverse-space-4);
+  /* The screen starts at the header; inline padding also keeps control focus rings inside the scrollport.
+     屏幕从页头开始；内联内边距同时让控件焦点环留在滚动视口内。 */
+  padding: var(--neoverse-space-4) var(--neoverse-space-2);
   overflow: auto;
   scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: var(--neoverse-space-3);
+}
+.xca-terminal-application__title {
+  padding-block-end: var(--neoverse-space-3);
+  border-block-end: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
 }
 .xca-terminal-application__output {
   flex: 1;
@@ -82,12 +86,24 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.xca-terminal-application__footer {
+  display: flex;
+  align-items: center;
+  padding-block-start: var(--neoverse-space-3);
+  border-block-start: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
+}
 .xca-terminal-interaction {
   flex-shrink: 0;
   max-height: 70%;
   overflow: auto;
   scrollbar-gutter: stable;
-  padding-block: var(--neoverse-space-3);
+  /* The shared focus ring extends past its button, so inline padding keeps it out of the clip edge.
+     共享焦点环会超出按钮边界，内联内边距使其远离裁切边缘。 */
+  padding: var(--neoverse-space-3) var(--neoverse-space-2);
+}
+.xca-terminal-interaction__title {
+  padding-block-end: var(--neoverse-space-3);
+  border-block-end: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
 }
 .xca-terminal-menu {
   display: grid;
@@ -96,6 +112,33 @@
 }
 .xca-terminal-menu__item {
   justify-content: space-between;
+}
+.xca-terminal-menu__marker {
+  display: inline-block;
+  min-width: var(--neoverse-space-4);
+  text-align: center;
+  color: var(--neoverse-color-text-muted);
+}
+.xca-terminal-menu__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xca-terminal-menu__item--selected .xca-terminal-menu__marker {
+  color: var(--neoverse-color-accent-primary);
+}
+.xca-terminal-menu__item--selected .xca-terminal-menu__label {
+  color: var(--neoverse-color-text-primary);
+}
+.xca-terminal-menu__description {
+  margin-inline-start: var(--neoverse-space-3);
+}
+.xca-terminal-interaction__footer {
+  display: flex;
+  align-items: center;
+  padding-block-start: var(--neoverse-space-3);
+  border-block-start: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
 }
 .xca-terminal-interaction__input {
   display: flex;
