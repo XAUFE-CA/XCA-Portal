@@ -25,9 +25,9 @@ export default defineConfig({
   use: {
     baseURL,
     browserName: "chromium",
-    // Windows development machines already have Microsoft Edge.
-    // Windows 开发机已自带 Microsoft Edge。
-    ...(process.platform === "win32" ? { channel: "msedge" } : {}),
+    // Verification runs headless Chromium on every platform, including Windows.
+    // 验证统一使用无头 Chromium，Windows 也不例外。
+    headless: true,
     viewport: { width: 1440, height: 900 },
     trace: "retain-on-failure",
   },

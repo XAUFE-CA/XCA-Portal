@@ -89,7 +89,7 @@ bun audit --registry https://registry.npmjs.org
 
 ## 浏览器回归
 
-相关测试与对应实现同笔提交，保留已有检查及共享 UI 回归，不删除正反例或缩小检查范围来隐藏失败。`bun run test:e2e` 先构建再执行 Playwright，已有构建产物可直接用 `bunx playwright test` 复验；两者默认都排除 `@cinematic`，完整场景须设置 `XCA_CINEMATIC=1` 并配合 `--grep @cinematic`，由 `cinematic` 工作流按需运行。Windows 使用已安装的 Edge，其他平台先执行 `bunx playwright install chromium`。CI 的浏览器准备见 [工作流](../../.github/workflows/quality.yml)。
+相关测试与对应实现同笔提交，保留已有检查及共享 UI 回归，不删除正反例或缩小检查范围来隐藏失败。`bun run test:e2e` 先构建再执行 Playwright，已有构建产物可直接用 `bunx playwright test` 复验；两者默认都排除 `@cinematic`，完整场景须设置 `XCA_CINEMATIC=1` 并配合 `--grep @cinematic`，由 `cinematic` 工作流按需运行。所有平台统一使用无头 Chromium，首次验证前先执行 `bunx playwright install chromium`。CI 的浏览器准备见 [工作流](../../.github/workflows/quality.yml)。
 
 预览使用 [测试配置](../../playwright.config.ts) 中的独立端口，启动前确认空闲，不复用未知服务。测试结束由 Playwright 清理自己启动的服务。入场阶段与过渡中间态的观测不复用动画帧采样：阶段性状态由 [共享观测模块](../../tests/e2e/timing.ts) 记录 DOM 变更批次，过渡中间态按动画时间推进到指定进度，墙钟预算取自同一模块的常量。软件渲染运行器的帧率不足以在固定时间窗内复现这些状态，按帧采样会把环境性能当成产品缺陷。只验证功能的用例通过 [入场入口开关](../../tests/e2e/entry.ts) 使用产品既有的会话内短入场，长场景只由入场专项用例覆盖，避免每个用例都承担一次完整编排。帧观测用例仍需要完整入场，改用共享观测模块的时间线步进到达就绪阶段，不按墙钟等完每个提示；帧样本仍由真实 requestAnimationFrame 采集，空间效果释放仍逐次断言。重播用例在每次跳过入场后等待宿主解除 inert，再继续下一轮与历史快捷键：快渲染器上收尾是异步的，inert 期间的按键会被丢弃，而 `toBeEnabled` 不检查 inert。全局时间线步进同样不适用于重播：它只检查当前阶段值，无法区分上一轮场景。每个分片固定 1 个 worker，避免多个软件渲染的 Chromium 争抢帧率；并行度由 `--shard` 在独立作业上提供。等宽字符画按一个字符格判定溢出：不同字体光栅器每字形存在亚像素差异，把零溢出当成唯一判据会让平台差异表现为回归。[共享 UI 用例](../../tests/e2e/shared-ui.spec.ts) 检查公开 CSS 变量、运行错误与 Hydration 警告。其余用例覆盖终端、主题、双语、菜单、入场和滚动。
 
