@@ -32,9 +32,11 @@
   visibility: hidden;
   pointer-events: none;
 }
-.xca-terminal-title__accent {
+.xca-terminal-title__text {
+  position: relative;
+}
+.xca-terminal-title__letter--accent {
   color: var(--neoverse-color-accent-primary);
-  margin-inline-start: var(--neoverse-space-1);
 }
 .xca-terminal-title__letter--punctuation {
   letter-spacing: var(--neoverse-letter-spacing-normal);
@@ -46,20 +48,38 @@
 .xca-terminal-title__letter--visible {
   visibility: visible;
 }
-.xca-terminal-title__letter--cursor::after {
-  content: "";
+@media (prefers-reduced-motion: no-preference) {
+  /* Printed characters fade in and out; the caret glides with each new glyph.
+     打出的字符淡入淡出，光标随每个字符平滑移动。 */
+  .xca-terminal-title__letter {
+    opacity: 0;
+    transition:
+      opacity var(--neoverse-motion-duration-fast) var(--neoverse-motion-easing-standard),
+      visibility 0ms linear var(--neoverse-motion-duration-fast);
+  }
+  .xca-terminal-title__letter--visible {
+    opacity: 1;
+    transition-delay: 0ms;
+  }
+  .xca-terminal-title__caret--ready {
+    transition: transform var(--neoverse-motion-duration-fast)
+      var(--neoverse-motion-easing-standard);
+  }
+}
+.xca-terminal-title__caret {
   position: absolute;
-  left: var(--xca-title-cursor-left, 100%);
-  top: var(--xca-title-cursor-top, 50%);
-  height: var(--xca-title-cursor-height, 1em);
-  transform: translateY(-50%);
-  border-inline-start: var(--neoverse-border-width-thin) solid currentColor;
-  visibility: visible;
-}
-.xca-terminal-title__letter--cursor-before::after {
   left: 0;
+  top: 0;
+  width: 0;
+  height: var(--xca-title-caret-height, 1em);
+  border-inline-start: var(--neoverse-border-width-thin) solid currentColor;
+  transform: translate(var(--xca-title-caret-x, 0px), calc(var(--xca-title-caret-y, 0px) - 50%));
+  pointer-events: none;
 }
-.xca-terminal-title__letter--paused::after {
+.xca-terminal-title__caret--hidden {
+  visibility: hidden;
+}
+.xca-terminal-title__caret--paused {
   animation: xca-terminal-title-cursor calc(var(--neoverse-motion-duration-expressive) * 2.5)
     step-end infinite;
 }

@@ -1,7 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
+import { parseHeroTitle } from "../../app/components/home/hero-title";
 import localizedHeroSentences from "../../app/data/hero-sentences.json" with { type: "json" };
 
-const heroSentences = localizedHeroSentences["zh-CN"];
+const heroSentences = localizedHeroSentences["zh-CN"].map((source) => parseHeroTitle(source).text);
 const firstSentence = heroSentences[0];
 if (firstSentence === undefined) throw new Error("Chinese hero sentences must include a welcome");
 const firstSentenceLength = Array.from(firstSentence).length;
@@ -30,32 +31,28 @@ for (const width of [1440, 390]) {
     await page.evaluate(() => document.fonts.ready);
     await page.clock.runFor(100);
 
-    const metrics = await page.locator(".xca-terminal-title__letter--cursor").evaluate((letter) => {
+    const metrics = await page.locator(".xca-terminal-title__caret").evaluate((caret) => {
+      // Freeze the caret glide so the measured box is its final position.
+      // 冻结光标滑动，测量到的盒子就是最终位置。
+      caret.style.transition = "none";
+      const letters = caret.parentElement?.querySelectorAll<HTMLElement>(
+        ".xca-terminal-title__letter",
+      );
+      const letter = letters?.item(letters.length - 1);
+      if (!letter) throw new Error("The caret must follow the final title glyph");
       const textStyle = getComputedStyle(letter);
-      const cursorStyle = getComputedStyle(letter, "::after");
-      // A real box with the pseudo-element's computed style exposes its geometry.
-      // 用伪元素的计算样式构造真实盒子即可暴露其几何信息。
-      const probe = document.createElement("i");
-      for (const property of cursorStyle) {
-        probe.style.setProperty(property, cursorStyle.getPropertyValue(property));
-      }
-      probe.style.animation = "none";
-      letter.append(probe);
-      const textBox = letter.getBoundingClientRect();
-      const cursorBox = probe.getBoundingClientRect();
-      probe.remove();
-
+      const caretBox = caret.getBoundingClientRect();
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
       if (!context) throw new Error("A 2D canvas context is required to measure hero glyphs");
       context.font = `${textStyle.fontWeight} ${textStyle.fontSize} ${textStyle.fontFamily}`;
       const text = letter.textContent;
-      if (text === null) throw new Error("The cursor letter must contain text");
+      if (text === null) throw new Error("The final letter must contain text");
       const glyph = context.measureText(text);
       // Punctuation nears the baseline; align to the Han glyph's ink, not the advance box.
       // 标点靠近基线，应对齐相邻汉字的墨迹，而非字体的字宽框。
       const han = letter.previousElementSibling;
-      if (!han) throw new Error("The cursor letter must follow a Han glyph");
+      if (!han) throw new Error("The final letter must follow a Han glyph");
       const baseline = document.createElement("i");
       baseline.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
       han.append(baseline);
@@ -68,8 +65,8 @@ for (const width of [1440, 390]) {
         baselineY + (hanGlyph.actualBoundingBoxDescent - hanGlyph.actualBoundingBoxAscent) / 2;
       return {
         fontSize: Number.parseFloat(textStyle.fontSize),
-        gap: cursorBox.left - (textBox.left + glyph.actualBoundingBoxRight),
-        verticalOffset: cursorBox.top + cursorBox.height / 2 - glyphCenter,
+        gap: caretBox.left - (letter.getBoundingClientRect().left + glyph.actualBoundingBoxRight),
+        verticalOffset: caretBox.top + caretBox.height / 2 - glyphCenter,
       };
     });
 
@@ -112,9 +109,10 @@ for (const locale of ["zh-CN", "en"] as const) {
     if (baseURL === undefined) throw new Error("A base URL is required to set the locale cookie");
     await context.addCookies([{ name: "xca-locale", value: locale, url: baseURL }]);
     await openHero(page, 0.999);
-    const welcome = localizedHeroSentences[locale][0];
-    if (welcome === undefined)
+    const welcomeSource = localizedHeroSentences[locale][0];
+    if (welcomeSource === undefined)
       throw new Error(`Hero sentences must include a welcome for ${locale}`);
+    const welcome = parseHeroTitle(welcomeSource).text;
     const heading = page.locator("#xca-terminal-title");
     await expect(heading).toHaveAttribute("aria-label", welcome);
     await expect(page.locator(".xca-terminal-title__letter--visible")).toHaveCount(
@@ -144,8 +142,12 @@ test("terminal interaction finishes a partially typed sentence without revealing
 }) => {
   await page.clock.install();
   await openHero(page);
+  await page.clock.pauseAt(new Date(Date.now() + 100));
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  // Both media changes must reach the page before the clock produces a partial line.
+  // 两次媒体偏好变更都到达页面后，才推进时钟生成未完成的一行。
+  await expect(page.locator(".xca-terminal-title__letter--cursor-before")).toHaveCount(1);
   await page.clock.runFor(420);
 
   const heading = page.locator("#xca-terminal-title");
@@ -241,8 +243,12 @@ test("clicking outside during a partial line keeps typing without revealing char
 }) => {
   await page.clock.install();
   await openHero(page);
+  await page.clock.pauseAt(new Date(Date.now() + 100));
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  // Both media changes must reach the page before the clock produces a partial line.
+  // 两次媒体偏好变更都到达页面后，才推进时钟生成未完成的一行。
+  await expect(page.locator(".xca-terminal-title__letter--cursor-before")).toHaveCount(1);
   await page.clock.runFor(420);
 
   const visible = page.locator(".xca-terminal-title__letter--visible");
@@ -261,4 +267,61 @@ test("clicking outside during a partial line keeps typing without revealing char
   // 在打字后的正常停留阶段检查，早于重新开始的删除周期。
   await page.clock.runFor(1600);
   await expect(visible).toHaveCount(firstSentenceLength);
+});
+
+test("welcome accents come from ** markers, not from a comma", async ({ page }) => {
+  await openHero(page);
+  const welcomeSource = localizedHeroSentences["zh-CN"][0];
+  if (welcomeSource === undefined) throw new Error("Hero sentences must include a welcome");
+  const welcome = parseHeroTitle(welcomeSource);
+  const marked = welcome.letters
+    .filter(({ accent }) => accent)
+    .map(({ letter }) => letter)
+    .join("");
+  expect(welcome.text).not.toMatch(/[，,]/u);
+  expect(marked).not.toBe("");
+  await expect(page.locator("#xca-terminal-title")).toHaveAttribute("aria-label", welcome.text);
+  const accent = page.locator(".xca-terminal-title__letter--accent");
+  await expect(accent).toHaveCount(Array.from(marked).length);
+  expect((await accent.allTextContents()).join("")).toBe(marked);
+});
+
+test("a marked accent before the comma is not the text after it", async ({ page }) => {
+  await page.clock.install();
+  await openHero(page, 0.3);
+  const source = localizedHeroSentences["zh-CN"][2];
+  if (source === undefined) throw new Error("Hero sentences must include a marked title");
+  const target = parseHeroTitle(source).text;
+  await page.clock.runFor(11000);
+  const heading = page.locator("#xca-terminal-title");
+  await expect(heading).toHaveAttribute("aria-label", target);
+  const accent = page.locator(".xca-terminal-title__letter--accent");
+  expect((await accent.allTextContents()).join("")).toBe("从问题");
+});
+
+test("one caret glides between glyphs and disappears under reduced motion", async ({ page }) => {
+  await page.clock.install();
+  await openHero(page);
+  await page.clock.pauseAt(new Date(Date.now() + 100));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(page.locator(".xca-terminal-title__letter--cursor-before")).toHaveCount(1);
+  const caret = page.locator(".xca-terminal-title__caret");
+  const motion = await caret.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      property: style.transitionProperty,
+      duration: Number.parseFloat(style.transitionDuration),
+    };
+  });
+  expect(motion.property).toContain("transform");
+  expect(motion.duration).toBeGreaterThan(0);
+  const before = await caret.evaluate((node) => node.style.getPropertyValue("--xca-title-caret-x"));
+  await page.clock.runFor(420);
+  const after = await caret.evaluate((node) => node.style.getPropertyValue("--xca-title-caret-x"));
+  expect(after).not.toBe(before);
+  await expect(caret).toHaveCount(1);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(caret).toBeHidden();
 });

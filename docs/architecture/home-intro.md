@@ -9,6 +9,8 @@ Status: adopted
 | 位置 | 职责 |
 | --- | --- |
 | [HeroSection.vue](../../app/components/home/HeroSection.vue) | 创建并注入会话服务、标题轮播、场景与终端视图 |
+| [hero-title.ts](../../app/components/home/hero-title.ts) | 解析标题强调标注，生成纯文本与逐字序列 |
+| [useTitleCursor.ts](../../app/components/home/useTitleCursor.ts) | 依据字形度量定位唯一标题光标 |
 | [CaIntroMark.vue](../../app/features/intro/components/CaIntroMark.vue) | CA 标识 SVG 与场景绘制的 Vue 适配 |
 | [useIntroPresentation.ts](../../app/features/intro/presentation/useIntroPresentation.ts) | 入场阶段、启动输出、暂停、跳过与清理 |
 | [intro-geometry.ts](../../app/features/intro/core/intro-geometry.ts) | 场景尺度、道路生长、双框与入口安装位置、入口与室内共用的显现进度 |
@@ -34,7 +36,7 @@ Status: adopted
 
 减少动画偏好下自动跳过空间入场，主动重播仍展示可读的启动消息与 ASCII，省略位移和缩放。文字阅读节奏独立于空间动画时长。`public/intro-gate.js` 在首帧前设置首页入场状态，避免正常布局提前闪现。入场状态仅在首页设置。
 
-首页标题从 `app/data/hero-sentences.json` 读取双语轮播内容。终端交互开始后，标题完成当前文字单元再暂停并隐藏光标。点击终端外部恢复，不能仅靠 mouseleave 恢复。
+首页标题从 `app/data/hero-sentences.json` 读取双语轮播内容，`**...**` 标注使用强调色的文字，由 `app/components/home/hero-title.ts` 解析成纯文本与逐字序列；逗号只影响打字节奏，不决定强调范围。字符显现与删除按共享动效时长淡入淡出，唯一光标按字形度量随每个字符平滑移动，减少动画偏好下不播放过渡并隐藏光标。终端交互开始后，标题完成当前文字单元再暂停并隐藏光标。点击终端外部恢复，不能仅靠 mouseleave 恢复。
 
 ## 场景绘制
 

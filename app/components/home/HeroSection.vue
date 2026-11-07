@@ -12,6 +12,7 @@ import { useTerminalSession } from "~/features/terminal/client-session";
 import TerminalFocusBackdrop from "~/features/terminal/components/TerminalFocusBackdrop.vue";
 import TerminalHost from "~/features/terminal/components/TerminalHost.vue";
 import type { TerminalServices } from "~/features/terminal/core/types";
+import { parseHeroTitle } from "./hero-title";
 import { useTitleCursor } from "./useTitleCursor";
 
 const { locale, t } = useSiteLocale();
@@ -21,19 +22,15 @@ const sentences = computed(() =>
 // Each visit, locale change and intro replay starts with the welcome line.
 // 每次访问、语言切换与开场重放都从欢迎语开始。
 const title = ref(sentences.value[0] ?? "");
-const titleCharacters = computed(() => Array.from(title.value));
-const titleLength = computed(() => titleCharacters.value.length);
-const titleLetters = computed(() => {
-  const splitAt = title.value.search(/[，,]/) + 1;
-  const parts =
-    splitAt > 0 ? [title.value.slice(0, splitAt), title.value.slice(splitAt)] : [title.value];
-  let offset = 0;
-  return parts.map((part) => {
-    const letters = Array.from(part, (letter, index) => ({ letter, index: offset + index }));
-    offset += letters.length;
-    return letters;
-  });
-});
+// Accent spans come from the sentence markup, never from its punctuation.
+// 强调范围来自语句标注，与标点位置无关。
+const parsedTitle = computed(() => parseHeroTitle(title.value));
+const titleText = computed(() => parsedTitle.value.text);
+const titleLetters = computed(() => parsedTitle.value.letters);
+const titleLength = computed(() => titleLetters.value.length);
+const sentenceTexts = computed(() =>
+  sentences.value.map((sentence) => parseHeroTitle(sentence).text),
+);
 // Keep the complete heading in SSR; animation starts after the intro reveals it.
 // SSR 保留完整标题。动画在开场显示后才开始。
 const visibleLetters = ref(titleLength.value);
@@ -111,7 +108,7 @@ function typeNextLetter() {
     typingTimer = setTimeout(deleteNextLetter, INTRO_READING_UNIT_MS * HERO_TYPING.hold);
     return;
   }
-  const previousLetter = titleCharacters.value[visibleLetters.value - 1];
+  const previousLetter = titleLetters.value[visibleLetters.value - 1]?.letter;
   typingTimer = setTimeout(
     typeNextLetter,
     INTRO_READING_UNIT_MS *
@@ -232,10 +229,15 @@ onBeforeUnmount(() => {
       @dismiss="toggleExpanded"
     />
     <div class="xca-terminal-hero__heading">
-      <h1 ref="titleElement" id="xca-terminal-title" class="xca-terminal-title" :aria-label="title">
-        <span class="xca-terminal-sr-only">{{ title }}</span>
+      <h1
+        ref="titleElement"
+        id="xca-terminal-title"
+        class="xca-terminal-title"
+        :aria-label="titleText"
+      >
+        <span class="xca-terminal-sr-only">{{ titleText }}</span>
         <span
-          v-for="(sentence, index) in sentences"
+          v-for="(sentence, index) in sentenceTexts"
           :key="index"
           class="xca-terminal-title__sizing"
           aria-hidden="true"
@@ -245,27 +247,29 @@ onBeforeUnmount(() => {
         >
         <span class="xca-terminal-title__text" aria-hidden="true">
           <span
-            v-for="(letters, partIndex) in titleLetters"
-            :key="partIndex"
-            :class="{ 'xca-terminal-title__accent': partIndex === 1 }"
-            aria-hidden="true"
-            ><span
-              v-for="{ letter, index } in letters"
-              :key="index"
-              class="xca-terminal-title__letter"
-              :class="{
-                'xca-terminal-title__letter--visible': index < visibleLetters,
-                'xca-terminal-title__letter--cursor':
-                  !titleSettled && index === Math.max(0, visibleLetters - 1),
-                'xca-terminal-title__letter--cursor-before': visibleLetters === 0 && index === 0,
-                'xca-terminal-title__letter--paused': titlePaused,
-                'xca-terminal-title__letter--punctuation': /[，,。.!！?？;；:：]/u.test(letter),
-              }"
-              >{{
-                letter
-              }}</span
-            ></span
+            v-for="{ letter, index, accent } in titleLetters"
+            :key="index"
+            class="xca-terminal-title__letter"
+            :class="{
+              'xca-terminal-title__letter--accent': accent,
+              'xca-terminal-title__letter--visible': index < visibleLetters,
+              'xca-terminal-title__letter--cursor':
+                !titleSettled && index === Math.max(0, visibleLetters - 1),
+              'xca-terminal-title__letter--cursor-before': visibleLetters === 0 && index === 0,
+              'xca-terminal-title__letter--punctuation': /[，,。.!！?？;；:：]/u.test(letter),
+            }"
+            >{{
+              letter
+            }}</span
           >
+          <span
+            class="xca-terminal-title__caret"
+            :class="{
+              'xca-terminal-title__caret--hidden': titleSettled,
+              'xca-terminal-title__caret--paused': titlePaused,
+            }"
+            aria-hidden="true"
+          />
         </span>
       </h1>
       <p class="xca-terminal-hero__subtitle">{{ t("home.subtitle") }}</p>
