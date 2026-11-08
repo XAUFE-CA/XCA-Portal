@@ -1,6 +1,7 @@
 import type { CommandDefinition } from "../core/types";
 import { fileCommands } from "./files";
 import { commandDetails, completeHelp, line, listHelp, resolveCommand, usage } from "./helpers";
+import { historyCommand } from "./history";
 import { interactiveCommands } from "./interactive";
 import { searchCommands } from "./search";
 import { xcaCommand } from "./site";
@@ -42,19 +43,7 @@ export const terminalCommands: CommandDefinition[] = [
       ctx.clear();
     },
   },
-  {
-    name: "history",
-    group: "session",
-    summary: "",
-    summaryKey: "summary.history",
-    usage: "history",
-    execute: (args, ctx) =>
-      args.length
-        ? usage(ctx, "history")
-        : ctx
-            .history()
-            .map((item, i) => line(`${String(i + 1).padStart(2, "0")}  ${item}`, "muted")),
-  },
+  historyCommand,
   {
     name: "whoami",
     group: "session",

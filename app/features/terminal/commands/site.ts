@@ -11,6 +11,7 @@ import {
   resolveCommand,
   usage,
 } from "./helpers";
+import { xcaHistoryCommand } from "./history";
 import { exploreCommand } from "./interactive";
 
 const pages = Object.keys(TERMINAL.routes);
@@ -78,6 +79,7 @@ const subcommands: CommandDefinition[] = [
       ctx.services.replayIntro();
     },
   },
+  xcaHistoryCommand,
   ...appearanceCommands,
   exploreCommand,
 ];

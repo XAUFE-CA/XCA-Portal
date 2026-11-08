@@ -165,6 +165,13 @@ export class TerminalSession {
           usage: command.usageKey ? this.t(command.usageKey) : command.usage,
         })),
       history: () => [...this.history],
+      // History survives the transcript, so it clears through its own capability.
+      // 历史独立于输出存活，因此通过单独的能力清除。
+      clearHistory: () => {
+        signal.throwIfAborted();
+        this.history = [];
+        this.refresh();
+      },
       clear: () => {
         signal.throwIfAborted();
         this.clear();

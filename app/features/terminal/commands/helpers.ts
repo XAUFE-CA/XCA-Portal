@@ -33,16 +33,23 @@ function usageParamLines(
   return values?.length ? [line(ctx.t("command.params", { params: values.join(", ") }), tone)] : [];
 }
 /**
+ * Renders usage from a command definition so callers need no second lookup.
+ * 从命令定义渲染用法，调用方无需再次查找。
+ */
+export const usageFor = (
+  command: CommandDefinition | undefined,
+  ctx: CommandContext,
+  fallback: string,
+): EntryInput[] => [
+  line(ctx.t("command.usage", { usage: command?.usage ?? fallback }), "error"),
+  ...usageParamLines(command, ctx, "muted"),
+];
+/**
  * Reads usage from the registry so each command states its syntax once.
  * 从注册表读取用法，使每条命令只声明一次语法。
  */
-export const usage = (ctx: CommandContext, name: string): EntryInput[] => {
-  const command = findCommand(ctx.listCommands(), name);
-  return [
-    line(ctx.t("command.usage", { usage: command?.usage ?? name }), "error"),
-    ...usageParamLines(command, ctx, "muted"),
-  ];
-};
+export const usage = (ctx: CommandContext, name: string): EntryInput[] =>
+  usageFor(findCommand(ctx.listCommands(), name), ctx, name);
 /**
  * Turns a workspace failure into the Session execution error line without changing its wording.
  * 将工作区异常转换为与 Session 一致的执行错误行，不改变措辞。

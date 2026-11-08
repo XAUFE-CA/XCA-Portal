@@ -74,6 +74,7 @@ export interface CommandContext {
   columns(): number;
   listCommands(): CommandDefinition[];
   history(): string[];
+  clearHistory(): void;
   clear(): void;
   workspace: import("./workspace").VirtualWorkspace;
   appearance: import("./appearance").AppearanceRegistry;
