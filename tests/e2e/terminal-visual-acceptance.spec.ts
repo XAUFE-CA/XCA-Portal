@@ -2,6 +2,11 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { setThemePreference } from "./preferences";
 
 async function expectTerminalScreenshot(terminal: Locator, name: string): Promise<void> {
+  // The shared prompt draws its own caret; snapshots cover layout and material only.
+  // 共享命令行自绘光标；截图只关注布局与材质，因此隐藏它。
+  await terminal.page().addStyleTag({
+    content: ".ui-terminal-prompt__caret { display: none !important; }",
+  });
   await expect(terminal).toHaveScreenshot(name, { animations: "disabled", caret: "hide" });
 }
 

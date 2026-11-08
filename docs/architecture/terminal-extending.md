@@ -10,7 +10,7 @@ Status: adopted
 - `core/`：Parser、Registry、Session、VirtualWorkspace、AppearanceRegistry，不依赖 Vue 或 DOM。
 - `commands/`：站点、Linux 模拟、外观及交互命令，通过 CommandContext 获取能力。
 - `presentation/`：终端展开、系统识别与字宽测量，与命令状态分开。首页入场的展示编排位于 `app/features/intro/`，终端不反向依赖该模块。
-- `components/`：Host、Transcript、CommandInput、Interaction。容器、输出滚动区、文本行和命令行分别复用 Neoverse-UI 的 `UiTerminalSurface`、`UiTerminalTranscript`、`UiTerminalLine`、`UiTerminalPrompt`。CommandInput 仅将会话身份映射为 host/path 分段，原生编辑、材质、光标和状态由共享组件负责。历史命令的身份作为共享命令行文本记录，不另建提示符组件。启动消息、说明和底部状态也使用共享文本行。
+- `components/`：Host、Transcript、CommandInput、Interaction。容器、输出滚动区、文本行和命令行分别复用 Neoverse-UI 的 `UiTerminalSurface`、`UiTerminalTranscript`、`UiTerminalLine`、`UiTerminalPrompt`。CommandInput 仅将会话身份映射为 host/path 分段，原生编辑、材质、光标和状态由共享组件负责。共享命令行在聚焦且无选区时绘制呼吸式光标，选区、中文合成、密码遮罩、只读、禁用与 forced-colors 回退原生 caret；节奏取自共享 motion token，reduced-motion 下保持静止。历史命令的身份作为共享命令行文本记录，不另建提示符组件。启动消息、说明和底部状态也使用共享文本行。
 
 材质、正文内边距、排版、控件状态、圆角、动画时长和缓动来自 Neoverse-UI。门户保留页面几何、ASCII 字形适配和演出节奏倍率。`bun run check:terminal` 检查裸控件、固定颜色/时长、自造按钮和学社名称拼写，并禁止共享终端内部选择器覆盖、字体角色重定义及本地终端材质/文字样式。检查对象包含 `app/assets/css/terminal*.css` 与 `app/features/terminal/**/*.vue` 的样式块，终端组件内的样式不能绕过该门禁。认证等普通表单继续使用 UiInput。输出自动跟随由 `UiTerminalTranscript` 负责，向上滚动阅读时保持当前位置。
 

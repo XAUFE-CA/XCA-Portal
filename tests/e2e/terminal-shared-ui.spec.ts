@@ -30,6 +30,90 @@ test("focused terminal editor has no outline box and retains the shared prompt f
   }
 });
 
+test("focused command line draws the shared breathing caret and yields to the native one", async ({
+  page,
+}) => {
+  const input = page.locator("#xca-command-input");
+  const prompt = page.locator(".ui-terminal-prompt");
+  const glyph = page.locator(".ui-terminal-prompt__caret-glyph");
+
+  await input.fill("echo caret");
+  await input.focus();
+  await input.evaluate((element) => (element as HTMLInputElement).setSelectionRange(5, 5));
+  await input.press("Shift");
+  await expect(prompt).toHaveAttribute("data-caret", "overlay");
+  await expect(glyph).toHaveCount(1);
+  // The overlay owns the caret while it is showing; only its opacity animates, so
+  // the breath also runs under reduced motion, exactly like the native caret.
+  // 自绘光标显示期间接管原生光标；它只改变透明度，因此减少动态效果下仍会呼吸。
+  await expect(input).toHaveCSS("caret-color", "rgba(0, 0, 0, 0)");
+  const caretLayer = page.locator(".ui-terminal-prompt__caret");
+  await expect(caretLayer).not.toHaveClass(/caret--holding/u, { timeout: 5000 });
+  await expect(glyph).toHaveCSS("animation-name", "ui-caret-breathe");
+  await expect(glyph).toHaveCSS("animation-duration", "1s");
+  await expect(glyph).toHaveCSS("border-radius", "9999px");
+  // The bar takes the theme accent rather than a terminal-specific tint.
+  // 竖条取主题强调色，而不是终端专属色调。
+  const accent = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--neoverse-color-accent-primary)";
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  await expect(glyph).toHaveCSS("background-color", accent);
+  // The slide is real motion, so it waits for a motion-tolerant preference.
+  // 位移属于真实运动，只在允许动态效果时才启用。
+  await expect(glyph).toHaveCSS("transition-property", "none");
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(glyph).toHaveCSS("animation-name", "ui-caret-breathe");
+  await expect(glyph).toHaveCSS("transition-property", "transform, width");
+  const glide = await glyph.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).transitionDuration),
+  );
+  expect(glide).toBeGreaterThan(0);
+
+  // A travelling bar stays solid; the blink resumes once it settles.
+  // 滑动中的竖条保持常亮，落位后恢复闪烁。
+  const travelling = await page.evaluate(async () => {
+    const field = document.querySelector<HTMLInputElement>("#xca-command-input");
+    const bar = document.querySelector<HTMLElement>(".ui-terminal-prompt__caret-glyph");
+    if (!field || !bar) throw new Error("caret targets are missing");
+    field.setSelectionRange(4, 4);
+    field.dispatchEvent(new Event("select", { bubbles: true }));
+    await new Promise((done) => requestAnimationFrame(() => done(null)));
+    return getComputedStyle(bar).animationName;
+  });
+  expect(travelling).toBe("none");
+
+  // Editing moves the bar with the text instead of sliding behind it.
+  // 编辑时竖条随文本瞬时移动，不会滞后滑动。
+  const editing = await page.evaluate(async () => {
+    const field = document.querySelector<HTMLInputElement>("#xca-command-input");
+    const bar = document.querySelector<HTMLElement>(".ui-terminal-prompt__caret-glyph");
+    if (!field || !bar) throw new Error("caret targets are missing");
+    field.setRangeText("x", 2, 2, "end");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((done) => requestAnimationFrame(() => done(null)));
+    return bar.getAnimations().filter((entry) => "transitionProperty" in entry).length;
+  });
+  expect(editing).toBe(0);
+
+  // Typing holds the bar solid and the breath resumes after the pause.
+  // 输入期间竖条保持常亮，停顿后恢复呼吸。
+  await input.press("Backspace");
+  await expect(caretLayer).toHaveClass(/caret--holding/u);
+  await expect(glyph).toHaveCSS("animation-name", "none");
+  await expect(caretLayer).not.toHaveClass(/caret--holding/u, { timeout: 5000 });
+
+  await page.keyboard.press("Shift+ArrowLeft");
+  await expect(prompt).toHaveAttribute("data-caret", "native");
+  await expect(page.locator(".ui-terminal-prompt__caret")).toHaveCount(0);
+  await expect(input).not.toHaveCSS("caret-color", "rgba(0, 0, 0, 0)");
+});
+
 function compareTerminalStyles() {
   function createReference(actual: HTMLElement) {
     // The reference uses the same public component DOM, without portal-specific classes or styles.
