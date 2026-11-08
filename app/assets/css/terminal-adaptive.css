@@ -160,4 +160,7 @@
   .xca-terminal-bootlog__line {
     animation: none;
   }
+  .xca-terminal-screen--brand .xca-terminal-banner {
+    transition: none;
+  }
 }

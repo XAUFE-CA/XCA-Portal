@@ -31,7 +31,7 @@ const props = defineProps<{
   bootLines: readonly BootLine[];
   bootProgress: number;
   bannerRowsVisible: number;
-  bannerCaptionVisible: boolean;
+  bannerCaptionLines: number;
   expanded: boolean;
   engaged: boolean;
 }>();
@@ -289,6 +289,7 @@ function appKeydown(event: KeyboardEvent) {
 defineExpose({
   focusInput,
   getBannerRowCount: () => selectBanner(bannerColumns.value).split("\n").length,
+  getWelcomeLineCount: () => entries.value.filter((entry) => entry.type === "line").length,
 });
 </script>
 
@@ -355,7 +356,9 @@ defineExpose({
               :banner-rows-visible="
                 intro && introStage !== 'reveal' ? bannerRowsVisible : undefined
               "
-              :caption-visible="!intro || introStage === 'reveal' || bannerCaptionVisible"
+              :caption-lines-visible="
+                !intro || introStage === 'reveal' ? undefined : bannerCaptionLines
+              "
             />
           </div>
           <TerminalInteraction

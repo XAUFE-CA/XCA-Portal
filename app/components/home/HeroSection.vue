@@ -143,7 +143,7 @@ const {
   bootLines,
   bootProgress,
   bannerRowsVisible,
-  bannerCaptionVisible,
+  bannerCaptionLines,
   expanded,
   shadeActive,
   anchor,
@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
         :boot-lines="bootLines"
         :boot-progress="bootProgress"
         :banner-rows-visible="bannerRowsVisible"
-        :banner-caption-visible="bannerCaptionVisible"
+        :banner-caption-lines="bannerCaptionLines"
         :expanded="expanded"
         :engaged="terminalEngaged"
         @skip="skipIntro"

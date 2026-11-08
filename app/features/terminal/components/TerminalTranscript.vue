@@ -2,15 +2,39 @@
 const { t } = useSiteLocale();
 
 import { UiAction, UiTerminalEcho, UiTerminalLine } from "@neoverse-ui/vue";
+import { computed } from "vue";
 import { selectBanner } from "../branding/banners";
 import type { TerminalEntry } from "../core/types";
 
-defineProps<{
+const props = defineProps<{
   entries: readonly TerminalEntry[];
   columns: number;
   bannerRowsVisible?: number;
-  captionVisible?: boolean;
+  captionLinesVisible?: number;
 }>();
+const bannerRows = computed(() => selectBanner(props.columns).split("\n"));
+// Rows still print in order; the mask feathers the newest row so it fades in.
+// 字符画仍按顺序打印，遮罩柔化最新一行，使其淡入。
+const bannerStyle = computed(() => ({
+  "--xca-banner-rows": props.bannerRowsVisible ?? bannerRows.value.length,
+}));
+const bannerText = computed(() =>
+  bannerRows.value.slice(0, props.bannerRowsVisible ?? bannerRows.value.length).join("\n"),
+);
+// A staged count reveals welcome copy in order; an absent count leaves normal output untouched.
+// 分阶段计数让欢迎文案依次显现；未提供计数时，普通输出保持不变。
+const stagedCaptions = computed(() => {
+  if (props.captionLinesVisible === undefined) return null;
+  return new Set(
+    props.entries
+      .filter((entry) => entry.type === "line")
+      .slice(0, props.captionLinesVisible)
+      .map((entry) => entry.id),
+  );
+});
+function captionVisible(entry: TerminalEntry): boolean {
+  return stagedCaptions.value === null || stagedCaptions.value.has(entry.id);
+}
 </script>
 <template>
   <template v-for="entry in entries" :key="entry.id">
@@ -18,11 +42,12 @@ defineProps<{
       v-if="entry.type === 'banner'"
       class="xca-terminal-banner"
       preformatted
-      :text="selectBanner(columns).split('\n').slice(0, bannerRowsVisible).join('\n')"
+      :style="bannerStyle"
+      :text="bannerText"
       :aria-label="t('terminal.welcomeLabel')"
     />
     <UiTerminalLine
-      v-else-if="entry.type === 'line' && captionVisible !== false"
+      v-else-if="entry.type === 'line' && captionVisible(entry)"
       class="xca-terminal-line"
       :class="{
         'xca-terminal-welcome-brand': entry.message?.key === 'terminal.brand',

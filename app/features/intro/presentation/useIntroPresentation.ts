@@ -63,7 +63,7 @@ export function useIntroPresentation(getCommandCount: () => number) {
   const bootLines = ref<BootLine[]>([]);
   const bootProgress = ref(0);
   const bannerRowsVisible = ref(0);
-  const bannerCaptionVisible = ref(false);
+  const bannerCaptionLines = ref(0);
   const anchor = ref<HTMLElement | null>(null);
   const terminalRef = ref<InstanceType<typeof TerminalHost> | null>(null);
   const markRef = ref<InstanceType<typeof CaIntroMark> | null>(null);
@@ -113,7 +113,7 @@ export function useIntroPresentation(getCommandCount: () => number) {
     bootLines.value = [];
     bootProgress.value = 0;
     bannerRowsVisible.value = 0;
-    bannerCaptionVisible.value = false;
+    bannerCaptionLines.value = 0;
     expansion.reset();
     introShortcut = createIntroShortcut(() => void skipIntro());
     releaseIntroGate();
@@ -253,7 +253,14 @@ export function useIntroPresentation(getCommandCount: () => number) {
       bannerRowsVisible.value = row;
     }
     await sleep(unit * INTRO_PACING.bannerCaption, signal);
-    bannerCaptionVisible.value = true;
+    // Welcome copy follows the artwork one line at a time, never as a single block.
+    // 欢迎文案跟随字符画逐行出现，不会整块突然显现。
+    const captions = terminalRef.value?.getWelcomeLineCount() ?? 0;
+    for (let line = 1; line <= captions; line++) {
+      await sleep(unit * INTRO_PACING.captionLine, signal);
+      signal.throwIfAborted();
+      bannerCaptionLines.value = line;
+    }
     await sleep(unit * INTRO_PACING.brandHold, signal);
     signal.throwIfAborted();
   }
@@ -280,7 +287,7 @@ export function useIntroPresentation(getCommandCount: () => number) {
     bootLines.value = [];
     bootProgress.value = 0;
     bannerRowsVisible.value = 0;
-    bannerCaptionVisible.value = false;
+    bannerCaptionLines.value = 0;
     return unit;
   }
   async function startIntro(options: { explicit?: boolean } = {}): Promise<void> {
@@ -433,7 +440,7 @@ export function useIntroPresentation(getCommandCount: () => number) {
     bootLines,
     bootProgress,
     bannerRowsVisible,
-    bannerCaptionVisible,
+    bannerCaptionLines,
     expanded: expansion.expanded,
     shadeActive: expansion.shadeActive,
     anchor,
