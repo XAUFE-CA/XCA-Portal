@@ -2,17 +2,20 @@
 import { UiControlSurface, UiNavigationItem } from "@neoverse-ui/vue";
 import { computed } from "vue";
 import { SITE } from "~/config/site";
+import { ContextMenuHost, useLinkMenu } from "~/features/context-menu";
 
 const emit = defineEmits<{ navigate: [] }>();
 const { t } = useSiteLocale();
 const route = useRoute();
+const menu = useLinkMenu();
 const navigation = computed(() =>
   SITE.navigation.map((item) => ({ to: SITE.routes[item.route], label: t(item.label) })),
 );
 </script>
 
 <template>
-  <nav class="site-navigation" :aria-label="t('nav.label')">
+  <nav class="site-navigation" :aria-label="t('nav.label')" :ref="menu.regionRef">
+    <ContextMenuHost :menu="menu" />
     <UiControlSurface navigation-indicator edge-mode="local">
       <NuxtLink
         v-for="item in navigation"

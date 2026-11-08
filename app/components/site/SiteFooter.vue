@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { SITE } from "~/config/site";
+import { ContextMenuHost, useLinkMenu } from "~/features/context-menu";
 import { TaglineFlame } from "~/features/tagline-flame";
 import { copyrightYears } from "~/utils/copyright";
 
@@ -19,10 +20,12 @@ const commitStamp = build
 // External destinations keep the current page, matching the about-page action links.
 // 外部目标保留当前页面，与关于学社的操作链接一致。
 const external = { target: "_blank", rel: "noopener noreferrer" } as const;
+const menu = useLinkMenu();
 </script>
 
 <template>
-  <footer class="site-footer page-container">
+  <footer class="site-footer page-container" :ref="menu.regionRef">
+    <ContextMenuHost :menu="menu" />
     <div class="site-footer__top">
       <div class="site-footer__identity">
         <div class="site-footer__lockup" role="img" :aria-label="t('footer.coBrandLabel')">

@@ -286,8 +286,24 @@ function appKeydown(event: KeyboardEvent) {
   if (event.ctrlKey && event.key.toLowerCase() === "c") props.session.cancel();
   else application.value?.onKey(event.key);
 }
+/**
+ * Insert text at the caret through the native editing path, so the shared prompt keeps
+ * its own undo stack, caret placement and suggestion state.
+ * 通过原生编辑路径在光标处插入文本，共享命令行因此保留自身的撤销记录、光标位置与建议状态。
+ */
+function insertText(text: string) {
+  const editor = screen.value?.querySelector<HTMLInputElement>("#xca-command-input");
+  if (!editor || props.session.running) return;
+  const start = editor.selectionStart ?? editor.value.length;
+  const end = editor.selectionEnd ?? start;
+  editor.setRangeText(text, start, end, "end");
+  editor.dispatchEvent(new Event("input", { bubbles: true }));
+  editor.focus({ preventScroll: true });
+}
+
 defineExpose({
   focusInput,
+  insertText,
   getBannerRowCount: () => selectBanner(bannerColumns.value).split("\n").length,
   getWelcomeLineCount: () => entries.value.filter((entry) => entry.type === "line").length,
 });

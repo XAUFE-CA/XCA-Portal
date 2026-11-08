@@ -1,0 +1,19 @@
+/* Portal geometry for the context-menu confirmation chip; colours and motion belong to
+   Neoverse-UI tokens. The chip sits near the pointer that opened the menu, so it reads as
+   feedback for the row the visitor just chose rather than as page content.
+   上下文菜单确认条的页面几何；颜色与动效归 Neoverse-UI 样式变量所有。确认条位于打开菜单的指针
+   附近，因此读作所选行的反馈，而不是页面正文。 */
+.xca-context-menu-status {
+  position: fixed;
+  z-index: var(--neoverse-layout-layer-overlay);
+  top: min(var(--xca-context-menu-y), calc(100vh - var(--neoverse-space-10)));
+  left: min(var(--xca-context-menu-x), calc(100vw - var(--neoverse-space-24)));
+  margin: 0;
+  padding: var(--neoverse-space-2) var(--neoverse-space-3);
+  border-radius: var(--neoverse-radius-control);
+  background: var(--neoverse-overlay-background);
+  color: var(--neoverse-color-text-primary);
+  box-shadow: var(--neoverse-overlay-shadow);
+  font-size: var(--neoverse-font-size-xs);
+  pointer-events: none;
+}

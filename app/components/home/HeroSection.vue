@@ -3,6 +3,16 @@ import type { VNodeRef } from "vue";
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import heroSentences from "~/data/hero-sentences.json";
 import {
+  ContextMenuHost,
+  copyText,
+  type RegionRef,
+  readClipboard,
+  runTerminalMenuAction,
+  terminalMenuEntries,
+  useContextMenu,
+  useTitleMenu,
+} from "~/features/context-menu";
+import {
   CaIntroMark,
   HERO_TYPING,
   INTRO_READING_UNIT_MS,
@@ -153,6 +163,43 @@ const {
   skipIntro,
   toggleExpanded,
 } = useIntroPresentation(() => session.registry.list().length);
+const terminalActions = {
+  toggleExpanded,
+  expanded: () => expanded.value,
+  insertText: (text: string) => terminalRef.value?.insertText(text),
+};
+// The terminal menu owns the command-line field: it offers paste, which is the browser
+// command a custom menu has to replace rather than drop.
+// 终端菜单接管命令行输入框：它提供粘贴，这正是自定义菜单必须替代而不能丢弃的浏览器命令。
+const terminalMenu = useContextMenu({
+  label: () => t("contextMenu.terminal"),
+  entries: () => terminalMenuEntries(session, terminalActions, t, anchor.value),
+  keepNativeMenu: () => false,
+  select: (id) => {
+    if (id === "paste") {
+      return readClipboard().then((text) => {
+        if (!text) return t("contextMenu.pasteFailed");
+        terminalActions.insertText(text);
+        return undefined;
+      });
+    }
+    const copied = runTerminalMenuAction(id, session, terminalActions, anchor.value);
+    if (copied === undefined) return undefined;
+    return copyText(copied).then((ok) =>
+      ok ? t("contextMenu.copied") : t("contextMenu.copyFailed"),
+    );
+  },
+});
+const titleMenu = useTitleMenu(
+  () => titleText.value,
+  () => t("home.subtitle"),
+);
+// The anchor feeds the intro presentation, the menu listeners and the focus target.
+// 锚点同时提供入场编排、菜单监听与焦点目标。
+const bindTerminalRegion: RegionRef = (instance) => {
+  anchor.value = instance instanceof HTMLElement ? instance : null;
+  terminalMenu.regionRef(instance);
+};
 const bindTerminal: VNodeRef = (instance) => {
   terminalRef.value = instance as InstanceType<typeof TerminalHost> | null;
 };
@@ -228,7 +275,7 @@ onBeforeUnmount(() => {
       :shade-active="shadeActive"
       @dismiss="toggleExpanded"
     />
-    <div class="xca-terminal-hero__heading">
+    <div class="xca-terminal-hero__heading" :ref="titleMenu.regionRef">
       <h1
         ref="titleElement"
         id="xca-terminal-title"
@@ -274,10 +321,12 @@ onBeforeUnmount(() => {
       </h1>
       <p class="xca-terminal-hero__subtitle">{{ t("home.subtitle") }}</p>
     </div>
+    <ContextMenuHost :menu="terminalMenu" />
+    <ContextMenuHost :menu="titleMenu" />
     <section
-      ref="anchor"
       :aria-label="t('terminal.label')"
       class="xca-terminal-anchor"
+      :ref="bindTerminalRegion"
       @pointerdown="engageTerminal"
       @keydown="onTerminalKeydown"
       @input="engageTerminal"

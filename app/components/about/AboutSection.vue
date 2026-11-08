@@ -3,6 +3,7 @@ import { motionRoles, prefersReducedMotion } from "@neoverse-ui/motion";
 import { UiCard, UiSkeleton } from "@neoverse-ui/vue";
 import type { AboutCollectionItem } from "@nuxt/content";
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { ContextMenuHost, type RegionRef, useAboutMenu } from "~/features/context-menu";
 import { motionDuration } from "~/utils/motion";
 
 const props = withDefaults(
@@ -11,6 +12,17 @@ const props = withDefaults(
 );
 const { t } = useSiteLocale();
 const loading = computed(() => props.pending || !props.page);
+const pageRoot = ref<HTMLElement>();
+const menu = useAboutMenu(
+  () => props.page?.title,
+  () => pageRoot.value ?? null,
+);
+// One element feeds both the menu listeners and the selection lookup.
+// 同一个元素同时提供菜单监听与选区查询。
+const bindAboutRoot: RegionRef = (element) => {
+  pageRoot.value = element instanceof HTMLElement ? element : undefined;
+  menu.regionRef(element);
+};
 const banner = ref<HTMLElement>();
 const stage = ref<HTMLElement>();
 const settledBanners = reactive(new Set<string>());
@@ -118,7 +130,8 @@ const skeletonBlocks = [
   <div v-if="errorText" class="about-page page-container" role="alert">
     <p>{{ errorText }}</p>
   </div>
-  <div v-else class="about-page page-container">
+  <div v-else :ref="bindAboutRoot" class="about-page page-container">
+    <ContextMenuHost :menu="menu" />
     <UiCard
       as="article"
       surface="glass-elevated"

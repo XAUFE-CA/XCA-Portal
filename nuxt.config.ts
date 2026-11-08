@@ -70,6 +70,7 @@ export default defineNuxtConfig({
     "@neoverse-ui/tailwind/prose.css",
     "~/assets/css/fonts.css",
     "~/assets/css/main.css",
+    "~/assets/css/context-menu.css",
     "~/assets/css/terminal.css",
     "~/assets/css/terminal-intro.css",
     "~/assets/css/terminal-adaptive.css",
