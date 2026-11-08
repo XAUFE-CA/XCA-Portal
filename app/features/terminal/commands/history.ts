@@ -22,19 +22,8 @@ function resolveHistory(
   return [line(ctx.t("command.historyCleared"), "success")];
 }
 
-export const historyCommand: CommandDefinition = {
-  name: "history",
-  group: "session",
-  summary: "",
-  summaryKey: "summary.history",
-  usage: "history [clear]",
-  usageParams: actions,
-  complete: completeActions,
-  execute: (args, ctx) => resolveHistory(historyCommand, args, ctx),
-};
-
-// Both entry points need their own usage text, so they share the listing and clearing logic.
-// 两个入口需要各自的用法文本，因此列表与清除逻辑共用同一实现。
+// History is a site subcommand only, so it keeps a single entry point and usage text.
+// 历史只作为站点子命令，因此只保留一个入口与一份用法文本。
 export const xcaHistoryCommand: CommandDefinition = {
   name: "history",
   summary: "",

@@ -70,7 +70,7 @@ app/                    门户应用（Nuxt 4 srcDir）
         search.ts       grep、tree、find
         system.ts       echo、date、uname、hostname、env、printenv、id、seq、sleep
         site.ts         xca 子命令入口
-        history.ts      history 与 xca history 的列出与清除
+        history.ts      xca history 的列出与清除
         appearance.ts   终端背景子命令
         interactive.ts  阅读器与登录子命令
       presentation/     终端专属展示能力

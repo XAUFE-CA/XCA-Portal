@@ -1,7 +1,6 @@
 import type { CommandDefinition } from "../core/types";
 import { fileCommands } from "./files";
 import { commandDetails, completeHelp, line, listHelp, resolveCommand, usage } from "./helpers";
-import { historyCommand } from "./history";
 import { interactiveCommands } from "./interactive";
 import { searchCommands } from "./search";
 import { xcaCommand } from "./site";
@@ -43,7 +42,6 @@ export const terminalCommands: CommandDefinition[] = [
       ctx.clear();
     },
   },
-  historyCommand,
   {
     name: "whoami",
     group: "session",

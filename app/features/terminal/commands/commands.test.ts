@@ -149,7 +149,7 @@ test("echo prints every argument because the line model has no trailing newline"
   expect(await run(session, "echo hello world")).toBe("hello world");
   expect(await run(session, "echo")).toBe("");
 });
-test("history clear drops every recorded command from both entry points", async () => {
+test("xca history lists and clears every recorded command", async () => {
   const session = makeSession();
   await session.execute("echo first");
   await session.execute("echo second");
@@ -158,17 +158,11 @@ test("history clear drops every recorded command from both entry points", async 
   await session.execute("xca history");
   expect(texts(session)).toContain("01  echo first");
   session.clear();
-  await session.execute("history clear");
-  expect(session.history).toEqual([]);
-  expect(texts(session)).toBe("会话历史已清除");
-  session.clear();
   await session.execute("xca history clear");
   expect(session.history).toEqual([]);
   expect(texts(session)).toBe("会话历史已清除");
-  expect(await run(session, "history keep")).toBe("用法：history [clear]\n可用参数：clear");
   expect(await run(session, "xca history keep")).toBe("用法：xca history [clear]\n可用参数：clear");
-  expect(session.complete("history ")).toEqual(["history clear"]);
+  expect(await run(session, "history clear")).toBe("history: 未找到命令。输入 help 查看可用命令。");
   expect(session.complete("xca history ")).toEqual(["xca history clear"]);
-  expect(await run(session, "man history")).toContain("history [clear]");
   expect(await run(session, "man xca history")).toContain("xca history [clear]");
 });

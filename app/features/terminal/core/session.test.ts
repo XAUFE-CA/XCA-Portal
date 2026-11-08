@@ -70,7 +70,7 @@ test("registered commands execute with virtual files and safe errors", async () 
   expect(session.entries.length).toBe(0);
   await session.execute("xca banner");
   expect(session.entries.at(-1)?.type).toBe("banner");
-  await session.execute("history");
+  await session.execute("xca history");
   expect(JSON.stringify(session.entries)).toContain("cat /etc/os-release");
 });
 test("cancelled commands do not append stale async output", async () => {
