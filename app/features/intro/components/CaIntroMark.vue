@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import "~/assets/css/intro-journey.css";
+import SiteIcon from "~/components/site/SiteIcon.vue";
 import { SITE } from "~/config/site";
 import type { MessageKey } from "~/i18n";
 import mark from "../../../../public/brand/ca-mark.svg?raw";
@@ -104,9 +105,7 @@ onBeforeUnmount(() => releaseMesh?.());
               <code>{{ fin.panel.detail }}</code>
               <div class="xca-ca-intro__content-footer">
                 <code>{{ fin.panel.command }}</code>
-                <svg viewBox="0 0 24 24" aria-hidden="true" class="xca-ca-intro__content-arrow">
-                  <path d="M12 21V3M5 10l7-7 7 7" />
-                </svg>
+                <SiteIcon name="arrowUp" class="xca-ca-intro__content-arrow" />
               </div>
             </div>
           </div>

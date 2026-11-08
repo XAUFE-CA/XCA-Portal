@@ -22,6 +22,7 @@ Status: adopted
 | [SiteHeader.vue](../../app/components/site/SiteHeader.vue) | 响应式导航、菜单与滚动定位 |
 | [SiteHeaderNavigation.vue](../../app/components/site/SiteHeaderNavigation.vue) | 导航项展示与跳转事件 |
 | [SiteHeaderPreferences.vue](../../app/components/site/SiteHeaderPreferences.vue) | 语言、主题分段控件 |
+| [SiteIcon.vue](../../app/components/site/SiteIcon.vue) | 门户图标数据与 morphicons Vue 适配，统一线宽、连续变形和减少动态效果偏好 |
 | [site.ts](../../app/config/site.ts) | 标识、路由、导航与主题选项 |
 | [useSiteTheme.ts](../../app/composables/useSiteTheme.ts)、[useSiteLocale.ts](../../app/composables/useSiteLocale.ts) | 主题与语言的公共状态 |
 | [glass.client.ts](../../app/plugins/glass.client.ts) | 唯一共享 Glass Renderer 的挂载、刷新与销毁 |
@@ -65,6 +66,14 @@ Status: adopted
 根节点通过 `data-theme` 支持 light、dark 和 system，主题选择保存在 `xca-theme` Cookie。`useSiteTheme` 与根组件用同一偏好生成 SSR 的选中项和根节点主题，不在水合后恢复默认选项。根组件只在服务端向 Head 注册初始主题，客户端主题写入由 `useSiteTheme` 在过渡回调中执行，避免 Head 更新覆盖交互选择。`intro-gate.js` 在控件绘制前把旧 localStorage 偏好一次性迁移到 Cookie，迁移成功后移除旧值并重新请求 SSR，后续刷新不再迁移。顶栏及语言、主题控件不参与首页入场位移、缩放或错峰动画。语言存储、服务端首屏与命令输出规则只维护在 [翻译规则](../terminology/translation.md)。
 
 切换选项时，选中背景的滑动与伸缩由共享分段控件提供。语言变化时，`SiteHeader` 通过共享 `useLayoutWidthMotion` 统一测量标识、主导航与偏好外壳的可见宽度，并在更新后先读取全部自然终点，再同时启动共享 `spatial` 宽度过渡，不缩放文字。所有占宽区域按同一进度变化，避免标识宽度先改变、偏好随后伸缩，将整个导航控件推过终点后又拉回。连续切换从当前可见宽度接续，完成后恢复自动宽度。首次渲染与水合不补播放动画，减少动态效果、尺寸变化及组件卸载会结束宽度动画；浏览器不支持动画接口时直接使用内容宽度。文档根节点不参与路由快照，只在视图过渡期间为正文分配 `root` 过渡名称，并将快照层裁剪到实时页头下方；主题切换以整个文档为快照，细节见下节。页头不单独命名或截图，保留实时玻璃背后采样，避免独立快照破坏材质。语言、主题和路由切换期间，选中背景与外壳宽度继续使用自身的平滑移动和伸缩，不被正文的交叉淡化遮住。
+
+## 图标
+
+门户自有的菜单、终端、展开／还原与入场路牌箭头统一通过 `SiteIcon` 渲染。组件集中维护现有的 24 单位圆角线性图形，不为 CA 标识与共享库字标套用图标变形。运行时依赖使用 [morphicons](https://www.morphicons.com/) 的 Vue 入口，版本以 `package.json` 与锁文件为准；不另装图标集或复制变形算法。
+
+菜单在打开时从四宫格变为关闭图形，Escape、外部点击和导航关闭时变回四宫格。终端展开与还原在同一个 SVG 路径上变形，不以条件路径、组件重建或交叉淡化替换图形。两处都直接读取原有展开状态，采用库提供的无过冲 `smooth` 弹簧，快速反向操作由库从当前图形接续。首次渲染直接输出目标 SVG，不补播放水合动画；`reduced-motion="user"` 跟随系统偏好，减少动态效果时直接切换，卸载由 Vue 适配清理绘制任务。
+
+图标使用统一的圆角端点、连接和线宽，颜色继承文字色，尺寸继续由共享控件或场景几何决定。装饰图标不进入无障碍树、不接收焦点，按钮保留原有双语标签和展开状态。共享 UI 内部的勾选与子菜单指示符仍由共享库维护，门户不依赖私有节点覆盖。
 
 ## 右键菜单
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { UiButton, UiIconButton } from "@neoverse-ui/vue";
 import { onMounted, ref } from "vue";
+import SiteIcon from "~/components/site/SiteIcon.vue";
 import { detectTerminalPlatform, type TerminalPlatform } from "../presentation/terminal-platform";
 
 defineProps<{
@@ -27,20 +28,7 @@ onMounted(() => {
       <span class="xca-terminal-chrome__light--zoom" />
     </span>
     <span class="xca-terminal-chrome__title" :title="`${user}@${host} — ${directory}`">
-      <svg
-        v-if="platform !== 'macos'"
-        class="xca-terminal-chrome__symbol"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linejoin="round"
-        stroke-linecap="round"
-        aria-hidden="true"
-      >
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="m7 9 3 3-3 3m6 0h4" />
-      </svg>
+      <SiteIcon v-if="platform !== 'macos'" name="terminal" class="xca-terminal-chrome__symbol" />
       <span class="xca-terminal-chrome__session">{{ user }}@{{ host }}</span>
       <span class="xca-terminal-chrome__directory">{{ directory }}</span>
     </span>
@@ -64,12 +52,7 @@ onMounted(() => {
         :aria-expanded="expanded"
         @click="emit('expand')"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-          <g stroke-linejoin="round" stroke-linecap="round">
-            <path v-if="expanded" d="M8 3v5H3m18 0h-5V3M3 16h5v5m8 0v-5h5" />
-            <path v-else d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />
-          </g>
-        </svg>
+        <SiteIcon :name="expanded ? 'restore' : 'expand'" />
       </UiIconButton>
     </span>
   </div>

@@ -197,9 +197,5 @@
 .xca-ca-intro__content-arrow {
   width: 40px;
   height: 40px;
-  fill: none;
-  stroke: var(--neoverse-color-accent-primary);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  color: var(--neoverse-color-accent-primary);
 }

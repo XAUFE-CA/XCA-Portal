@@ -18,7 +18,7 @@ app/                    门户应用（Nuxt 4 srcDir）
   app.vue               根组件，挂载全局样式与默认布局
   assets/               门户 CSS（含 intro-journey.css 场景几何）与自托管字体子集
   components/           跨页面展示组件，按场景分子目录
-    site/               站点框架：顶栏、导航、菜单、语言与主题控件、页脚
+    site/               站点框架：顶栏、导航、菜单、语言与主题控件、页脚与统一图标
     home/               首页 Hero、标题轮播与终端视图组合
     about/              关于学社：玻璃卡片、主题横幅与 Markdown 渲染
   composables/          跨组件状态与能力：主题、语言、内容适配

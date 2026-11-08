@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { tokenLength } from "~/utils/cssTokens";
 import SiteHeaderNavigation from "./SiteHeaderNavigation.vue";
 import SiteHeaderPreferences from "./SiteHeaderPreferences.vue";
+import SiteIcon from "./SiteIcon.vue";
 import SiteLogo from "./SiteLogo.vue";
 
 const route = useRoute();
@@ -110,20 +111,7 @@ onBeforeUnmount(() => {
       >
         <template #trigger>
           <span class="site-menu-trigger">
-            <svg
-              class="site-menu-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <rect x="3.5" y="3.5" width="6" height="6" rx="1.5" />
-              <rect x="14.5" y="3.5" width="6" height="6" rx="1.5" />
-              <rect x="3.5" y="14.5" width="6" height="6" rx="1.5" />
-              <rect x="14.5" y="14.5" width="6" height="6" rx="1.5" />
-            </svg>
+            <SiteIcon :name="mobileMenuOpen ? 'close' : 'menu'" class="site-menu-icon" />
             {{ t("nav.menu") }}
           </span>
         </template>

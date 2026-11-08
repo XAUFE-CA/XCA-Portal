@@ -10,6 +10,7 @@
 | XAUFE | Xi'an University of Finance and Economics | 仅作为 XCA 全称的一部分 |
 | XAUFE-CA | GitHub 组织名 | 保留连字符与大写 |
 | Neoverse-UI | 共享 UI 库 | 正文统一写 Neoverse-UI，不写无连字符的 Neoverse UI 或小写 neoverse-ui，包名 `@neoverse-ui/*` 除外 |
+| morphicons | SVG 图标变形库 | 保留官方小写写法；图形数据与变形由不同职责维护 |
 | Nuxt Content | Nuxt 的内容模块 | 版本写 Nuxt Content 3 |
 | 门户 | 本仓库交付的 XCA Portal | 不用“站点”指代本项目 |
 | 终端 | 浏览器内模拟终端 | 不写“终端机” |
