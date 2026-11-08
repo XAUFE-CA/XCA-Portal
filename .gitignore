@@ -37,3 +37,6 @@ __pycache__/
 .codebuddy/
 .workbuddy/
 .codeartsdoer/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
