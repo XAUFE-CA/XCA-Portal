@@ -10,15 +10,28 @@ export interface RoomPortalProbe {
   perspective: number;
   material: number;
   vertices: number[];
-  portalEye: readonly [number, number, number];
   levels: number[];
   masks: ProbeRect[];
   expected: number[];
   tolerance: number[];
 }
-interface PortalProbe extends RoomPortalProbe {
-  vertex: string;
-  fragment: string;
+interface CapturedMaterial {
+  shaders: { type: number; source: string }[];
+  uniforms: { name: string; type: number; value: number | number[] }[];
+}
+interface PortalReplay {
+  gl: WebGL2RenderingContext;
+  program: WebGLProgram;
+  buffer: WebGLBuffer;
+  shaders: WebGLShader[];
+  textures: WebGLTexture[];
+}
+
+declare global {
+  interface Window {
+    introMaterials: Record<number, CapturedMaterial>;
+    introPortalReplay: PortalReplay | undefined;
+  }
 }
 
 export async function freezeApproach(page: Page, fraction: number) {
@@ -37,6 +50,35 @@ export async function freezeApproach(page: Page, fraction: number) {
       animation.currentTime = elapsed;
     }
   }, fraction);
+}
+
+export function approachPositions(page: Page, depths: number[]) {
+  return page.evaluate((targets) => {
+    const camera = document
+      .getAnimations()
+      .find(
+        (animation) =>
+          animation.effect instanceof KeyframeEffect &&
+          animation.effect.target instanceof Element &&
+          animation.effect.target.matches(".xca-ca-intro__camera"),
+      );
+    if (!(camera?.effect instanceof KeyframeEffect)) throw new Error("Journey camera required");
+    const viewport = document.querySelector(".xca-ca-intro__viewport");
+    if (!viewport) throw new Error("Scene viewport required");
+    const focal = Number.parseFloat(getComputedStyle(viewport).perspective);
+    const frames = camera.effect.getKeyframes().map((frame) => ({
+      progress: frame.computedOffset,
+      z: new DOMMatrixReadOnly(String(frame.transform))
+        .inverse()
+        .transformPoint({ x: 0, y: 0, z: focal }).z,
+    }));
+    return targets.map(
+      (depth) =>
+        frames.reduce((nearest, frame) =>
+          Math.abs(frame.z - depth) < Math.abs(nearest.z - depth) ? frame : nearest,
+        ).progress,
+    );
+  }, depths);
 }
 export async function resumeScene(page: Page) {
   await page.evaluate(() => {
@@ -172,14 +214,12 @@ export function roomPortalProbe(
     [roadX + AUDITORIUM.halfWidth, AUDITORIUM.ceiling, planeZ],
     [roadX + AUDITORIUM.halfWidth, floorY, planeZ],
   ].flat();
-  const portalEye = [0, -(floorY - height / 2) / width, (eyeZ - front) / width] as const;
   return {
     eyeZ,
     roadX,
     perspective,
     material,
     vertices,
-    portalEye,
     levels,
     masks,
     expected,
@@ -187,71 +227,228 @@ export function roomPortalProbe(
   };
 }
 
-export function sampleRoomPortal(probe: PortalProbe) {
-  const {
-    vertex,
-    fragment,
-    eyeZ,
-    roadX,
-    perspective,
-    material,
-    vertices,
-    portalEye,
-    levels,
-    masks,
-  } = probe;
+export async function captureRoomMaterials(page: Page) {
+  await page.addInitScript(() => {
+    const materials: Record<number, CapturedMaterial> = {};
+    Object.assign(window, { introMaterials: materials });
+    const prototype = WebGL2RenderingContext.prototype;
+    const inspect = (gl: WebGL2RenderingContext) => {
+      if (
+        !(gl.canvas instanceof HTMLCanvasElement) ||
+        !gl.canvas.classList.contains("xca-ca-intro__mesh")
+      )
+        return;
+      const program = gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram | null;
+      if (!program) return;
+      const shaders = (gl.getAttachedShaders(program) ?? []).map((shader) => ({
+        type: gl.getShaderParameter(shader, gl.SHADER_TYPE) as number,
+        source: gl.getShaderSource(shader) ?? "",
+      }));
+      const selector = Number(shaders[0]?.source.match(/#define INTRO_MATERIAL (\d+)/)?.[1]);
+      if (selector < 9 || !Number.isFinite(selector) || materials[selector]) return;
+      const uniforms: CapturedMaterial["uniforms"] = [];
+      for (
+        let index = 0;
+        index < Number(gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS));
+        index++
+      ) {
+        const info = gl.getActiveUniform(program, index);
+        if (!info) continue;
+        const location = gl.getUniformLocation(program, info.name);
+        if (!location) continue;
+        const value: number | boolean | Float32Array | Int32Array | Uint32Array = gl.getUniform(
+          program,
+          location,
+        );
+        uniforms.push({
+          name: info.name,
+          type: info.type,
+          value:
+            typeof value === "number" || typeof value === "boolean" ? Number(value) : [...value],
+        });
+      }
+      materials[selector] = { shaders, uniforms };
+    };
+    const arrays = prototype.drawArrays,
+      elements = prototype.drawElements;
+    prototype.drawArrays = function (mode, first, count) {
+      arrays.call(this, mode, first, count);
+      inspect(this);
+    };
+    prototype.drawElements = function (mode, count, type, offset) {
+      elements.call(this, mode, count, type, offset);
+      inspect(this);
+    };
+  });
+}
+
+function createRoomReplay(probe: RoomPortalProbe) {
+  const captured = window.introMaterials[probe.material];
+  if (!captured) throw new Error(`Rendered Three material ${probe.material} required`);
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 512;
-  const gl = canvas.getContext("webgl", { antialias: false });
-  if (!gl) throw new Error("WebGL required");
-  const program = gl.createProgram();
-  const buffer = gl.createBuffer();
+  const gl = canvas.getContext("webgl2", { antialias: false });
+  if (!gl) throw new Error("WebGL2 required");
+  const program = gl.createProgram(),
+    buffer = gl.createBuffer();
   if (!program || !buffer) throw new Error("GPU resources required");
-  const shaders = (
-    [
-      [gl.VERTEX_SHADER, vertex],
-      [gl.FRAGMENT_SHADER, fragment],
-    ] as const
-  ).map(([kind, source]) => {
-    const shader = gl.createShader(kind);
+  const shaders: WebGLShader[] = [];
+  window.introPortalReplay = { gl, program, buffer, shaders, textures: [] };
+  for (const { type, source } of captured.shaders) {
+    const shader = gl.createShader(type);
     if (!shader) throw new Error("Shader required");
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-      throw new Error(gl.getShaderInfoLog(shader) ?? "Shader failed");
+      throw new Error(gl.getShaderInfoLog(shader) ?? "Actual Three shader failed");
     gl.attachShader(program, shader);
-    return shader;
-  });
+    shaders.push(shader);
+  }
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-    throw new Error(gl.getProgramInfoLog(program) ?? "Link failed");
+    throw new Error(gl.getProgramInfoLog(program) ?? "Actual Three program failed");
   gl.useProgram(program);
+}
+
+function uploadRoomUniforms(material: number) {
+  const replay = window.introPortalReplay;
+  const captured = window.introMaterials[material];
+  if (!replay || !captured) throw new Error("Actual room program required");
+  const { gl, program, textures } = replay;
+  for (const { name, type, value } of captured.uniforms) {
+    const location = gl.getUniformLocation(program, name);
+    const values = typeof value === "number" ? [value] : value;
+    if (type === gl.FLOAT) gl.uniform1fv(location, values);
+    else if (type === gl.FLOAT_VEC2) gl.uniform2fv(location, values);
+    else if (type === gl.FLOAT_VEC3) gl.uniform3fv(location, values);
+    else if (type === gl.FLOAT_VEC4) gl.uniform4fv(location, values);
+    else if (type === gl.FLOAT_MAT3) gl.uniformMatrix3fv(location, false, values);
+    else if (type === gl.FLOAT_MAT4) gl.uniformMatrix4fv(location, false, values);
+    else if (type === gl.INT || type === gl.BOOL) gl.uniform1iv(location, values);
+    else if (type === gl.SAMPLER_CUBE) {
+      const texture = gl.createTexture();
+      if (!texture) throw new Error("Probe environment texture required");
+      const unit = textures.length;
+      textures.push(texture);
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      for (let face = 0; face < 6; face++)
+        gl.texImage2D(
+          gl.TEXTURE_CUBE_MAP_POSITIVE_X + face,
+          0,
+          gl.RGBA8,
+          1,
+          1,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array([255, 255, 255, 255]),
+        );
+      gl.uniform1i(location, unit);
+    } else if (type === gl.SAMPLER_2D || type === gl.SAMPLER_2D_SHADOW) {
+      // Only illumination is neutralized; the captured geometry/opacity shader stays unmodified.
+      // 仅中和照明纹理，捕获的几何与不透明度着色器保持原样。
+      const texture = gl.createTexture();
+      if (!texture) throw new Error("Probe illumination texture required");
+      const unit = textures.length;
+      textures.push(texture);
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      if (type === gl.SAMPLER_2D_SHADOW) {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.DEPTH_COMPONENT16,
+          1,
+          1,
+          0,
+          gl.DEPTH_COMPONENT,
+          gl.UNSIGNED_SHORT,
+          new Uint16Array([65535]),
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+      } else {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA8,
+          1,
+          1,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array([255, 255, 255, 255]),
+        );
+      }
+      gl.uniform1i(location, unit);
+    } else throw new Error(`Unsupported actual room uniform ${name}: ${type}`);
+  }
+}
+
+function drawRoomPortal(probe: RoomPortalProbe) {
+  const replay = window.introPortalReplay;
+  if (!replay) throw new Error("Actual room program required");
+  const { gl, program, buffer } = replay;
+  const identity = new DOMMatrix().toFloat32Array();
+  gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelMatrix"), false, identity);
+  const view = new DOMMatrix().translate(-probe.roadX, 0, -probe.eyeZ).toFloat32Array();
+  for (const name of ["viewMatrix", "modelViewMatrix"])
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, name), false, view);
+  gl.uniformMatrix3fv(
+    gl.getUniformLocation(program, "normalMatrix"),
+    false,
+    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+  );
+  const near = 1,
+    far = 100000,
+    focal = probe.perspective / 256;
+  gl.uniformMatrix4fv(gl.getUniformLocation(program, "projectionMatrix"), false, [
+    focal,
+    0,
+    0,
+    0,
+    0,
+    focal,
+    0,
+    0,
+    0,
+    0,
+    -(far + near) / (far - near),
+    -1,
+    0,
+    0,
+    (-2 * far * near) / (far - near),
+    0,
+  ]);
+  gl.uniform3f(gl.getUniformLocation(program, "cameraPosition"), probe.roadX, 0, probe.eyeZ);
+  gl.uniform3f(gl.getUniformLocation(program, "uIntroEye"), probe.roadX, 0, probe.eyeZ);
+  for (const name of ["uIntroFill", "uIntroGrowth", "uIntroArrival"])
+    gl.uniform1f(gl.getUniformLocation(program, name), 1);
+  gl.uniform1f(gl.getUniformLocation(program, "uIntroTravel"), 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array(probe.vertices.map((value, index) => (index % 3 === 1 ? -value : value))),
+    gl.STATIC_DRAW,
+  );
   const position = gl.getAttribLocation(program, "position");
   gl.enableVertexAttribArray(position);
   gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
-  gl.vertexAttrib1f(gl.getAttribLocation(program, "material"), material);
-  gl.vertexAttrib3f(gl.getAttribLocation(program, "normal"), 0, 0, 1);
-  gl.uniform2f(gl.getUniformLocation(program, "viewport"), canvas.width, canvas.height);
-  gl.uniformMatrix4fv(
-    gl.getUniformLocation(program, "camera"),
-    false,
-    new DOMMatrix().translate(-roadX, 0, perspective - eyeZ).toFloat32Array(),
-  );
-  gl.uniform1f(gl.getUniformLocation(program, "fill"), 1);
-  gl.uniform1f(gl.getUniformLocation(program, "reach"), 1);
-  gl.uniform3f(gl.getUniformLocation(program, "portalEye"), ...portalEye);
-  const growth = gl.getUniformLocation(program, "entryGrowth");
-  const pixels = new Uint8Array(canvas.width * canvas.height * 4);
-  const phases: { covered: number; partial: number; outside: number }[] = [];
-  for (const [step, level] of levels.entries()) {
-    const mask = masks[step];
+  const normal = gl.getAttribLocation(program, "normal");
+  if (normal >= 0) gl.vertexAttrib3f(normal, 0, 0, 1);
+  const pixels = new Uint8Array(512 * 512 * 4);
+  const phases = probe.levels.map((level, step) => {
+    const mask = probe.masks[step];
     if (!mask) throw new Error("Portal mask required");
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.uniform1f(growth, level);
+    gl.uniform1f(gl.getUniformLocation(program, "uIntroEntry"), level);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.readPixels(0, 0, 512, 512, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     let covered = 0,
       partial = 0,
       outside = 0;
@@ -259,15 +456,34 @@ export function sampleRoomPortal(probe: PortalProbe) {
       if (!pixels[index]) continue;
       if (pixels[index] === 255) covered++;
       else partial++;
-      const pixel = (index - 3) / 4;
-      const x = (pixel % 512) + 0.5,
-        y = 512 - Math.floor(pixel / 512) - 0.5;
+      const pixel = (index - 3) / 4,
+        x = (pixel % 512) + 0.5;
+      const y = 512 - Math.floor(pixel / 512) - 0.5;
       if (x < mask[0] - 1 || x > mask[2] + 1 || y < mask[1] - 1 || y > mask[3] + 1) outside++;
     }
-    phases.push({ covered, partial, outside });
-  }
-  gl.deleteBuffer(buffer);
-  gl.deleteProgram(program);
-  for (const shader of shaders) gl.deleteShader(shader);
+    return { covered, partial, outside };
+  });
+  if (gl.getError() !== gl.NO_ERROR)
+    throw new Error("Actual room shader probe raised a WebGL error");
   return phases;
+}
+
+export async function sampleRoomPortal(page: Page, probe: RoomPortalProbe) {
+  try {
+    await page.evaluate(createRoomReplay, probe);
+    await page.evaluate(uploadRoomUniforms, probe.material);
+    return await page.evaluate(drawRoomPortal, probe);
+  } finally {
+    await page.evaluate(() => {
+      const replay = window.introPortalReplay;
+      if (!replay) return;
+      const { gl, program, buffer, shaders, textures } = replay;
+      gl.deleteBuffer(buffer);
+      gl.deleteProgram(program);
+      for (const shader of shaders) gl.deleteShader(shader);
+      for (const texture of textures) gl.deleteTexture(texture);
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      window.introPortalReplay = undefined;
+    });
+  }
 }

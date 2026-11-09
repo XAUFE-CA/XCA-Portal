@@ -1,353 +1,270 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { AUDITORIUM_MATERIAL } from "../../app/features/intro/core/intro-auditorium";
 import { ARRIVAL_ENTRY, JOURNEY } from "../../app/features/intro/core/intro-geometry";
-import { FRAGMENT, VERTEX } from "../../app/features/intro/rendering/intro-mark-shaders";
-import { freezeApproach, roomPortalProbe, sampleRoomPortal } from "./journey";
+import {
+  approachPositions,
+  captureRoomMaterials,
+  freezeApproach,
+  roomPortalProbe,
+  sampleRoomPortal,
+} from "./journey";
 import { setThemePreference } from "./preferences";
 import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
-test("skipping the journey releases the city texture and framebuffer", async ({ page }) => {
+type RoadProbe = { opacity: number; version: number; sampled: number; pixel: number[] };
+
+declare global {
+  interface Window {
+    cityResources: { textures: number; framebuffers: number };
+    roadProbe: RoadProbe;
+  }
+}
+
+test("skipping the journey releases its material textures and city framebuffer", async ({
+  page,
+}) => {
   await page.addInitScript(() => {
-    const textures = new WeakSet<WebGLTexture>(),
-      framebuffers = new WeakSet<WebGLFramebuffer>();
+    const textures = new Set<WebGLTexture>(),
+      framebuffers = new Set<WebGLFramebuffer>();
     const live = { textures: 0, framebuffers: 0 };
+    const contexts = new WeakSet<WebGL2RenderingContext>();
     Object.assign(window, { cityResources: live });
-    const prototype = WebGLRenderingContext.prototype;
+    const scene = (gl: WebGL2RenderingContext) =>
+      gl.canvas instanceof HTMLCanvasElement && gl.canvas.classList.contains("xca-ca-intro__mesh");
+    const prototype = WebGL2RenderingContext.prototype;
     const createTexture = prototype.createTexture,
       deleteTexture = prototype.deleteTexture;
     prototype.createTexture = function () {
       const texture = createTexture.call(this);
-      if (
-        texture &&
-        this.canvas instanceof HTMLCanvasElement &&
-        this.canvas.classList.contains("xca-ca-intro__mesh")
-      ) {
+      if (texture && scene(this)) {
         textures.add(texture);
-        live.textures++;
+        live.textures = textures.size;
+        if (!contexts.has(this)) {
+          contexts.add(this);
+          // Context loss releases resources even after the canvas leaves the document.
+          // 即使画布已离开文档，上下文丢失也会释放资源。
+          this.canvas.addEventListener("webglcontextlost", () => {
+            textures.clear();
+            framebuffers.clear();
+            live.textures = live.framebuffers = 0;
+          });
+        }
       }
       return texture;
     };
     prototype.deleteTexture = function (texture) {
-      if (texture && textures.delete(texture)) live.textures--;
+      if (texture) textures.delete(texture);
+      live.textures = textures.size;
       return deleteTexture.call(this, texture);
     };
     const createFramebuffer = prototype.createFramebuffer,
       deleteFramebuffer = prototype.deleteFramebuffer;
     prototype.createFramebuffer = function () {
       const framebuffer = createFramebuffer.call(this);
-      if (
-        framebuffer &&
-        this.canvas instanceof HTMLCanvasElement &&
-        this.canvas.classList.contains("xca-ca-intro__mesh")
-      ) {
+      if (framebuffer && scene(this)) {
         framebuffers.add(framebuffer);
-        live.framebuffers++;
+        live.framebuffers = framebuffers.size;
       }
       return framebuffer;
     };
     prototype.deleteFramebuffer = function (framebuffer) {
-      if (framebuffer && framebuffers.delete(framebuffer)) live.framebuffers--;
+      if (framebuffer) framebuffers.delete(framebuffer);
+      live.framebuffers = framebuffers.size;
       return deleteFramebuffer.call(this, framebuffer);
     };
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-mark-renderer", "mesh");
-  const resources = () =>
-    page.evaluate(
-      () =>
-        (
-          window as unknown as {
-            cityResources: { textures: number; framebuffers: number };
-          }
-        ).cityResources,
-    );
-  expect(await resources()).toEqual({ textures: 1, framebuffers: 1 });
+  await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-render-engine", "three");
+  const resources = () => page.evaluate(() => ({ ...window.cityResources }));
+  await expect
+    .poll(async () => (await resources()).framebuffers, { timeout: SETTLE_TIMEOUT })
+    .toBeGreaterThan(0);
+  expect((await resources()).textures).toBeGreaterThan(0);
   await page.keyboard.press("Escape");
   await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
-  expect(await resources()).toEqual({ textures: 0, framebuffers: 0 });
+  await expect.poll(resources).toEqual({ textures: 0, framebuffers: 0 });
 });
 
+async function observeRoad(page: Page) {
+  await page.addInitScript(() => {
+    const probe: RoadProbe = { opacity: 0, version: 0, sampled: -1, pixel: [] };
+    Object.assign(window, { roadProbe: probe });
+    const prototype = WebGL2RenderingContext.prototype;
+    const composites = new WeakMap<WebGLProgram, WebGLUniformLocation | null>();
+    const before = (gl: WebGL2RenderingContext) => {
+      if (
+        !(gl.canvas instanceof HTMLCanvasElement) ||
+        !gl.canvas.classList.contains("xca-ca-intro__mesh")
+      )
+        return false;
+      const program = gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram | null;
+      if (!program) return false;
+      if (!composites.has(program))
+        composites.set(
+          program,
+          gl.getUniformLocation(program, "cityTexture")
+            ? gl.getUniformLocation(program, "cityOpacity")
+            : null,
+        );
+      const opacity = composites.get(program);
+      if (opacity) gl.uniform1f(opacity, probe.opacity);
+      return gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) === null;
+    };
+    const after = (gl: WebGL2RenderingContext) => {
+      const pixel = new Uint8Array(4);
+      gl.readPixels(
+        Math.floor(gl.drawingBufferWidth / 2),
+        Math.floor(gl.drawingBufferHeight * 0.15),
+        1,
+        1,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        pixel,
+      );
+      probe.pixel = [...pixel];
+      probe.sampled = probe.version;
+    };
+    const arrays = prototype.drawArrays,
+      elements = prototype.drawElements;
+    prototype.drawArrays = function (mode, first, count) {
+      const visible = before(this);
+      arrays.call(this, mode, first, count);
+      if (visible) after(this);
+    };
+    prototype.drawElements = function (mode, count, type, offset) {
+      const visible = before(this);
+      elements.call(this, mode, count, type, offset);
+      if (visible) after(this);
+    };
+  });
+}
+
+async function roadPixel(page: Page, opacity: number) {
+  return page.evaluate(async (value) => {
+    const probe = window.roadProbe;
+    probe.opacity = value;
+    probe.version++;
+    while (probe.sampled !== probe.version) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      requestAnimationFrame(() => resolve());
+      await promise;
+    }
+    return probe.pixel;
+  }, opacity);
+}
+
 for (const theme of ["light", "dark"] as const) {
-  test(`the road stays opaque while the camera enters the auditorium in ${theme}`, async ({
+  test(`the road occludes the city and stays opaque through the auditorium entrance in ${theme}`, async ({
     page,
   }) => {
     await setThemePreference(page, theme);
+    await observeRoad(page);
     await page.goto("/", { waitUntil: "domcontentloaded" });
     const scene = page.locator(".xca-ca-intro");
     await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
-    await expect(scene).toHaveAttribute("data-mark-renderer", "mesh");
-    const positions = await page.evaluate(() => {
-      const camera = document
-        .getAnimations()
-        .find(
-          (animation) =>
-            animation.effect instanceof KeyframeEffect &&
-            animation.effect.target instanceof Element &&
-            animation.effect.target.matches(".xca-ca-intro__camera"),
-        );
-      if (!(camera?.effect instanceof KeyframeEffect)) throw new Error("Camera required");
-      const viewport = document.querySelector(".xca-ca-intro__viewport");
-      if (!viewport) throw new Error("Scene viewport required");
-      const focal = Number.parseFloat(getComputedStyle(viewport).perspective);
-      const frames = camera.effect.getKeyframes().map((frame) => ({
-        progress: frame.computedOffset,
-        z: new DOMMatrixReadOnly(String(frame.transform))
-          .inverse()
-          .transformPoint({ x: 0, y: 0, z: focal }).z,
-      }));
-      return [-8000, -8400, -9400, -9700, -10100, -10500, -11000].map(
-        (depth) =>
-          frames.reduce((nearest, frame) =>
-            Math.abs(frame.z - depth) < Math.abs(nearest.z - depth) ? frame : nearest,
-          ).progress,
-      );
-    });
+    await expect(scene).toHaveAttribute("data-render-engine", "three");
+    const depths = [
+      ARRIVAL_ENTRY.assemblyStart,
+      ARRIVAL_ENTRY.assemblyEnd,
+      ARRIVAL_ENTRY.front + 500,
+      ARRIVAL_ENTRY.front + JOURNEY.near * 2,
+      ARRIVAL_ENTRY.front - JOURNEY.near * 2,
+      ARRIVAL_ENTRY.back - 500,
+    ];
+    const positions = [0.55, ...(await approachPositions(page, depths))];
     for (const position of positions) {
       await freezeApproach(page, position);
-      const pixel = await page.evaluate(() => {
-        const canvas = document.querySelector<HTMLCanvasElement>(".xca-ca-intro__mesh");
-        const gl = canvas?.getContext("webgl");
-        if (!canvas || !gl) throw new Error("Scene WebGL required");
-        const { promise, resolve } = Promise.withResolvers<number[]>();
-        requestAnimationFrame(() => {
-          const rgba = new Uint8Array(4);
-          gl.readPixels(
-            Math.floor(canvas.width / 2),
-            Math.floor(canvas.height * 0.15),
-            1,
-            1,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            rgba,
-          );
-          resolve([...rgba]);
-        });
-        return promise;
-      });
-      expect(pixel[3]).toBeGreaterThanOrEqual(235);
+      const hidden = await roadPixel(page, 0),
+        visible = await roadPixel(page, 1);
+      expect(hidden[3]).toBeGreaterThanOrEqual(235);
+      expect(visible[3]).toBeGreaterThanOrEqual(235);
+      for (let channel = 0; channel < 4; channel++)
+        expect(Math.abs((hidden[channel] ?? 0) - (visible[channel] ?? 0))).toBeLessThanOrEqual(2);
     }
     await page.keyboard.press("Escape");
     await expect(scene).toHaveCount(0);
     await expect(page.locator("#xca-command-input")).toBeEnabled();
     await expect(page.locator(".xca-terminal-window")).toHaveCount(1);
   });
-}
 
-test("the city uses a transparent pass before the depth-writing road pass", async ({ page }) => {
-  await page.addInitScript(() => {
-    const draws: { first: number; count: number; writesDepth: boolean; offscreen: boolean }[] = [];
-    Object.assign(window, { cityDraws: draws });
-    const original = WebGLRenderingContext.prototype.drawArrays;
-    WebGLRenderingContext.prototype.drawArrays = function (mode, first, count) {
-      if (
-        this.canvas instanceof HTMLCanvasElement &&
-        this.canvas.classList.contains("xca-ca-intro__mesh") &&
-        draws.length < 12
-      )
-        draws.push({
-          first,
-          count,
-          writesDepth: Boolean(this.getParameter(this.DEPTH_WRITEMASK)),
-          offscreen: this.getParameter(this.FRAMEBUFFER_BINDING) !== null,
-        });
-      return original.call(this, mode, first, count);
-    };
-  });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(
-    () => (window as unknown as { cityDraws: unknown[] }).cityDraws.length >= 6,
-    undefined,
-    { timeout: SETTLE_TIMEOUT },
-  );
-  for (const fraction of [0.45, 0.84]) {
-    await page.evaluate((progress) => {
-      const camera = document
-        .getAnimations()
-        .find(
-          (animation) =>
-            animation.effect instanceof KeyframeEffect &&
-            animation.effect.target instanceof Element &&
-            animation.effect.target.matches(".xca-ca-intro__camera"),
-        );
-      if (!camera?.effect) throw new Error("Journey camera required");
-      const time = Number(camera.effect.getTiming().duration) * progress;
-      for (const animation of document.getAnimations()) {
-        const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
-        if (
-          !(target instanceof Element) ||
-          !target.closest(".xca-ca-intro, .xca-terminal-window") ||
-          animation.playState === "finished"
-        )
-          continue;
-        animation.pause();
-        animation.currentTime = time;
-      }
-      (window as unknown as { cityDraws: unknown[] }).cityDraws.length = 0;
-    }, fraction);
-    await page.waitForFunction(
-      () => (window as unknown as { cityDraws: unknown[] }).cityDraws.length >= 6,
-      undefined,
-      { timeout: SETTLE_TIMEOUT },
-    );
-    expect(
-      await page.evaluate(() =>
-        (window as unknown as { cityDraws: { writesDepth: boolean }[] }).cityDraws.some(
-          (draw) => !draw.writesDepth,
-        ),
-      ),
-    ).toBe(true);
-  }
-  const draws = await page.evaluate(
-    () =>
-      (
-        window as unknown as {
-          cityDraws: { first: number; count: number; writesDepth: boolean; offscreen: boolean }[];
-        }
-      ).cityDraws,
-  );
-  expect(draws.some((draw) => !draw.writesDepth)).toBe(true);
-  for (let index = 0; index + 2 < draws.length; index += 3) {
-    expect(draws[index]?.first).toBe(0);
-    expect(draws[index]?.writesDepth).toBe(false);
-    expect(draws[index]?.offscreen).toBe(true);
-    expect(draws[index + 1]?.offscreen).toBe(false);
-    expect(draws[index + 1]?.count).toBe(3);
-    expect(draws[index + 1]?.writesDepth).toBe(false);
-    expect(draws[index + 2]?.writesDepth).toBe(true);
-    expect(draws[index + 2]?.first).toBe(draws[index]?.count);
-  }
-});
-
-for (const theme of ["light", "dark"] as const) {
-  test(`intro background matches the initial home canvas in ${theme}`, async ({ page }) => {
+  test(`intro background visually matches the initial home canvas in ${theme}`, async ({
+    page,
+  }) => {
     await setThemePreference(page, theme);
     await page.goto("/", { waitUntil: "domcontentloaded" });
     const backdrop = page.locator(".xca-terminal-hero__intro-backdrop");
     await expect(backdrop).toHaveCount(1);
-    const colors = await backdrop.evaluate((element) => {
+    await backdrop.evaluate((element) => {
       const shell = element.closest(".site-shell--home");
       if (!shell) throw new Error("Home canvas required");
-      const home = getComputedStyle(shell),
-        intro = getComputedStyle(element);
-      return {
-        home: [home.backgroundColor, home.backgroundImage],
-        intro: [intro.backgroundColor, intro.backgroundImage],
-      };
+      for (const child of shell.querySelectorAll("*"))
+        if (child instanceof HTMLElement || child instanceof SVGElement)
+          child.style.visibility = "hidden";
+      element.style.visibility = "visible";
     });
-    expect(colors.intro).toEqual(colors.home);
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error("Visible viewport required");
+    const clip = { x: 0, y: 0, ...viewport };
+    const intro = await page.screenshot({ clip });
+    await backdrop.evaluate((element) => {
+      element.style.visibility = "hidden";
+    });
+    const home = await page.screenshot({ clip });
+    const difference = await page.evaluate(
+      async (images) => {
+        const pixels = await Promise.all(
+          images.map(async (bytes) => {
+            const bitmap = await createImageBitmap(
+              new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+            );
+            const canvas = document.createElement("canvas");
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const context = canvas.getContext("2d");
+            if (!context) throw new Error("Screenshot decoder required");
+            context.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            return context.getImageData(0, 0, canvas.width, canvas.height).data;
+          }),
+        );
+        const [before, after] = pixels;
+        if (!before || !after) throw new Error("Both rendered backgrounds required");
+        return before.reduce(
+          (maximum, value, index) => Math.max(maximum, Math.abs(value - (after[index] ?? 0))),
+          0,
+        );
+      },
+      [[...intro], [...home]],
+    );
+    expect(difference).toBeLessThanOrEqual(1);
   });
 }
 
-test("city fragment opacity stays continuous without threshold discard", async ({ page }) => {
-  await page.addInitScript(() => {
-    const original = WebGLRenderingContext.prototype.shaderSource;
-    WebGLRenderingContext.prototype.shaderSource = function (shader, source) {
-      if (source.includes("uniform float skylineVisibility"))
-        Object.assign(window, { introCityFragment: source });
-      return original.call(this, shader, source);
-    };
-  });
+async function prepareRoomProbe(page: Page) {
+  await captureRoomMaterials(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-mark-renderer", "mesh");
-  const pixels = await page.evaluate(() => {
-    const fragment = (window as unknown as { introCityFragment: string }).introCityFragment;
-    if (!fragment) throw new Error("Actual intro fragment shader required");
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 4;
-    const gl = canvas.getContext("webgl", { antialias: false, premultipliedAlpha: true });
-    if (!gl) throw new Error("WebGL required");
-    const compile = (type: number, source: string) => {
-      const shader = gl.createShader(type);
-      if (!shader) throw new Error("Shader required");
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-        throw new Error(gl.getShaderInfoLog(shader) ?? "Shader failed");
-      return shader;
-    };
-    const vertex = compile(
-      gl.VERTEX_SHADER,
-      `
-      attribute vec3 position;
-      attribute float level;
-      varying mediump float light, road, haze, altitude;
-      varying mediump vec2 roadUv, facadeUv;
-      varying mediump vec3 surfaceNormal, viewDirection;
-      varying mediump vec3 portalPosition;
-      void main() {
-        gl_Position = vec4(position, 1.0);
-        light = 1.0; road = 5.0; haze = 0.0; altitude = level;
-        portalPosition = vec3(0.0);
-        roadUv = vec2(0.0); facadeUv = vec2(0.0);
-        surfaceNormal = vec3(0.0, 0.0, 1.0); viewDirection = surfaceNormal;
-      }`,
-    );
-    const pixelShader = compile(gl.FRAGMENT_SHADER, fragment);
-    const program = gl.createProgram();
-    const buffer = gl.createBuffer();
-    if (!program || !buffer) throw new Error("GPU resources required");
-    gl.attachShader(program, vertex);
-    gl.attachShader(program, pixelShader);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-      throw new Error(gl.getProgramInfoLog(program) ?? "Link failed");
-    gl.useProgram(program);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    const position = gl.getAttribLocation(program, "position");
-    const level = gl.getAttribLocation(program, "level");
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    const colors: number[][] = [];
-    for (let step = 0; step <= 40; step++) {
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.uniform1f(gl.getUniformLocation(program, "skylineVisibility"), 0.08 * (1 - step / 40));
-      for (const front of [true, false]) {
-        gl.uniform3f(
-          gl.getUniformLocation(program, "skylineColor"),
-          front ? 1 : 0,
-          0,
-          front ? 0 : 1,
-        );
-        gl.vertexAttrib1f(level, front ? 0.04 : 1);
-        const z = front ? -0.5 : 0.5;
-        gl.bufferData(
-          gl.ARRAY_BUFFER,
-          new Float32Array([-1, -1, z, 3, -1, z, -1, 3, z]),
-          gl.STATIC_DRAW,
-        );
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-      }
-      const pixel = new Uint8Array(4);
-      gl.readPixels(1, 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-      colors.push([...pixel]);
-    }
-    gl.deleteBuffer(buffer);
-    gl.deleteProgram(program);
-    gl.deleteShader(vertex);
-    gl.deleteShader(pixelShader);
-    return colors;
+  await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "approach", {
+    timeout: SCENE_TIMEOUT,
   });
-  expect(pixels.every((pixel) => pixel[2] === 0)).toBe(true);
-  expect(pixels.at(-1)).toEqual([0, 0, 0, 0]);
-  for (let index = 1; index < pixels.length; index++)
-    expect(pixels[index]?.[3] ?? 0).toBeLessThanOrEqual(pixels[index - 1]?.[3] ?? 0);
-});
+  const [position] = await approachPositions(page, [ARRIVAL_ENTRY.front + 500]);
+  if (position === undefined) throw new Error("Entrance camera position required");
+  await freezeApproach(page, position);
+  await page.waitForFunction(
+    () => window.introMaterials[9] && window.introMaterials[15],
+    undefined,
+    { timeout: SETTLE_TIMEOUT },
+  );
+}
 
 test("the portal reveals opaque room surfaces only inside its growing aperture", async ({
   page,
 }) => {
+  await prepareRoomProbe(page);
   const probe = roomPortalProbe(
     ARRIVAL_ENTRY.assemblyStart,
     Array.from({ length: 21 }, (_, step) => step / 20),
   );
-  const phases = await page.evaluate(sampleRoomPortal, {
-    ...probe,
-    vertex: VERTEX,
-    fragment: FRAGMENT,
-  });
+  const phases = await sampleRoomPortal(page, probe);
   expect(phases[0]?.covered).toBe(0);
   let previous = 0;
   for (const [index, phase] of phases.entries()) {
@@ -360,24 +277,23 @@ test("the portal reveals opaque room surfaces only inside its growing aperture",
     expect(phase.covered - previous).toBeLessThan((probe.expected.at(-1) ?? 0) / 4);
     previous = phase.covered;
   }
+  expect(previous).toBeGreaterThan(100);
 });
 
 test("the portal crossing leaves the complete room independent of aperture progress", async ({
   page,
 }) => {
+  await prepareRoomProbe(page);
   for (const eyeZ of [
     ARRIVAL_ENTRY.front + JOURNEY.near * 2,
     ARRIVAL_ENTRY.front - JOURNEY.near * 2,
   ]) {
     const probe = roomPortalProbe(eyeZ, eyeZ > ARRIVAL_ENTRY.front ? [1] : [0, 0.5, 1]);
-    const phases = await page.evaluate(sampleRoomPortal, {
-      ...probe,
-      vertex: VERTEX,
-      fragment: FRAGMENT,
-    });
+    const phases = await sampleRoomPortal(page, probe);
     for (const [index, phase] of phases.entries()) {
       expect(phase.partial).toBe(0);
       expect(phase.outside).toBe(0);
+      expect(phase.covered).toBeGreaterThan(100);
       expect(Math.abs(phase.covered - (probe.expected[index] ?? 0))).toBeLessThanOrEqual(
         probe.tolerance[index] ?? 0,
       );
@@ -388,16 +304,20 @@ test("the portal crossing leaves the complete room independent of aperture progr
 test("destination geometry in front of the portal cannot form an exterior shell", async ({
   page,
 }) => {
+  await prepareRoomProbe(page);
   const probe = roomPortalProbe(
     ARRIVAL_ENTRY.assemblyStart,
     [1],
     AUDITORIUM_MATERIAL.gateway,
     ARRIVAL_ENTRY.front + 48,
   );
-  const phases = await page.evaluate(sampleRoomPortal, {
-    ...probe,
-    vertex: VERTEX,
-    fragment: FRAGMENT,
-  });
+  const phases = await sampleRoomPortal(page, probe);
   expect(phases).toEqual([{ covered: 0, partial: 0, outside: 0 }]);
+  const interior = await sampleRoomPortal(
+    page,
+    roomPortalProbe(ARRIVAL_ENTRY.assemblyStart, [1], AUDITORIUM_MATERIAL.gateway),
+  );
+  expect(interior[0]?.covered).toBeGreaterThan(100);
+  expect(interior[0]?.partial).toBe(0);
+  expect(interior[0]?.outside).toBe(0);
 });

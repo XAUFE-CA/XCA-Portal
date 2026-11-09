@@ -14,6 +14,8 @@ docs/
     terminal-extending.md       终端命令、会话、外观与交互扩展接口
     home-intro.md               首页入场、场景绘制、终端交接与中断
     site-shell.md               站点导航、主题、语言控件与共享玻璃样式接入
+  adr/                          采用的独立架构决策，现行实现细节仍归 architecture/
+    0001-three-intro-rendering.md  首页使用 Three.js，保留 DOM、WAAPI 与唯一终端
 ```
 
 过程材料（审计快照、实施计划）归 `.agents/notes/`，不进 `docs/`。新增专题文档先在本节登记条目和职责，再写作。
@@ -29,6 +31,7 @@ docs/
 | 首页入场、场景绘制与终端交接 | `docs/architecture/home-intro.md` |
 | 导航布局、主题与共享玻璃样式接入 | `docs/architecture/site-shell.md` |
 | 字体角色、资产许可与子集生成 | `docs/architecture/fonts.md` |
+| 采用的独立架构决策与取舍 | `docs/adr/` |
 | 术语、缩写与翻译规则 | `docs/terminology/` |
 | 带日期的过程材料 | `.agents/notes/` |
 

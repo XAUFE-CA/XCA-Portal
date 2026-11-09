@@ -1,7 +1,15 @@
 import { expect, test } from "bun:test";
 import { INTRO_READING_UNIT_MS } from "../../../utils/motion";
 import { AUDITORIUM, AUDITORIUM_OBJECTS } from "./intro-auditorium";
-import { ARRIVAL_ENTRY, entryGrowth, JOURNEY, roadBend, roadGrowth } from "./intro-geometry";
+import {
+  ARRIVAL_ENTRY,
+  entryGrowth,
+  JOURNEY,
+  JOURNEY_STATIONS,
+  journeyPerspective,
+  roadBend,
+  roadGrowth,
+} from "./intro-geometry";
 import { cameraFrames, terminalDockFrames, terminalFrames } from "./intro-journey";
 import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
 
@@ -37,9 +45,10 @@ function project(frame: Keyframe, point: readonly [number, number, number]) {
   const rz = -Math.sin(yaw) * x + Math.cos(yaw) * z;
   const ry = Math.cos(pitch) * y - Math.sin(pitch) * rz;
   const depth = -(Math.sin(pitch) * y + Math.cos(pitch) * rz);
+  const focal = Number(String(frame.transform).match(/translateZ\(([-\d.e+]+)px\)/)?.[1]);
   return {
-    x: ((Math.cos(roll) * rx - Math.sin(roll) * ry) * JOURNEY.perspective) / depth,
-    y: ((Math.sin(roll) * rx + Math.cos(roll) * ry) * JOURNEY.perspective) / depth,
+    x: ((Math.cos(roll) * rx - Math.sin(roll) * ry) * focal) / depth,
+    y: ((Math.sin(roll) * rx + Math.cos(roll) * ry) * focal) / depth,
     depth,
   };
 }
@@ -58,7 +67,7 @@ const centered = { x: 30, y: 60, scale: 0.8 };
 test("road travel preserves the original terminal-height viewpoint and curve look-ahead", () => {
   for (const height of [448, 512, 1440]) {
     const y = JOURNEY.floorY - height / 2 - 80;
-    for (const frame of cameraFrames(352, height)) {
+    for (const frame of cameraFrames(352, height, JOURNEY.perspective)) {
       const [x = 0, ey = 0, z = 0] = eye(frame);
       if (z > -6100 || entryGrowth(z) > 0) continue;
       expect(x - roadBend(z).x).toBeCloseTo(JOURNEY.roadX, 5);
@@ -73,7 +82,7 @@ test("road travel preserves the original terminal-height viewpoint and curve loo
 
 test("the camera rises through the hall to screen-centre height without pitching", () => {
   for (const height of [448, 1440]) {
-    const frames = cameraFrames(352, height);
+    const frames = cameraFrames(352, height, JOURNEY.perspective);
     const entered = frames.find(
       (frame) => (eye(frame)[2] ?? 0) < ARRIVAL_ENTRY.back - JOURNEY.near * 2,
     );
@@ -109,7 +118,7 @@ test("the camera rises through the hall to screen-centre height without pitching
 });
 
 test("passes through A above the crossbar, between its inner strokes", () => {
-  const frames = cameraFrames(352, 448);
+  const frames = cameraFrames(352, 448, JOURNEY.perspective);
   const crossing = frames.find((frame) => (eye(frame)[2] ?? 0) < 0);
   expect(crossing).toBeDefined();
   if (!crossing) return;
@@ -126,8 +135,10 @@ for (const [width, height] of [
   [960, 1440],
 ] as const) {
   test(`the ${width}×${height} terminal is a stage-mounted glass screen before handoff`, () => {
-    const frames = terminalFrames(352, width, height, centered);
-    const camera = cameraFrames(352, height * centered.scale);
+    const perspective = journeyPerspective(width + 48);
+    const markSize = Math.min(352, (width + 48) * 0.64);
+    const frames = terminalFrames(markSize, width, height, centered, perspective);
+    const camera = cameraFrames(markSize, height * centered.scale, perspective);
     const screen = AUDITORIUM.screen;
     for (const pose of camera) {
       const [x = 0, y = 0, z = 0] = eye(pose);
@@ -161,7 +172,13 @@ for (const [width, height] of [
   });
 
   test(`the ${width}×${height} screen reaches native terminal geometry before boot`, () => {
-    const frames = terminalFrames(352, width, height, centered);
+    const frames = terminalFrames(
+      Math.min(352, (width + 48) * 0.64),
+      width,
+      height,
+      centered,
+      journeyPerspective(width + 48),
+    );
     const boot = frames.filter((frame) => Number(frame.offset) >= INTRO_HANDOFF.boot);
     for (const frame of boot) {
       const values = matrix(frame);
@@ -177,8 +194,8 @@ for (const [width, height] of [
 }
 
 test("interpolated glass visibility stays within the portal and completes before crossing it", () => {
-  const camera = cameraFrames(352, 448 * centered.scale);
-  const frames = terminalFrames(352, 1040, 448, centered);
+  const camera = cameraFrames(352, 448 * centered.scale, JOURNEY.perspective);
+  const frames = terminalFrames(352, 1040, 448, centered, JOURNEY.perspective);
   for (const [z, opacity] of [
     [ARRIVAL_ENTRY.assemblyEnd, 0],
     [ARRIVAL_ENTRY.front, 1],
@@ -202,8 +219,8 @@ test("interpolated glass visibility stays within the portal and completes before
 });
 
 test("screen shrink overlaps the continuing ascent after clearing the seats", () => {
-  const camera = cameraFrames(352, 448 * centered.scale);
-  const frames = terminalFrames(352, 1040, 448, centered);
+  const camera = cameraFrames(352, 448 * centered.scale, JOURNEY.perspective);
+  const frames = terminalFrames(352, 1040, 448, centered, JOURNEY.perspective);
   const launch = frames.find((frame) => frame.offset === INTRO_HANDOFF.start);
   const launchCamera = camera.find((frame) => frame.offset === INTRO_HANDOFF.start);
   if (!launch || !launchCamera) throw new Error("Missing handoff boundary");
@@ -246,7 +263,7 @@ test("terminal descent settles gradually instead of spending most movement in th
 });
 
 test("observes from C's left side and straightens before entering A without a right-side pass", () => {
-  const frames = cameraFrames(352, 448);
+  const frames = cameraFrames(352, 448, JOURNEY.perspective);
   const left = frames.filter((frame) => (eye(frame)[0] ?? 0) < -500);
   expect(left.length).toBeGreaterThan(3);
   expect(
@@ -267,7 +284,7 @@ test("observes from C's left side and straightens before entering A without a ri
 });
 
 test("the road starts during the close approach and then extends ahead of the moving eye", () => {
-  for (const frame of cameraFrames(352, 448)) {
+  for (const frame of cameraFrames(352, 448, JOURNEY.perspective)) {
     const z = eye(frame)[2] ?? 0;
     const growth = roadGrowth(z);
     if (z >= JOURNEY.roadRevealStart) expect(growth).toBe(0);
@@ -280,7 +297,7 @@ test("the road starts during the close approach and then extends ahead of the mo
 });
 
 test("road cruise stays below the sign-reading speed budget without stopping", () => {
-  const positions = cameraFrames(352, 448);
+  const positions = cameraFrames(352, 448, JOURNEY.perspective);
   const seconds = (INTRO_PACING.journey * INTRO_READING_UNIT_MS) / 1000;
   for (let index = 1; index < positions.length; index++) {
     const before = positions[index - 1],
@@ -304,13 +321,37 @@ test("the entrance camera keeps near-plane clearance below the roof", () => {
   const top = roof.origin[1] + roof.size[1] + JOURNEY.near;
   const back = roof.origin[2] - roof.size[2];
   for (const height of [448, 1440]) {
-    for (const frame of cameraFrames(352, height)) {
+    for (const frame of cameraFrames(352, height, JOURNEY.perspective)) {
       const [x = 0, y = 0, z = 0] = eye(frame);
       if (z > roof.origin[2] || z < back) continue;
       expect(y).toBeGreaterThan(top);
       expect(y).toBeLessThan(JOURNEY.floorY - JOURNEY.near);
       expect(x).toBeGreaterThan(left.origin[0] + left.size[0] + JOURNEY.near);
       expect(x).toBeLessThan(right.origin[0] - JOURNEY.near);
+    }
+  }
+});
+
+test("portrait road signs fit inside the horizontal viewing corridor before passing", () => {
+  for (const width of [320, 390, 768]) {
+    const focal = journeyPerspective(width);
+    const frames = cameraFrames(Math.min(352, width * 0.64), 500, focal);
+    for (const station of JOURNEY_STATIONS.filter((item) => item.hasPanel && item.index >= 2)) {
+      const frame = frames.find((item) => {
+        const distance = (eye(item)[2] ?? 0) - station.depth;
+        return distance >= 2800 && distance <= 3300;
+      });
+      if (!frame) throw new Error("Missing sign approach");
+      const bend = roadBend(station.depth);
+      for (const side of [0, 1]) {
+        const point = project(frame, [
+          station.left + station.panelLeft + station.panelWidth * side + bend.x,
+          station.top + station.panelTop,
+          station.depth + 24,
+        ]);
+        expect(point.x).toBeGreaterThan(-width / 2 + 12);
+        expect(point.x).toBeLessThan(width / 2 - 12);
+      }
     }
   }
 });

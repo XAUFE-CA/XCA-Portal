@@ -1,343 +1,349 @@
+import { ACESFilmicToneMapping, Fog, SRGBColorSpace, Vector3, WebGLRenderer } from "three";
 import { tokenLength } from "~/utils/cssTokens";
 import {
-  ARRIVAL_ENTRY,
   arrivalOpacity,
   entryGrowth,
-  JOURNEY,
-  roadBend,
+  journeyPerspective,
   roadGrowth,
   sceneryOpacity,
   skylineOpacity,
 } from "../core/intro-geometry";
-import { compositeCityLayer, createCityLayer } from "./intro-city-layer";
+import { type CityLayer, createCityLayer } from "./intro-city-layer";
 import { createMarkMesh } from "./intro-mark-mesh";
-import { FRAGMENT, VERTEX } from "./intro-mark-shaders";
-import { createTransparentCity, sortTransparentCity } from "./intro-transparency";
+import {
+  createIntroCamera,
+  createIntroScene,
+  INTRO_LAYERS,
+  type IntroCamera,
+  type IntroScene,
+} from "./intro-scene";
+import { createIntroLighting, type IntroLighting } from "./intro-scene-lighting";
+import {
+  createIntroMaterials,
+  type IntroFrame,
+  type IntroMaterials,
+} from "./intro-scene-materials";
+import { createIntroPalette, type IntroPalette } from "./intro-scene-palette";
+import { createIntroSky, type IntroSky } from "./intro-sky";
 
-interface MeshState {
-  gl: WebGLRenderingContext;
-  program: WebGLProgram;
-  buffer: WebGLBuffer;
-  count: number;
-  city: ReturnType<typeof createTransparentCity>;
-  attributes: { location: number; size: number; offset: number }[];
-  camera: WebGLUniformLocation | null;
-  viewport: WebGLUniformLocation | null;
-  fill: WebGLUniformLocation | null;
-  reach: WebGLUniformLocation | null;
-  travel: WebGLUniformLocation | null;
-  passage: WebGLUniformLocation | null;
-  skylineVisibility: WebGLUniformLocation | null;
-  arrivalVisibility: WebGLUniformLocation | null;
-  entryGrowth: WebGLUniformLocation | null;
-  portalEye: WebGLUniformLocation | null;
+interface Pipeline {
+  renderer: WebGLRenderer;
+  frame: IntroFrame;
+  materials: IntroMaterials;
+  scene: IntroScene;
+  lighting: IntroLighting;
+  city: CityLayer;
+  sky: IntroSky;
+  view: IntroCamera;
+  palette: IntroPalette;
+  fog: Fog;
+  dispose(): void;
 }
 
-function shader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
-  const value = gl.createShader(type);
-  if (!value) throw new Error("CA shader unavailable");
-  gl.shaderSource(value, source);
-  gl.compileShader(value);
-  if (!gl.getShaderParameter(value, gl.COMPILE_STATUS)) {
-    gl.deleteShader(value);
-    throw new Error("CA shader compilation failed");
-  }
-  return value;
-}
-
-function program(gl: WebGLRenderingContext, vertex = VERTEX, fragment = FRAGMENT): WebGLProgram {
-  const value = gl.createProgram();
-  if (!value) throw new Error("CA program unavailable");
-  const shaders: WebGLShader[] = [];
-  try {
-    shaders.push(shader(gl, gl.VERTEX_SHADER, vertex));
-    shaders.push(shader(gl, gl.FRAGMENT_SHADER, fragment));
-    for (const stage of shaders) gl.attachShader(value, stage);
-    gl.linkProgram(value);
-    if (!gl.getProgramParameter(value, gl.LINK_STATUS)) throw new Error("CA shader link failed");
-    return value;
-  } catch (error) {
-    gl.deleteProgram(value);
-    throw error;
-  } finally {
-    for (const stage of shaders) gl.deleteShader(stage);
-  }
-}
-
-function initialize(canvas: HTMLCanvasElement, mesh: Float32Array): MeshState | null {
-  const gl = canvas.getContext("webgl", { alpha: true, antialias: true, depth: true });
-  if (!gl) return null;
-  const pipeline = program(gl);
-  const buffer = gl.createBuffer();
-  if (!buffer) {
-    gl.deleteProgram(pipeline);
-    return null;
-  }
-  gl.useProgram(pipeline);
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  const packed = new Float32Array((mesh.length / 7) * 8);
-  for (let index = 0; index < mesh.length / 7; index++) {
-    packed.set(mesh.subarray(index * 7, index * 7 + 7), index * 8);
-    const x = mesh[index * 7] ?? 0,
-      z = mesh[index * 7 + 2] ?? 0;
-    packed[index * 8 + 7] = (x - roadBend(z).x - JOURNEY.roadX) / JOURNEY.roadWidth + 0.5;
-  }
-  gl.bufferData(gl.ARRAY_BUFFER, packed, gl.STATIC_DRAW);
-  const attributes = (
-    [
-      ["position", 3, 0],
-      ["normal", 3, 12],
-      ["material", 1, 24],
-      ["roadAcross", 1, 28],
-    ] as const
-  ).map(([name, size, offset]) => {
-    const location = gl.getAttribLocation(pipeline, name);
-    gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 32, offset);
-    return { location, size, offset };
-  });
-  gl.enable(gl.DEPTH_TEST);
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  gl.clearColor(0, 0, 0, 0);
-  return {
-    gl,
-    program: pipeline,
-    buffer,
-    count: mesh.length / 7,
-    city: createTransparentCity(packed),
-    attributes,
-    camera: gl.getUniformLocation(pipeline, "camera"),
-    viewport: gl.getUniformLocation(pipeline, "viewport"),
-    fill: gl.getUniformLocation(pipeline, "fill"),
-    reach: gl.getUniformLocation(pipeline, "reach"),
-    travel: gl.getUniformLocation(pipeline, "travel"),
-    passage: gl.getUniformLocation(pipeline, "passage"),
-    skylineVisibility: gl.getUniformLocation(pipeline, "skylineVisibility"),
-    arrivalVisibility: gl.getUniformLocation(pipeline, "arrivalVisibility"),
-    entryGrowth: gl.getUniformLocation(pipeline, "entryGrowth"),
-    portalEye: gl.getUniformLocation(pipeline, "portalEye"),
-  };
-}
-
-function colors(state: MeshState, canvas: HTMLCanvasElement) {
-  const probe = document.createElement("canvas");
-  probe.width = probe.height = 1;
-  const context = probe.getContext("2d", { willReadFrequently: true });
-  if (!context) throw new Error("CA theme color unavailable");
-  const style = getComputedStyle(canvas);
-  const home = canvas.closest(".site-shell--home");
-  for (const [name, color] of [
-    ["bodyColor", style.color],
-    ["roadColor", style.getPropertyValue("--xca-mesh-road-color")],
-    ["signalColor", style.getPropertyValue("--neoverse-color-accent-primary")],
-    ["secondaryColor", style.getPropertyValue("--neoverse-color-accent-secondary")],
-    ["skylineColor", style.getPropertyValue("--xca-mesh-skyline-color")],
-    [
-      "sceneColor",
-      home
-        ? getComputedStyle(home).backgroundColor
-        : style.getPropertyValue("--neoverse-color-surface-canvas"),
-    ],
-  ]) {
-    context.fillStyle = color ?? style.color;
-    context.fillRect(0, 0, 1, 1);
-    const pixel = context.getImageData(0, 0, 1, 1).data;
-    state.gl.uniform3f(
-      state.gl.getUniformLocation(state.program, name ?? ""),
-      (pixel[0] ?? 0) / 255,
-      (pixel[1] ?? 0) / 255,
-      (pixel[2] ?? 0) / 255,
+function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
+  const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1;
+  renderer.autoClear = false;
+  renderer.setClearColor(0, 0);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.autoUpdate = false;
+  const gl = renderer.getContext();
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  const software =
+    info &&
+    /swiftshader|llvmpipe|softpipe|software|basic render/i.test(
+      String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)),
     );
+  const width = Math.max(1, root.clientWidth);
+  const height = Math.max(1, root.clientHeight);
+  const limit = renderer.capabilities.maxTextureSize;
+  const ratio = Math.min(
+    software ? 1 : Math.min(2, window.devicePixelRatio || 1),
+    Math.sqrt(8_000_000 / (width * height)),
+    limit / width,
+    limit / height,
+  );
+  renderer.setPixelRatio(ratio);
+  renderer.setSize(width, height, false);
+  return renderer;
+}
+
+function createPipeline(
+  root: HTMLElement,
+  canvas: HTMLCanvasElement,
+  paths: SVGPathElement[],
+): Pipeline {
+  const renderer = createRenderer(root, canvas);
+  const releases: (() => void)[] = [
+    () => {
+      renderer.dispose();
+      renderer.forceContextLoss();
+    },
+  ];
+  try {
+    const frame: IntroFrame = {
+      fill: { value: 0 },
+      growth: { value: 0 },
+      entry: { value: 0 },
+      arrival: { value: 0 },
+      travel: { value: 0 },
+      eye: { value: new Vector3() },
+    };
+    const materials = createIntroMaterials(renderer, frame);
+    releases.unshift(() => materials.dispose());
+    const radius = tokenLength(root, "--neoverse-radius-lg");
+    const scene = createIntroScene(createMarkMesh(paths, radius), materials);
+    releases.unshift(() => scene.dispose());
+    const lighting = createIntroLighting(scene.scene, renderer);
+    releases.unshift(() => lighting.dispose());
+    const city = createCityLayer(renderer, canvas.width, canvas.height);
+    releases.unshift(() => city.dispose());
+    const sky = createIntroSky(renderer);
+    releases.unshift(() => sky.dispose());
+    const view = createIntroCamera(
+      root.clientWidth,
+      root.clientHeight,
+      journeyPerspective(root.clientWidth),
+    );
+    const palette = createIntroPalette(canvas);
+    sky.update(palette);
+    const fog = new Fog(palette.haze, 2800, 30000);
+    scene.scene.fog = fog;
+    return {
+      renderer,
+      frame,
+      materials,
+      scene,
+      lighting,
+      city,
+      sky,
+      view,
+      palette,
+      fog,
+      dispose() {
+        for (const release of releases) release();
+      },
+    };
+  } catch (error) {
+    for (const release of releases) release();
+    throw error;
   }
 }
 
 function draw(
-  state: MeshState,
-  layer: NonNullable<ReturnType<typeof createCityLayer>>,
-  canvas: HTMLCanvasElement,
+  state: Pipeline,
   camera: HTMLElement,
   front: SVGPathElement,
   travel: HTMLElement,
   signs: HTMLElement[],
+  aura: HTMLElement,
 ) {
-  const { gl } = state;
-  bindMesh(state);
-  // Read the existing WAAPI camera. No independent clock, easing or pose state.
-  // 读取现有 WAAPI 相机；不维护独立时钟、缓动或姿态状态。
-  const view = new DOMMatrixReadOnly(getComputedStyle(camera).transform);
-  const eye = view.inverse().transformPoint({ x: 0, y: 0, z: JOURNEY.perspective });
+  const { renderer, frame, scene, view, city, sky } = state;
+  // WAAPI remains the only camera clock, including pauses, replay and interruption.
+  // WAAPI 仍是唯一相机时钟，涵盖暂停、重播与中断。
+  const matrix = new DOMMatrixReadOnly(getComputedStyle(camera).transform);
+  view.update(matrix);
+  const elements = view.camera.matrixWorld.elements;
+  frame.eye.value.set(elements[12] ?? 0, -(elements[13] ?? 0), elements[14] ?? 0);
   const movement = new DOMMatrixReadOnly(getComputedStyle(travel).transform).m43;
-  const fill = Math.max(0, Math.min(1, Number.parseFloat(getComputedStyle(front).fillOpacity)));
-  gl.uniformMatrix4fv(state.camera, false, view.toFloat32Array());
-  gl.uniform2f(state.viewport, canvas.clientWidth, canvas.clientHeight);
-  gl.uniform1f(state.fill, fill);
-  const growth = roadGrowth(eye.z);
-  gl.uniform1f(state.reach, growth);
-  gl.uniform1f(state.travel, movement);
-  gl.uniform1f(state.passage, (-eye.z + movement) / 700);
-  gl.uniform1f(state.skylineVisibility, 1);
-  gl.uniform1f(state.arrivalVisibility, arrivalOpacity(eye.z));
-  gl.uniform1f(state.entryGrowth, entryGrowth(eye.z));
-  gl.uniform3f(
-    state.portalEye,
-    (eye.x - JOURNEY.roadX) / ARRIVAL_ENTRY.width,
-    (eye.y - JOURNEY.floorY + ARRIVAL_ENTRY.height / 2) / ARRIVAL_ENTRY.width,
-    (eye.z - movement - ARRIVAL_ENTRY.front) / ARRIVAL_ENTRY.width,
+  const changed = frame.travel.value !== movement;
+  frame.travel.value = movement;
+  frame.fill.value = Math.max(
+    0,
+    Math.min(1, Number.parseFloat(getComputedStyle(front).fillOpacity)),
   );
-  gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
-  gl.disable(gl.DEPTH_TEST);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffer);
-  if (sortTransparentCity(state.city, view.toFloat64Array()))
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, state.city.sorted);
-  gl.depthMask(false);
-  gl.drawArrays(gl.TRIANGLES, 0, state.city.count);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.depthMask(true);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.depthMask(false);
-  compositeCityLayer(gl, layer, skylineOpacity(eye.z));
-  bindMesh(state);
-  gl.enable(gl.DEPTH_TEST);
-  gl.depthMask(true);
-  gl.drawArrays(gl.TRIANGLES, state.city.count, state.count - state.city.count);
+  frame.growth.value = roadGrowth(frame.eye.value.z);
+  frame.entry.value = entryGrowth(frame.eye.value.z);
+  frame.arrival.value = arrivalOpacity(frame.eye.value.z);
+  scene.mark.scale.z = Math.max(0.00001, frame.fill.value);
+  scene.mark.visible = frame.fill.value > 0;
+  scene.world.position.z = movement;
+  if (changed) {
+    state.lighting.move(movement);
+  }
+  state.lighting.useExterior();
+  view.camera.layers.set(INTRO_LAYERS.city);
+  state.fog.near = 2800;
+  state.fog.far = 30000;
+  renderer.setRenderTarget(city.target);
+  renderer.clear();
+  // The static room shadow map belongs to the foreground, never the city pass.
+  // 静态室内阴影图属于前景，不在城市阶段更新。
+  const shadows = renderer.shadowMap.needsUpdate;
+  renderer.shadowMap.needsUpdate = false;
+  renderer.render(scene.scene, view.camera);
+  renderer.setRenderTarget(null);
+  renderer.clear();
+  // The aura still owns the reveal ramp; the WebGL sky samples world directions.
+  // 入场显现仍由光晕控制，WebGL 天空按世界方向采样。
+  const reveal = Math.min(1, Number.parseFloat(getComputedStyle(aura).opacity || "0") / 0.58);
+  sky.draw(view.camera, reveal);
+  city.composite(skylineOpacity(frame.eye.value.z));
+  view.camera.layers.set(INTRO_LAYERS.exterior);
+  state.fog.near = 1800;
+  state.fog.far = 11000;
+  renderer.render(scene.scene, view.camera);
+  view.camera.layers.set(INTRO_LAYERS.auditorium);
+  state.lighting.useAuditorium();
+  renderer.shadowMap.needsUpdate = shadows;
+  renderer.render(scene.scene, view.camera);
   for (const sign of signs) {
-    const opacity = String(sceneryOpacity(growth, Number(sign.dataset.depth)));
+    const opacity = String(sceneryOpacity(frame.growth.value, Number(sign.dataset.depth)));
     if (sign.style.opacity !== opacity) sign.style.opacity = opacity;
   }
 }
 
-function bindMesh(state: MeshState) {
-  const { gl } = state;
-  gl.useProgram(state.program);
-  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffer);
-  for (const { location, size, offset } of state.attributes) {
-    gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 32, offset);
+interface RenderElements {
+  root: HTMLElement;
+  canvas: HTMLCanvasElement;
+  camera: HTMLElement;
+  front: SVGPathElement;
+  travel: HTMLElement;
+  signs: HTMLElement[];
+  aura: HTMLElement;
+}
+
+async function warmPipeline(state: Pipeline, elements: RenderElements, signal: AbortSignal) {
+  state.materials.update(state.palette);
+  state.sky.update(state.palette);
+  state.lighting.update(state.palette, state.frame.travel.value);
+  state.lighting.useExterior();
+  state.renderer.shadowMap.needsUpdate = true;
+  // Precompile both output variants before SVG stroke animation can start.
+  // 在 SVG 描边动画开始前预编译两种输出格式。
+  state.renderer.setRenderTarget(state.city.target);
+  await state.renderer.compileAsync(state.scene.scene, state.view.camera);
+  signal.throwIfAborted();
+  state.renderer.setRenderTarget(null);
+  await state.renderer.compileAsync(state.scene.scene, state.view.camera);
+  signal.throwIfAborted();
+  draw(state, elements.camera, elements.front, elements.travel, elements.signs, elements.aura);
+}
+
+class MarkRenderer {
+  private frame = 0;
+  private disposed = false;
+  private observer = new MutationObserver(() => this.sync());
+  private colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+
+  constructor(
+    private state: Pipeline,
+    private elements: RenderElements,
+    private unavailable: () => void,
+    private signal: AbortSignal,
+  ) {
+    this.observer.observe(elements.root, { attributes: true, attributeFilter: ["data-journey"] });
+    this.observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    this.colorScheme.addEventListener("change", this.sync);
+    elements.canvas.addEventListener("webglcontextlost", this.lost);
+    document.addEventListener("visibilitychange", this.sync);
+    signal.addEventListener("abort", this.dispose, { once: true });
   }
+
+  async prepare() {
+    try {
+      await warmPipeline(this.state, this.elements, this.signal);
+      if (this.disposed) return null;
+      this.signal.removeEventListener("abort", this.dispose);
+      this.elements.root.dataset.markRenderer = "mesh";
+      this.elements.root.dataset.renderEngine = "three";
+      this.sync();
+      return this.dispose;
+    } catch {
+      this.dispose();
+      if (!this.signal.aborted) this.unavailable();
+      return null;
+    }
+  }
+
+  private paint = () => {
+    const { camera, front, travel, signs, aura } = this.elements;
+    try {
+      draw(this.state, camera, front, travel, signs, aura);
+      this.frame = requestAnimationFrame(this.paint);
+    } catch {
+      this.dispose();
+      this.unavailable();
+    }
+  };
+
+  private sync = () => {
+    cancelAnimationFrame(this.frame);
+    const { root, canvas, signs } = this.elements;
+    if (root.dataset.journey === "draw")
+      for (const sign of signs) sign.style.removeProperty("opacity");
+    if (
+      this.disposed ||
+      root.dataset.markRenderer !== "mesh" ||
+      document.hidden ||
+      !["approach", "cruise", "retreat"].includes(root.dataset.journey ?? "")
+    )
+      return;
+    this.state.palette = createIntroPalette(canvas);
+    this.state.fog.color.copy(this.state.palette.haze);
+    this.state.materials.update(this.state.palette);
+    this.state.sky.update(this.state.palette);
+    this.state.lighting.update(this.state.palette, this.state.frame.travel.value);
+    this.state.renderer.shadowMap.needsUpdate = true;
+    this.paint();
+  };
+
+  private lost = (event: Event) => {
+    event.preventDefault();
+    this.dispose();
+    this.unavailable();
+  };
+
+  private dispose = () => {
+    if (this.disposed) return;
+    this.disposed = true;
+    cancelAnimationFrame(this.frame);
+    this.observer.disconnect();
+    document.removeEventListener("visibilitychange", this.sync);
+    this.colorScheme.removeEventListener("change", this.sync);
+    this.elements.canvas.removeEventListener("webglcontextlost", this.lost);
+    this.signal.removeEventListener("abort", this.dispose);
+    delete this.elements.root.dataset.markRenderer;
+    delete this.elements.root.dataset.renderEngine;
+    this.state.dispose();
+  };
 }
 
 /**
- * Software rasterizers fill pixels on the CPU, so supersampling them costs frames without
- * gaining detail the scene can show. Detect one and keep the native resolution instead.
- * 软件光栅器在 CPU 上填充像素，对它超采样只会掉帧，换不来场景能呈现的细节。
- * 因此识别软件光栅器并保持原生分辨率。
+ * Three.js prepares before drawing; WAAPI still owns all visible motion.
+ * Three.js 在描边前完成准备，所有可见运动仍由 WAAPI 驱动。
  */
-function softwareRasterizer(gl: WebGLRenderingContext): boolean {
-  const info = gl.getExtension("WEBGL_debug_renderer_info");
-  if (!info) return false;
-  const renderer = String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
-  return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer);
-}
-
-function prepareCityLayer(state: MeshState, root: HTMLElement, canvas: HTMLCanvasElement) {
-  // Supersample even if the driver declines the requested multisampling.
-  // 即使驱动拒绝请求的多重采样，也仍进行超采样。
-  const ratio = softwareRasterizer(state.gl)
-    ? 1
-    : Math.min(2.5, Math.max(2, window.devicePixelRatio || 1));
-  const limit = state.gl.getParameter(state.gl.MAX_RENDERBUFFER_SIZE) as number;
-  // Bound each full-screen attachment on large displays (8 million pixels).
-  // 在大屏幕上限制每个全屏附件的显存占用（800 万像素）。
-  const scale = Math.min(
-    ratio,
-    Math.sqrt(8_000_000 / (root.clientWidth * root.clientHeight)),
-    limit / root.clientWidth,
-    limit / root.clientHeight,
-  );
-  canvas.width = Math.max(1, Math.round(root.clientWidth * scale));
-  canvas.height = Math.max(1, Math.round(root.clientHeight * scale));
-  state.gl.viewport(0, 0, canvas.width, canvas.height);
-  const layer = createCityLayer(state.gl, canvas.width, canvas.height, (v, f) =>
-    program(state.gl, v, f),
-  );
-  return layer;
-}
-
-/**
- * A sorted transparent city pass precedes the depth-writing scene; WAAPI owns all motion.
- * 排序后的透明城市先于写入深度的场景绘制。所有运动由 WAAPI 驱动。
- */
-export function mountMarkRenderer(
+export async function mountMarkRenderer(
   root: HTMLElement,
   canvas: HTMLCanvasElement,
   paths: SVGPathElement[],
   unavailable: () => void,
-): (() => void) | null {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
+  signal: AbortSignal,
+): Promise<(() => void) | null> {
+  if (signal.aborted || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
   const camera = root.querySelector<HTMLElement>(".xca-ca-intro__camera");
   const front = root.querySelector<SVGPathElement>(".xca-ca-intro__front path");
   const travel = root.querySelector<HTMLElement>(".xca-ca-intro__travel");
-  if (!camera || !front || !travel) return null;
-  const signs = [...root.querySelectorAll<HTMLElement>(".xca-ca-intro__rib")];
-  let state: MeshState | null;
+  const aura = root.querySelector<HTMLElement>(".xca-ca-intro__aura");
+  if (!camera || !front || !travel || !aura) return null;
   try {
-    state = initialize(canvas, createMarkMesh(paths, tokenLength(root, "--neoverse-radius-lg")));
+    const state = createPipeline(root, canvas, paths);
+    const elements = {
+      root,
+      canvas,
+      camera,
+      front,
+      travel,
+      aura,
+      signs: [...root.querySelectorAll<HTMLElement>(".xca-ca-intro__rib")],
+    };
+    return await new MarkRenderer(state, elements, unavailable, signal).prepare();
   } catch {
     return null;
   }
-  if (!state) return null;
-  const active = state;
-  const candidate = prepareCityLayer(active, root, canvas);
-  if (!candidate) {
-    active.gl.deleteBuffer(active.buffer);
-    active.gl.deleteProgram(active.program);
-    return null;
-  }
-  const layer = candidate;
-  let frame = 0;
-  let disposed = false;
-  function paint() {
-    draw(
-      active,
-      layer,
-      canvas,
-      camera as HTMLElement,
-      front as SVGPathElement,
-      travel as HTMLElement,
-      signs,
-    );
-    frame = requestAnimationFrame(paint);
-  }
-  function sync() {
-    cancelAnimationFrame(frame);
-    if (root.dataset.journey === "draw")
-      for (const sign of signs) sign.style.removeProperty("opacity");
-    if (
-      disposed ||
-      !["approach", "cruise", "retreat"].includes(root.dataset.journey ?? "") ||
-      document.hidden
-    )
-      return;
-    colors(active, canvas);
-    paint();
-  }
-  function lost(event: Event) {
-    event.preventDefault();
-    dispose();
-    unavailable();
-  }
-  function dispose() {
-    if (disposed) return;
-    disposed = true;
-    cancelAnimationFrame(frame);
-    observer.disconnect();
-    document.removeEventListener("visibilitychange", sync);
-    colorScheme.removeEventListener("change", sync);
-    canvas.removeEventListener("webglcontextlost", lost);
-    delete root.dataset.markRenderer;
-    active.gl.deleteBuffer(active.buffer);
-    active.gl.deleteProgram(active.program);
-    layer.dispose();
-  }
-  const observer = new MutationObserver(sync);
-  const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
-  colorScheme.addEventListener("change", sync);
-  observer.observe(root, { attributes: true, attributeFilter: ["data-journey"] });
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-  canvas.addEventListener("webglcontextlost", lost);
-  document.addEventListener("visibilitychange", sync);
-  root.dataset.markRenderer = "mesh";
-  return dispose;
 }

@@ -63,6 +63,9 @@ const glassScreen = computed(
     props.intro &&
     (props.introStage === "logo" || (props.introStage === "reveal" && !props.bootLines.length)),
 );
+// The projected glass uses local CSS edges through every intro phase until it docks.
+// 透视玻璃在各入场阶段使用本地 CSS 边缘，直到终端归位。
+const projectedGlass = computed(() => props.intro && props.introStage !== "ready");
 const bootBar = computed(() => {
   // Reserve room for brackets, spacing and the percentage on narrow terminals.
   // 在窄终端上为方括号、间距和百分比预留空间。
@@ -315,13 +318,14 @@ defineExpose({
     :aria-label="t('terminal.label')"
     :aria-hidden="glassScreen || undefined"
     :inert="glassScreen"
-    :data-neoverse-glass-edge-pass="glassScreen ? 'css' : undefined"
+    :data-neoverse-glass-edge-pass="projectedGlass ? 'css' : undefined"
     surface="glass-elevated"
     class="xca-terminal-window scrollbar-immersive"
     :style="appearance"
     :class="{
       'xca-terminal-window--intro': intro,
       'xca-terminal-window--screen': glassScreen,
+      'xca-terminal-window--projected': projectedGlass,
       'xca-terminal-window--expanded': expanded,
     }"
   >

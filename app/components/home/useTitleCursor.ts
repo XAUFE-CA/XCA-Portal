@@ -1,4 +1,4 @@
-import { onBeforeUnmount, onMounted, type Ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, type Ref, ref, watch } from "vue";
 
 /**
  * Position one heading caret from the selected shared font's real glyph metrics.
@@ -8,11 +8,16 @@ export function useTitleCursor(
   heading: Ref<HTMLElement | null>,
   title: Ref<string>,
   visible: Ref<number>,
-) {
+): Ref<boolean> {
   let observer: ResizeObserver | undefined;
   let frame = 0;
   let mounted = false;
   let context: CanvasRenderingContext2D | null = null;
+  // Vue owns the caret's class attribute, so the ready state is component state rather
+  // than a class written straight to the node: a later render would drop it.
+  // 光标的 class 属性由 Vue 管理，因此就绪状态属于组件状态而不是直接写节点；
+  // 后续渲染会把它清掉。
+  const ready = ref(false);
   function measure() {
     const root = heading.value;
     const text = root?.querySelector<HTMLElement>(".xca-terminal-title__text");
@@ -52,7 +57,7 @@ export function useTitleCursor(
     );
     // The first placement is instant; only later moves glide.
     // 首次定位立即生效，之后的移动才使用过渡。
-    caret.classList.add("xca-terminal-title__caret--ready");
+    ready.value = true;
   }
   function schedule() {
     if (!mounted) return;
@@ -74,4 +79,5 @@ export function useTitleCursor(
     cancelAnimationFrame(frame);
     document.fonts.removeEventListener("loadingdone", schedule);
   });
+  return ready;
 }

@@ -1,6 +1,12 @@
 import { tokenLength } from "../../../utils/cssTokens";
 import { AUDITORIUM } from "./intro-auditorium";
-import { ARRIVAL_ENTRY, entryGrowth, JOURNEY, roadBend } from "./intro-geometry";
+import {
+  ARRIVAL_ENTRY,
+  entryGrowth,
+  JOURNEY,
+  journeyPerspective,
+  roadBend,
+} from "./intro-geometry";
 import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
 
 export type IntroAnimate = (
@@ -111,23 +117,23 @@ function cameraPose(eye: Point, target: Point, roll: number): CameraPose {
   };
 }
 
-function cameraTransform(pose: CameraPose): string {
+function cameraTransform(pose: CameraPose, perspective: number): string {
   const [x, y, z] = pose.eye;
-  return `translateZ(${JOURNEY.perspective}px) rotateZ(${pose.roll}rad) rotateX(${pose.pitch}rad) rotateY(${-pose.yaw}rad) translate3d(${-x}px, ${-y}px, ${-z}px)`;
+  return `translateZ(${perspective}px) rotateZ(${pose.roll}rad) rotateX(${pose.pitch}rad) rotateY(${-pose.yaw}rad) translate3d(${-x}px, ${-y}px, ${-z}px)`;
 }
 
-function cameraSamples(markSize: number, terminalHeight: number) {
-  const distance = (JOURNEY.perspective * 1254) / markSize;
+function cameraSamples(markSize: number, terminalHeight: number, perspective: number) {
+  const distance = (perspective * 1254) / markSize;
   const y = JOURNEY.floorY - terminalHeight / 2 - 80;
   const clearance = Math.max(0, JOURNEY.floorY - ARRIVAL_ENTRY.height + JOURNEY.near * 2 - y);
-  const { roadX: x, depth, perspective } = JOURNEY;
+  const { roadX: x, depth } = JOURNEY;
   // Original SVG opening: (775, 632), above the crossbars at y=685.
   // 原始 SVG 开口位于 (775, 632)，在 y=685 的横杠之上。
   const portalX = 775 - 627,
     portalY = 632 - 627;
   const orbit = Math.min(1, markSize / 352);
   const start: Point = [0, 0, distance];
-  const end: Point = [x, y, -depth + perspective];
+  const end: Point = [x, y, -depth + JOURNEY.perspective];
   const target: Point = [x, y, -depth];
   // Rise around C to reveal the extrusion, then level out before crossing A's opening.
   // 绕 C 抬升以揭示挤出厚度，然后在穿过 A 的开口前回正。
@@ -213,10 +219,14 @@ function cameraSamples(markSize: number, terminalHeight: number) {
   });
 }
 
-export function cameraFrames(markSize: number, terminalHeight: number): Keyframe[] {
-  return cameraSamples(markSize, terminalHeight).map((pose) => ({
+export function cameraFrames(
+  markSize: number,
+  terminalHeight: number,
+  perspective: number,
+): Keyframe[] {
+  return cameraSamples(markSize, terminalHeight, perspective).map((pose) => ({
     offset: pose.offset,
-    transform: cameraTransform(pose),
+    transform: cameraTransform(pose, perspective),
   }));
 }
 
@@ -225,6 +235,7 @@ function screenProjection(
   width: number,
   height: number,
   centred: TerminalPlacement,
+  perspective: number,
 ): number[] {
   const screen = AUDITORIUM.screen;
   const cy = Math.cos(pose.yaw),
@@ -250,7 +261,7 @@ function screenProjection(
     vertical = screen.height / height;
   const wx = (-zx * sx) / depth,
     wy = (-zy * vertical) / depth;
-  const p = JOURNEY.perspective;
+  const p = perspective;
   // The perspective row keeps the glass on the same camera plane, including pitch and yaw.
   // 透视行使玻璃与场景沿用同一相机投影，同时包含俯仰和偏航。
   return [
@@ -282,10 +293,11 @@ export function terminalFrames(
   terminalWidth: number,
   terminalHeight: number,
   centered: TerminalPlacement,
+  perspective: number,
 ): Keyframe[] {
   const screen = AUDITORIUM.screen;
   const renderedHeight = terminalHeight * centered.scale;
-  const samples = cameraSamples(markSize, renderedHeight);
+  const samples = cameraSamples(markSize, renderedHeight, perspective);
   const passageY = Math.max(
     JOURNEY.floorY - renderedHeight / 2 - 80,
     JOURNEY.floorY - ARRIVAL_ENTRY.height + JOURNEY.near * 2,
@@ -336,7 +348,7 @@ export function terminalFrames(
   samples.sort((a, b) => a.offset - b.offset);
   return samples.map((pose) => {
     const offset = pose.offset;
-    const matrix = screenProjection(pose, terminalWidth, terminalHeight, centered);
+    const matrix = screenProjection(pose, terminalWidth, terminalHeight, centered, perspective);
     const handoff = ramp(offset, INTRO_HANDOFF.start, INTRO_HANDOFF.boot);
     matrix.forEach((source, index) => {
       let target = index % 5 === 0 ? 1 : 0;
@@ -373,7 +385,12 @@ export function terminalDockFrames(from: ArrayLike<number>): Keyframe[] {
 function prepareJourney(root: HTMLElement, terminalHeight: number) {
   const markSize = Math.min(352, root.clientWidth * 0.64, root.clientHeight * 0.52);
   const camera = root.querySelector<HTMLElement>(".xca-ca-intro__camera");
-  if (camera) camera.style.transform = String(cameraFrames(markSize, terminalHeight)[0]?.transform);
+  const perspective = journeyPerspective(root.clientWidth);
+  root.style.setProperty("--xca-scene-perspective", `${perspective}px`);
+  if (camera)
+    camera.style.transform = String(
+      cameraFrames(markSize, terminalHeight, perspective)[0]?.transform,
+    );
   root.dataset.journey = "draw";
 }
 function geometryTracks(root: HTMLElement) {
@@ -392,7 +409,10 @@ function geometryTracks(root: HTMLElement) {
 function approachTracks(root: HTMLElement, terminalHeight: number) {
   const markSize = Math.min(352, root.clientWidth * 0.64, root.clientHeight * 0.52);
   return [
-    { selector: ".xca-ca-intro__camera", frames: cameraFrames(markSize, terminalHeight) },
+    {
+      selector: ".xca-ca-intro__camera",
+      frames: cameraFrames(markSize, terminalHeight, journeyPerspective(root.clientWidth)),
+    },
     ...(root.dataset.markRenderer === "mesh"
       ? []
       : [

@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: SSJ-ZYJ/Neoverse-UI
-          ref: 7c8f46bc8cce8dff6076713dcf14975d3678293d
+          ref: 62efaaa2dc7228c0f6505fcd47bb2553b6b90e0c
           path: Neoverse-UI
           persist-credentials: false
       - uses: actions/setup-node@v7

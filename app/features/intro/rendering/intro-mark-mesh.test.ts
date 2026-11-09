@@ -121,35 +121,21 @@ test("sign housing follows the same corner radius as its content face", () => {
   }
 });
 
-test("the low-poly skyline leaves the road corridor open with bounded background geometry", () => {
+test("city buildings leave the road corridor open within the combined district mesh budget", () => {
   const mesh = createMarkMesh([], 16);
-  const depths = new Set<number>();
   let count = 0;
   for (let offset = 0; offset < mesh.length; offset += 7) {
-    if (mesh[offset + 6] !== 5) continue;
+    const material = mesh[offset + 6] ?? 0;
+    if (material <= 4.5 || material >= 8.5 || material === 7) continue;
     count++;
-    expect(Math.abs((mesh[offset] ?? 0) - JOURNEY.roadX)).toBeGreaterThan(
-      JOURNEY.roadWidth / 2 + 140,
-    );
-    depths.add(mesh[offset + 2] ?? 0);
+    if (material < 5.5)
+      expect(Math.abs((mesh[offset] ?? 0) - JOURNEY.roadX)).toBeGreaterThan(
+        JOURNEY.roadWidth / 2 + 140,
+      );
   }
-  expect(count).toBeGreaterThan(3000);
-  expect(count).toBeLessThan(12000);
-  expect(depths.size).toBeGreaterThan(30);
-});
-
-test("distant towers fill the destination skyline beyond the road and foreground city", () => {
-  const mesh = createMarkMesh([], 16);
-  let highest = 0,
-    centerVertices = 0;
-  for (let offset = 0; offset < mesh.length; offset += 7) {
-    if (mesh[offset + 6] !== 8) continue;
-    expect(mesh[offset + 2] ?? 0).toBeLessThan(-20000);
-    highest = Math.max(highest, JOURNEY.floorY - (mesh[offset + 1] ?? 0));
-    if (Math.abs((mesh[offset] ?? 0) - JOURNEY.roadX) < 1800) centerVertices++;
-  }
-  expect(highest).toBeGreaterThan(7000);
-  expect(centerVertices).toBeGreaterThan(50);
+  // Buildings and street furniture stay below twenty thousand triangles.
+  // 楼宇与街道设施保持少于两万个三角形。
+  expect(count).toBeLessThan(60000);
 });
 
 test("the viaduct crosses between visible lower roofs and taller towers", () => {

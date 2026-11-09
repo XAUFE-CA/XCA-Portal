@@ -12,6 +12,8 @@ export const JOURNEY = {
   cityDrop: 1800,
   bearingInset: 12,
   roadWidth: 960,
+  railPostStart: -600,
+  railPostSpacing: 700,
   roadStart: -240,
   roadEnd: ROAD_END,
   roadLookAhead: 4500,
@@ -22,6 +24,16 @@ export const JOURNEY = {
   far: 50000,
 } as const;
 
+/**
+ * Preserve the horizontal scene coverage on portrait screens without stretching geometry.
+ * 在竖屏保留横向场景范围，不拉伸几何。
+ */
+export function journeyPerspective(width: number): number {
+  return JOURNEY.perspective * Math.min(1, width / 1024);
+}
+
+/** Both positions anchor distance-driven reveal timing; no standalone light frames are drawn.
+    两个位置都作为距离驱动的显现时序锚点，不再绘制独立光框。 */
 export const ARRIVAL_FRAMES = [JOURNEY.roadEnd + 1300, JOURNEY.roadEnd] as const;
 export const ARRIVAL_ENTRY = {
   front: ARRIVAL_FRAMES[1] + 24,
@@ -55,8 +67,8 @@ export function skylineOpacity(eyeZ: number): number {
 }
 
 /**
- * The two entrance frames retain their distance-driven lighting before room arrival.
- * 两层入口光框在报告厅到达前保留由距离驱动的照明。
+ * Distance-driven arrival progress now only anchors timing; the standalone light frames are gone.
+ * 距离驱动的到达进度现在只作为时序锚点，独立光框已移除。
  */
 export function arrivalOpacity(eyeZ: number): number {
   const smooth = (value: number) => {
@@ -75,8 +87,8 @@ function passageRamp(eyeZ: number, from: number, to: number): number {
 }
 
 /**
- * Open the portal continuously before reaching the first frame.
- * 在到达第一层光框前连续展开传送门。
+ * Open the portal continuously before reaching the entrance.
+ * 在到达入口前连续展开传送门。
  */
 export function entryGrowth(eyeZ: number): number {
   return passageRamp(eyeZ, ARRIVAL_ENTRY.assemblyStart, ARRIVAL_ENTRY.assemblyEnd);
@@ -160,47 +172,3 @@ export function sceneryOpacity(growth: number, depth: number): number {
   );
   return t * t * (3 - 2 * t);
 }
-
-/**
- * Shared normalized architectural profiles keep city silhouettes deterministic.
- * 共用归一化建筑轮廓，使城市剪影保持确定。
- */
-export const CITY_PROFILES = [
-  [
-    [0, 1],
-    [0, 0.22],
-    [0.22, 0.22],
-    [0.22, 0],
-    [0.78, 0],
-    [0.78, 0.22],
-    [1, 0.22],
-    [1, 1],
-  ],
-  [
-    [0, 1],
-    [0, 0],
-    [0.34, 0],
-    [0.34, 0.32],
-    [0.64, 0.32],
-    [0.64, 0.12],
-    [1, 0.12],
-    [1, 1],
-  ],
-  [
-    [0, 1],
-    [0, 0.16],
-    [0.72, 0],
-    [1, 0.09],
-    [1, 1],
-  ],
-  [
-    [0, 1],
-    [0, 0.5],
-    [0.18, 0.5],
-    [0.18, 0.25],
-    [0.7, 0.25],
-    [0.7, 0],
-    [1, 0],
-    [1, 1],
-  ],
-] as const;

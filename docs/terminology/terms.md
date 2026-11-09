@@ -12,6 +12,7 @@
 | Neoverse-UI | 共享 UI 库 | 正文统一写 Neoverse-UI，不写无连字符的 Neoverse UI 或小写 neoverse-ui，包名 `@neoverse-ui/*` 除外 |
 | morphicons | SVG 图标变形库 | 保留官方小写写法；图形数据与变形由不同职责维护 |
 | Nuxt Content | Nuxt 的内容模块 | 版本写 Nuxt Content 3 |
+| Three.js | 浏览器三维渲染库 | 使用官方大小写；不指页面共享 UI 或动画时钟 |
 | 门户 | 本仓库交付的 XCA Portal | 不用“站点”指代本项目 |
 | 终端 | 浏览器内模拟终端 | 不写“终端机” |
 | 报告厅 | Auditorium，完整入场末段的室内场景 | 包含中央过道、阶梯座椅与舞台，屏幕直接使用真实终端，不指独立页面或真实场馆 |
@@ -67,6 +68,10 @@
 | YAML | YAML Ain't Markup Language（人类可读的数据序列化语言，递归缩写，初义 Yet Another Markup Language） | 保留官方大写，不翻译、不展开 |
 | SVG | Scalable Vector Graphics（可缩放矢量图形） | 保留官方大写，不翻译、不展开 |
 | WebGL | Web Graphics Library（Web 图形库） | 保留官方大写，不翻译、不展开 |
+| WebGL2 | WebGL 2.0 | 首页 Three.js 场景所需图形接口；不可用时保留 SVG 与终端 |
+| PBR | Physically Based Rendering（基于物理的渲染） | 指场景材质与光照，不指共享 UI 的极光玻璃 |
+| PMREM | Prefiltered Mipmapped Radiance Environment Map（预过滤多级辐射环境贴图） | 用于场景材质随粗糙度变化的环境反射 |
+| HDR | High Dynamic Range（高动态范围） | 描述场景离屏颜色与灯光范围，不表示显示设备能力 |
 | CLI | Command-Line Interface（命令行界面） | 保留官方大写，不翻译、不展开 |
 | UI | User Interface（用户界面） | 保留官方大写，不翻译、不展开 |
 | SHA | Secure Hash Algorithm（安全哈希算法） | 保留官方大写，不翻译、不展开 |

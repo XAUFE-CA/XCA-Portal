@@ -6,7 +6,6 @@ import { SITE } from "~/config/site";
 import type { MessageKey } from "~/i18n";
 import mark from "../../../../public/brand/ca-mark.svg?raw";
 import { JOURNEY_STATIONS, roadBend } from "../core/intro-geometry";
-import { mountMarkRenderer } from "../rendering/intro-mark-renderer";
 
 const { t } = useSiteLocale();
 const front = ref<HTMLElement | null>(null);
@@ -14,6 +13,7 @@ const scene = ref<HTMLElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
 const meshReady = ref(false);
 let releaseMesh: (() => void) | null = null;
+let mounted = false;
 // The draw phase and non-WebGL fallback keep the CA mark SVG paths.
 // 绘制阶段与非 WebGL 回退都沿用 CA 标识 SVG 路径。
 // The scene keeps the 1254-unit coordinate space; pages render the cropped square mark.
@@ -46,15 +46,38 @@ const fins = JOURNEY_STATIONS.map((station) => ({
 }));
 
 onMounted(() => {
-  const paths = [...(front.value?.querySelectorAll("path") ?? [])];
-  if (scene.value && canvas.value) {
-    releaseMesh = mountMarkRenderer(scene.value, canvas.value, paths, () => {
-      meshReady.value = false;
-    });
-    meshReady.value = Boolean(releaseMesh);
-  }
+  mounted = true;
 });
-onBeforeUnmount(() => releaseMesh?.());
+
+async function prepareRenderer(signal: AbortSignal) {
+  if (signal.aborted || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  try {
+    const { mountMarkRenderer } = await import("../rendering/intro-mark-renderer");
+    if (!mounted || signal.aborted || !scene.value || !canvas.value) return;
+    const paths = [...(front.value?.querySelectorAll("path") ?? [])];
+    releaseMesh = await mountMarkRenderer(
+      scene.value,
+      canvas.value,
+      paths,
+      () => {
+        meshReady.value = false;
+      },
+      signal,
+    );
+    if (!mounted || signal.aborted) {
+      releaseMesh?.();
+      return;
+    }
+    meshReady.value = Boolean(releaseMesh);
+  } catch {
+    meshReady.value = false;
+  }
+}
+defineExpose({ prepareRenderer });
+onBeforeUnmount(() => {
+  mounted = false;
+  releaseMesh?.();
+});
 </script>
 
 <template>

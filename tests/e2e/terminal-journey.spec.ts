@@ -103,12 +103,16 @@ test("journey timeline records frame timings and releases spatial animations", a
       medianFrameMs: intervals[Math.floor(intervals.length / 2)],
       p95FrameMs: intervals[Math.floor(intervals.length * 0.95)],
       longestTaskMs: Math.max(0, ...data.longTasks),
+      // Ambient loops such as the shared caret breathe never settle by design, so only
+      // finite arrival effects count as still running.
+      // 共享光标呼吸等环境循环本就永不结束，因此只统计有限的到达动效。
       runningSpatialEffects: document.getAnimations().filter((animation) => {
         const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
         return (
           target instanceof Element &&
           !!target.closest(".xca-ca-intro, .xca-terminal-window") &&
-          animation.playState === "running"
+          animation.playState === "running" &&
+          animation.effect?.getComputedTiming().iterations !== Infinity
         );
       }).length,
       viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio },
@@ -128,7 +132,8 @@ test("journey timeline records frame timings and releases spatial animations", a
               return (
                 target instanceof Element &&
                 !!target.closest(".xca-ca-intro, .xca-terminal-window") &&
-                animation.playState === "running"
+                animation.playState === "running" &&
+                animation.effect?.getComputedTiming().iterations !== Infinity
               );
             }).length,
         ),

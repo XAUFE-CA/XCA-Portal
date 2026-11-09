@@ -57,6 +57,14 @@ function waitForVisible(signal: AbortSignal): Promise<void> {
     signal.addEventListener("abort", stop, { once: true });
   });
 }
+
+async function waitForPaint(signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted();
+  const { promise, resolve } = Promise.withResolvers<void>();
+  requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  await promise;
+  signal.throwIfAborted();
+}
 export function useIntroPresentation(getCommandCount: () => number) {
   const { $glassRenderer } = useNuxtApp();
   const phase = ref<TerminalPresentationStage>("ready");
@@ -151,6 +159,10 @@ export function useIntroPresentation(getCommandCount: () => number) {
   ) {
     const root = (markRef.value?.$el as HTMLElement | undefined) ?? null;
     if (!root) return;
+    await markRef.value?.prepareRenderer(signal);
+    // Leave a painted frame after GPU preparation before starting the SVG strokes.
+    // GPU 准备结束后先完成一帧绘制，再启动 SVG 描边。
+    await waitForPaint(signal);
     await playIntroMark({
       root,
       terminal: element,
@@ -322,11 +334,6 @@ export function useIntroPresentation(getCommandCount: () => number) {
 
     try {
       await waitForVisible(signal);
-      // Give the empty SVG contours a painted frame, including warm-cache loads.
-      // 为空的 SVG 轮廓留出一帧绘制时间，包括热缓存加载。
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      );
       signal.throwIfAborted();
       if (centered) await playMark(element, unit, signal, centered);
       else {

@@ -1,59 +1,75 @@
 import { expect, type Page, test } from "@playwright/test";
+import { freezeApproach } from "./journey";
 import { setThemePreference } from "./preferences";
 import { SCENE_TIMEOUT } from "./timing";
 
-type FadeProbe = { opacity: number | null; layer: boolean; pixels: Uint8Array | null };
+type FadeProbe = {
+  opacity: number | null;
+  version: number;
+  sampled: number;
+  layer: boolean;
+  pixels: Uint8Array | null;
+};
+
+declare global {
+  interface Window {
+    fadeProbe: FadeProbe;
+  }
+}
 
 async function observeCity(page: Page, theme: "light" | "dark") {
   await setThemePreference(page, theme);
   await page.addInitScript(() => {
-    const probe: FadeProbe = { opacity: null, layer: false, pixels: null };
+    const probe: FadeProbe = { opacity: null, version: 0, sampled: -1, layer: false, pixels: null };
     Object.assign(window, { fadeProbe: probe });
-    const names = new WeakMap<WebGLUniformLocation, string>();
-    const locate = WebGLRenderingContext.prototype.getUniformLocation;
-    WebGLRenderingContext.prototype.getUniformLocation = function (program, name) {
-      const location = locate.call(this, program, name);
-      if (location) names.set(location, name);
-      if (name === "cityOpacity") probe.layer = true;
-      return location;
-    };
-    const uniform = WebGLRenderingContext.prototype.uniform1f;
-    WebGLRenderingContext.prototype.uniform1f = function (location, value) {
-      const name = location ? names.get(location) : null;
+    const prototype = WebGL2RenderingContext.prototype;
+    const composites = new WeakMap<WebGLProgram, WebGLUniformLocation | null>();
+    const inspect = (gl: WebGL2RenderingContext) => {
       if (
-        probe.opacity !== null &&
-        (name === "cityOpacity" || (name === "skylineVisibility" && !probe.layer))
+        !(gl.canvas instanceof HTMLCanvasElement) ||
+        !gl.canvas.classList.contains("xca-ca-intro__mesh")
       )
-        value = probe.opacity;
-      return uniform.call(this, location, value);
+        return null;
+      const program = gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram | null;
+      if (!program) return null;
+      if (!composites.has(program)) {
+        const texture = gl.getUniformLocation(program, "cityTexture");
+        composites.set(program, texture ? gl.getUniformLocation(program, "cityOpacity") : null);
+      }
+      const opacity = composites.get(program);
+      if (!opacity) return null;
+      probe.layer = true;
+      // Three caches unchanged uniforms, so override the real consumer immediately before drawing.
+      // Three 会缓存未变的 uniform，因此在实际消费者绘制前直接覆盖。
+      if (probe.opacity !== null) gl.uniform1f(opacity, probe.opacity);
+      return probe.opacity !== null && gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) === null;
     };
-    const draw = WebGLRenderingContext.prototype.drawArrays;
-    WebGLRenderingContext.prototype.drawArrays = function (mode, first, count) {
-      const scene =
-        this.canvas instanceof HTMLCanvasElement &&
-        this.canvas.classList.contains("xca-ca-intro__mesh");
-      if (scene && probe.opacity !== null && first > 0 && this.getParameter(this.DEPTH_WRITEMASK))
-        return;
-      draw.call(this, mode, first, count);
-      if (
-        !scene ||
-        probe.opacity === null ||
-        first !== 0 ||
-        this.getParameter(this.FRAMEBUFFER_BINDING) !== null
-      )
-        return;
-      const width = Math.floor(this.drawingBufferWidth * 0.3),
-        height = Math.floor(this.drawingBufferHeight * 0.6);
+    const sample = (gl: WebGL2RenderingContext) => {
+      const width = Math.floor(gl.drawingBufferWidth * 0.3);
+      const height = Math.floor(gl.drawingBufferHeight * 0.6);
       probe.pixels ??= new Uint8Array(width * height * 4);
-      this.readPixels(
+      gl.readPixels(
         0,
-        Math.floor(this.drawingBufferHeight * 0.3),
+        Math.floor(gl.drawingBufferHeight * 0.3),
         width,
         height,
-        this.RGBA,
-        this.UNSIGNED_BYTE,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
         probe.pixels,
       );
+      probe.sampled = probe.version;
+    };
+    const arrays = prototype.drawArrays,
+      elements = prototype.drawElements;
+    prototype.drawArrays = function (mode, first, count) {
+      const composite = inspect(this);
+      arrays.call(this, mode, first, count);
+      if (composite) sample(this);
+    };
+    prototype.drawElements = function (mode, count, type, offset) {
+      const composite = inspect(this);
+      elements.call(this, mode, count, type, offset);
+      if (composite) sample(this);
     };
   });
 }
@@ -67,54 +83,63 @@ for (const theme of ["light", "dark"] as const) {
     await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "approach", {
       timeout: SCENE_TIMEOUT,
     });
-    const result = await page.evaluate(async (theme) => {
-      const camera = document
-        .getAnimations()
-        .find(
-          (animation) =>
-            animation.effect instanceof KeyframeEffect &&
-            animation.effect.target instanceof Element &&
-            animation.effect.target.matches(".xca-ca-intro__camera"),
-        );
-      if (!camera?.effect) throw new Error("Journey camera required");
-      for (const animation of document.getAnimations()) {
-        const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
-        if (target instanceof Element && target.closest(".xca-ca-intro, .xca-terminal-window")) {
-          animation.pause();
-          animation.currentTime = Number(camera.effect.getTiming().duration) * 0.55;
+    await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-render-engine", "three");
+    await freezeApproach(page, 0.55);
+    const result = await page.evaluate(async () => {
+      const probe = window.fadeProbe;
+      async function sample(opacity: number) {
+        probe.opacity = opacity;
+        probe.version++;
+        while (probe.sampled !== probe.version) {
+          const { promise, resolve } = Promise.withResolvers<void>();
+          requestAnimationFrame(() => resolve());
+          await promise;
         }
+        if (!probe.pixels) throw new Error("Actual city composite pixels required");
+        return probe.pixels.slice();
       }
-      const probe = (window as unknown as { fadeProbe: FadeProbe }).fadeProbe;
-      const background = theme === "light" ? [245, 249, 252] : [6, 11, 19];
       function difference(pixels: Uint8Array, previous: Uint8Array): number {
         let maximum = 0;
         for (let index = 0; index < pixels.length; index += 4) {
           for (let channel = 0; channel < 3; channel++) {
-            const base = background[channel] ?? 0;
-            const now =
-              (pixels[index + channel] ?? 0) + base * (1 - (pixels[index + 3] ?? 0) / 255);
-            const before =
-              (previous[index + channel] ?? 0) + base * (1 - (previous[index + 3] ?? 0) / 255);
-            maximum = Math.max(maximum, Math.abs(now - before));
+            for (const background of [0, 255]) {
+              const now =
+                (pixels[index + channel] ?? 0) + background * (1 - (pixels[index + 3] ?? 0) / 255);
+              const before =
+                (previous[index + channel] ?? 0) +
+                background * (1 - (previous[index + 3] ?? 0) / 255);
+              maximum = Math.max(maximum, Math.abs(now - before));
+            }
           }
         }
         return maximum;
       }
-      let previous: Uint8Array | undefined,
-        worst = 0;
-      for (let step = 0; step <= 100; step++) {
-        probe.opacity = step * 0.001;
-        // One frame per opacity step: the probe reads the framebuffer the draw already wrote.
-        // 每个不透明度步进只用一帧：探针读取绘制已写入的帧缓冲。
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        const pixels = probe.pixels;
-        if (!pixels) throw new Error("City framebuffer sample required");
-        if (previous) worst = Math.max(worst, difference(pixels, previous));
-        previous = pixels.slice();
+      const hidden = await sample(0),
+        visible = await sample(1);
+      let previous = hidden,
+        worst = 0,
+        reverse = 0;
+      for (let step = 1; step <= 100; step++) {
+        const pixels = await sample(step * 0.001);
+        worst = Math.max(worst, difference(pixels, previous));
+        for (let index = 3; index < pixels.length; index += 4)
+          reverse = Math.max(reverse, (previous[index] ?? 0) - (pixels[index] ?? 0));
+        previous = pixels;
       }
-      return { worst, layer: probe.layer };
-    }, theme);
+      const changed = difference(previous, hidden);
+      let covered = 0,
+        residual = 0;
+      for (let index = 3; index < visible.length; index += 4) {
+        if (visible[index]) covered++;
+        residual = Math.max(residual, hidden[index] ?? 0);
+      }
+      return { worst, reverse, changed, covered, residual, layer: probe.layer };
+    });
     expect(result.layer).toBe(true);
+    expect(result.covered).toBeGreaterThan(100);
+    expect(result.residual).toBe(0);
+    expect(result.changed).toBeGreaterThan(2);
+    expect(result.reverse).toBe(0);
     expect(result.worst).toBeLessThanOrEqual(2.1);
   });
 }

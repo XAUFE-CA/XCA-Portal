@@ -30,6 +30,7 @@ export const AUDITORIUM_MATERIAL = {
   alloy: 13,
   ground: 14,
   gateway: 15,
+  glass: 16,
   entryLight: 18,
 } as const;
 
@@ -56,57 +57,134 @@ type AddObject = (
 ) => void;
 
 function architecture(add: AddObject) {
-  const { entrance, back, halfWidth, ceiling } = AUDITORIUM;
+  const { entrance, back, halfWidth, ceiling, stageFront } = AUDITORIUM;
   const { roadX: x, floorY: floor } = JOURNEY;
   const length = entrance - back;
   add("floor", [x - halfWidth, floor, entrance], [halfWidth * 2, 48, length]);
   add("ceiling", [x - halfWidth, ceiling - 48, entrance], [halfWidth * 2, 48, length]);
-  add("back-wall", [x - halfWidth, ceiling, back], [halfWidth * 2, floor - ceiling, 48], "alloy");
+  // Keep the entire terminal backdrop uninterrupted and matte.
+  // 终端背后的完整墙面保持无分缝的哑光表面。
+  add("back-wall", [x - halfWidth, ceiling, back], [halfWidth * 2, floor - ceiling, 48]);
   for (const side of [-1, 1]) {
     const wall = x + side * halfWidth;
     add(`wall.${side}`, [wall - 32, ceiling, entrance], [64, floor - ceiling, length]);
-    const interior = side < 0 ? wall + 32 : wall - 60;
-    add(`wall-plinth.${side}`, [interior, floor - 86, entrance], [28, 86, length], "acoustic");
     add(
-      `ceiling-rail.${side}`,
-      [x + side * 2040 - 28, ceiling, entrance],
-      [56, 42, length],
+      `wall-plinth.${side}`,
+      [x + (side < 0 ? -2568 : 2524), floor - 160, entrance],
+      [44, 160, length],
       "acoustic",
-    );
-    add(
-      `ceiling-cove.${side}`,
-      [x + side * 1970 - 2, ceiling + 42, entrance],
-      [4, 3, length],
-      "light",
     );
     const guide = JOURNEY.roadWidth * 0.42;
     add(
       `aisle-light.${side}`,
-      [x + side * guide - 2, floor - 2, entrance],
-      [4, 2, length],
+      [x + side * guide - 9, floor - 8, entrance],
+      [18, 12, entrance - stageFront - 300],
       "light",
     );
-    const panelX = side < 0 ? wall + 32 : wall - 56;
-    for (let panel = 0; panel < 10; panel++) {
-      const z = entrance - 180 - (panel * (length - 360)) / 10;
-      add(`acoustic.${side}.${panel}`, [panelX, -900, z], [24, 1000, 310], "acoustic", {
-        axis: "x",
-        radius: 12,
-        bevel: 3,
-      });
-      const lightX = side < 0 ? panelX + 24 : panelX - 2;
-      add(`wall-light.${side}.${panel}`, [lightX, -740, z - 346], [2, 660, 4], "light");
-    }
   }
-  for (let bay = 0; bay < 7; bay++) {
-    const z = entrance - 420 - bay * 650;
-    add(`ceiling-baffle.${bay}`, [x - 2080, ceiling, z], [4160, 64, 88], "acoustic", {
-      axis: "x",
-      radius: 10,
-      bevel: 3,
+  sideWalls(add);
+  ceilingArchitecture(add);
+}
+
+function sideWalls(add: AddObject) {
+  const { entrance, back } = AUDITORIUM;
+  const { roadX: x } = JOURNEY;
+  const spacing = (entrance - back - 1200) / 5;
+  for (const side of [-1, 1]) {
+    for (let panel = 0; panel < 5; panel++) {
+      const z = entrance - 650 - panel * spacing;
+      const thickness = panel % 2 === 0 ? 144 : 96;
+      const left = x + (side < 0 ? -2500 : 2500 - thickness);
+      const top = -1740 + (panel % 2) * 90;
+      add(
+        `acoustic-mount.${side}.${panel}`,
+        [x + (side < 0 ? -2568 : 2472), -1850, z + 36],
+        [96, 1700, 732],
+        "alloy",
+        { axis: "x", radius: 72, bevel: 16 },
+      );
+      add(`acoustic.${side}.${panel}`, [left, top, z], [thickness, 1500, 660], "acoustic", {
+        axis: "x",
+        radius: 64,
+        bevel: 16,
+      });
+      const face = side < 0 ? left + thickness : left;
+      const stripX = face - 6;
+      for (const [edge, depth] of [
+        ["left", z - 12],
+        ["right", z - 648],
+      ] as const)
+        add(
+          `panel-light.${side}.${panel}.${edge}`,
+          [stripX, top + 60, depth],
+          [12, 1380, 16],
+          "light",
+        );
+      add(
+        `panel-light.${side}.${panel}.foot`,
+        [stripX, top + 1460, z - 330],
+        [12, 14, 640],
+        "light",
+      );
+    }
+    add(
+      `wall-glass.${side}`,
+      [x + (side < 0 ? -2568 : 2552), -2080, entrance - 300],
+      [16, 300, entrance - back - 600],
+      "glass",
+    );
+  }
+}
+
+function ceilingArchitecture(add: AddObject) {
+  const { entrance, back, ceiling } = AUDITORIUM;
+  const { roadX: x } = JOURNEY;
+  const length = entrance - back - 320;
+  for (const side of [-1, 1]) {
+    const center = x + side * 2190;
+    add(
+      `ceiling-rail.${side}`,
+      [center - 110, ceiling + 48, entrance - 160],
+      [220, 104, length],
+      "alloy",
+      { axis: "y", radius: 44, bevel: 12 },
+    );
+    for (let mount = 0; mount < 2; mount++)
+      add(
+        `ceiling-rail-mount.${side}.${mount}`,
+        [center - 40, ceiling, entrance - 460 - mount * (length - 700)],
+        [80, 64, 160],
+      );
+    add(
+      `ceiling-cove.${side}`,
+      [center - 32, ceiling + 148, entrance - 224],
+      [64, 28, length - 128],
+      "light",
+      { axis: "y", radius: 24, bevel: 4 },
+    );
+  }
+  for (let canopy = 0; canopy < 3; canopy++) {
+    const y = ceiling + 82 + canopy * 18;
+    const z = entrance - 1120 - canopy * 1180;
+    add(`suspended-canopy.${canopy}`, [x - 1640, y, z], [3280, 88, 650], "alloy", {
+      axis: "y",
+      radius: 96,
+      bevel: 16,
     });
-    add(`ceiling-channel.${bay}`, [x - 1220, ceiling + 64, z - 29], [2440, 5, 28], "structure");
-    add(`ceiling-light.${bay}`, [x - 1200, ceiling + 69, z - 40], [2400, 3, 6], "light");
+    for (const side of [-1, 1]) {
+      add(
+        `canopy-mount.${canopy}.${side}`,
+        [x + side * 1260 - 24, ceiling, z - 220],
+        [48, y - ceiling + 16, 96],
+      );
+      add(
+        `canopy-inlay.${canopy}.${side}`,
+        [x + side * 1150 - 70, y + 80, z - 84],
+        [140, 28, 480],
+        "light",
+        { axis: "y", radius: 36, bevel: 4 },
+      );
+    }
   }
 }
 
@@ -166,33 +244,39 @@ function entryHall(add: AddObject) {
 
 function stageArchitecture(add: AddObject) {
   const { roadX: x } = JOURNEY;
-  const { back, ceiling } = AUDITORIUM;
+  const { back, ceiling, stageY, stageFront } = AUDITORIUM;
+  // Side pylons stand clear of the rear wall and outside the glass projection.
+  // 侧翼立体构件与后墙分离，并位于玻璃投影之外。
   for (const side of [-1, 1]) {
-    for (let layer = 0; layer < 2; layer++) {
-      const left = x + (side < 0 ? -2470 : 1550);
-      const y = -850 + layer * 400;
-      add(`stage-wing.${side}.${layer}`, [left, y, back + 80], [920, 180, 80], "alloy", {
-        axis: "z",
-        radius: 48,
-        bevel: 12,
-      });
-      add(
-        `stage-wing-inlay.${side}.${layer}`,
-        [left + 110, y + 155, back + 83],
-        [700, 3, 5],
-        "light",
-      );
-    }
-  }
-  for (let canopy = 0; canopy < 3; canopy++) {
-    const y = ceiling + 140 + canopy * 60;
-    const z = AUDITORIUM.stageFront + 1700 - canopy * 750;
-    add(`suspended-canopy.${canopy}`, [x - 1750, y, z], [3500, 24, 240], "alloy", {
-      axis: "y",
-      radius: 60,
-      bevel: 6,
-    });
-    add(`canopy-inlay.${canopy}`, [x - 1640, y + 25, z - 20], [3280, 3, 5], "light");
+    const center = x + side * 2200;
+    add(
+      `stage-wing.${side}.0`,
+      [center - 180, ceiling + 160, back + 360],
+      [360, stageY - ceiling - 156, 220],
+      "structure",
+      { axis: "z", radius: 68, bevel: 24 },
+    );
+    const z = stageFront + 260;
+    add(
+      `stage-spot-mount.${side}`,
+      [x + side * 1680 - 30, ceiling, z - 70],
+      [60, 208, 100],
+      "structure",
+    );
+    add(
+      `stage-spot-housing.${side}`,
+      [x + side * 1680 - 110, ceiling + 190, z],
+      [220, 132, 240],
+      "structure",
+      { axis: "y", radius: 48, bevel: 16 },
+    );
+    add(
+      `stage-spot-aperture.${side}`,
+      [x + side * 1680 - 78, ceiling + 330, z - 34],
+      [156, 22, 156],
+      "light",
+      { axis: "y", radius: 40, bevel: 4 },
+    );
   }
 }
 
@@ -211,8 +295,8 @@ function seating(add: AddObject) {
       );
       add(
         `step-light.${side}.${row}`,
-        [left + 12, level - 2, z - rowDepth / 2 + 26],
-        [1346, 2, 4],
+        [left + (side < 0 ? 1282 : 24), level + 14, z + rowDepth / 2 + 28],
+        [64, 16, 16],
         "light",
       );
       for (let column = 0; column < 5; column++) {
@@ -252,31 +336,39 @@ function seating(add: AddObject) {
 function stage(add: AddObject) {
   const { roadX: x, floorY: floor } = JOURNEY;
   const { stageFront: front, stageY, stageHalfWidth: half, screen } = AUDITORIUM;
-  add("stage", [x - half, stageY, front], [half * 2, 128, front - AUDITORIUM.back]);
+  add("stage", [x - half, stageY, front], [half * 2, 128, front - AUDITORIUM.back - 32]);
   for (let step = 0; step < 2; step++) {
     const z = front + 280 - step * 140;
     add(`stage-step.${step}`, [x - 1080, floor - 26 * (step + 1), z], [2160, 30, 140]);
     add(
       `stage-edge.${step}`,
-      [x - 1068, floor - 26 * (step + 1) - 2, z - 2],
-      [2136, 2, 3],
+      [x - 1040, floor - 26 * (step + 1) + 8, z + 8],
+      [2080, 12, 12],
       "light",
     );
   }
-  add("stage-front-light", [x - half + 12, stageY - 2, front - 2], [half * 2 - 24, 2, 3], "light");
-  const fasciaWidth = (half * 2 - 24) / 11;
-  for (let panel = 0; panel < 11; panel++)
+  add(
+    "stage-front-light",
+    [x - half + 32, stageY + 14, front + 12],
+    [half * 2 - 64, 16, 16],
+    "light",
+  );
+  const fasciaWidth = (half * 2 - 96) / 3;
+  for (let panel = 0; panel < 3; panel++) {
+    const left = x - half + 48 + panel * fasciaWidth;
+    add(
+      `stage-fascia-mount.${panel}`,
+      [left + fasciaWidth / 2 - 40, stageY + 48, front + 12],
+      [80, 40, 24],
+    );
     add(
       `stage-fascia.${panel}`,
-      [x - half + 12 + panel * fasciaWidth, stageY + 4, front + 4],
-      [fasciaWidth - 8, 64, 14],
+      [left, stageY + 40, front + 24],
+      [fasciaWidth - 20, 64, 16],
       "acoustic",
-      {
-        axis: "z",
-        radius: 4,
-        bevel: 1,
-      },
+      { axis: "z", radius: 12, bevel: 4 },
     );
+  }
   for (const side of [-1, 1]) {
     add(
       `speaker.${side}`,
@@ -289,11 +381,11 @@ function stage(add: AddObject) {
         bevel: 4,
       },
     );
-    for (let slot = 0; slot < 6; slot++)
+    for (let slot = 0; slot < 4; slot++)
       add(
         `speaker-grille.${side}.${slot}`,
-        [x + side * 1930 - 57, -190 + slot * 64, screen.z + 122],
-        [114, 3, 2],
+        [x + side * 1930 - 57, -170 + slot * 96, screen.z + 128],
+        [114, 12, 12],
       );
   }
   add("lectern-foot", [x - 1735, 206, screen.z + 370], [180, 14, 150], "structure", {

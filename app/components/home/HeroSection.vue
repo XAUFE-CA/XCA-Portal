@@ -45,7 +45,7 @@ const sentenceTexts = computed(() =>
 // SSR 保留完整标题。动画在开场显示后才开始。
 const visibleLetters = ref(titleLength.value);
 const titleElement = ref<HTMLElement | null>(null);
-useTitleCursor(titleElement, title, visibleLetters);
+const titleCursorReady = useTitleCursor(titleElement, title, visibleLetters);
 const titlePaused = ref(true);
 // Do not keep drawing attention away from the terminal once the visitor uses it.
 // 访客一旦使用终端，就不再让标题持续抢走注意力。
@@ -314,6 +314,7 @@ onBeforeUnmount(() => {
             :class="{
               'xca-terminal-title__caret--hidden': titleSettled,
               'xca-terminal-title__caret--paused': titlePaused,
+              'xca-terminal-title__caret--ready': titleCursorReady,
             }"
             aria-hidden="true"
           />

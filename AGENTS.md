@@ -35,14 +35,18 @@ app/                    门户应用（Nuxt 4 srcDir）
         intro-playback.ts      动画暂停、冻结与取消
         timing.ts              入场节奏、交接进度与标题打字
         *.test.ts              几何、报告厅与轨迹单元测试
-      rendering/        WebGL 场景绘制与网格生成
-        intro-mark-mesh.ts         标识网格生成
-        intro-mark-shaders.ts      场景光照、材质与主题着色
-        intro-mark-renderer.ts     标识网格绘制
+      rendering/        Three.js 场景、PBR 材质与静态网格
+        intro-mark-mesh.ts         道路与报告厅网格生成、CA 原始轮廓挤出
+        intro-mark-renderer.ts     异步预热、绘制与资源清理
+        intro-scene.ts             场景合批与 CSS 相机投影适配
+        intro-scene-{palette,materials,lighting,environment}.ts  配色、PBR、PMREM 与阴影
+        intro-sky.ts               世界方向天空、体积云、星点与太阳辉光
+        intro-city-mesh.ts         城市街区、高层地标与同侧连廊
+        intro-city-facade.ts       Canvas 立面数据图集与 Three.js 纹理
+        intro-city-{layout,environment,primitives}.ts  地块坐标、地面设施与闭合网格
         intro-city-layer.ts        城市离屏绘制与整体合成
-        intro-transparency.ts      城市透明排序
         intro-auditorium-mesh.ts   报告厅静态网格与圆角、倒角生成
-        *.test.ts                  网格与透明排序单元测试
+        *.test.ts                  网格、场景合批与投影单元测试
       presentation/     入场编排与启动输出
         useIntroPresentation.ts    入场阶段、启动输出、跳过与清理
         intro-mark.ts              标识绘制与交接
@@ -90,7 +94,7 @@ app/                    门户应用（Nuxt 4 srcDir）
   utils/                共享工具函数（token 读取、玻璃刷新、动效时长与版权年份）
 content/                可直接编辑的 Markdown 正文与页面元信息
   pages/about/          关于学社：zh-CN.md 与 en.md
-docs/                   架构说明、现行接口与术语体系（写法见 docs/AGENTS.md）
+docs/                   架构说明、现行接口、ADR 与术语体系（写法见 docs/AGENTS.md）
 scripts/                门禁与检查脚本、构建信息、quality-budgets.json、字体工具
 tests/e2e/              随功能提交的 Playwright 用例与 Windows 图片基线
 public/                 静态资产：学社标识、共享库字标、字体许可证、intro-gate.js
@@ -168,7 +172,7 @@ public/                 静态资产：学社标识、共享库字标、字体�
 - 修改本文件时保持条目自包含，细节链接到专题文档。内容增长先压缩或迁移，仍超预算才按工程质量规则登记带原因的精确上限。
 - 公共接口和架构决策同步专题文档，历史文档标明状态。文档修改者负责核对事实与入口，审查者审核预算例外和职责。
 - `docs/AGENTS.md` 的空格标点与用词规则、[docs/terminology/](docs/terminology/README.md) 的术语对照与翻译规则适用于全仓库 Markdown 与产品文案，含根 AGENTS、README 与过程材料。其结构规则仅约束 `docs/` 子树，术语与缩写的全称只在对照表维护。
-- `docs/` 只放描述当前真实情况的文档（架构说明、现行接口）及其 `AGENTS.md` 写作规范。审计快照与实施计划归 `.agents/notes/`，命名、更新与归档规则见工程质量规则。`.agents/` 其余子目录预留给 skills、commands 等 Agent 资源，不放过程材料。
+- `docs/` 只放当前架构、现行接口、采用的 ADR 及写作规范。审计快照与实施计划归 `.agents/notes/`，命名、更新与归档规则见工程质量规则。`.agents/` 其余子目录预留给 skills、commands 等 Agent 资源，不放过程材料。
 - 完成前核对 Diff/status，交付修改原因、文件、实际验证结果、失败和遗留风险。
 - 只有明确请求才提交，提交信息按 [组织协作规范](https://github.com/XAUFE-CA/.github/blob/main/COLLABORATION.md#4-git-commit-message-规范) 使用 Conventional Commits。多 Agent 如被授权，先按模块协调文件所有权，不相互覆盖。
 

@@ -1,12 +1,6 @@
-import {
-  ARRIVAL_ENTRY,
-  ARRIVAL_FRAMES,
-  bendRoadMesh,
-  CITY_PROFILES,
-  JOURNEY,
-  JOURNEY_STATIONS,
-} from "../core/intro-geometry";
+import { bendRoadMesh, JOURNEY, JOURNEY_STATIONS } from "../core/intro-geometry";
 import { createAuditoriumMesh } from "./intro-auditorium-mesh";
+import { createCityMesh } from "./intro-city-mesh";
 
 type Point = readonly [number, number];
 // Each vertex contains position, normal, and body/road material selector.
@@ -288,7 +282,7 @@ function sceneryVertices(panelRadius: number): number[] {
       const strip = sweepSection(section, material ?? 2, true);
       for (const value of strip) vertices.push(value);
     }
-    for (let z = -600; z > JOURNEY.roadEnd; z -= 700) {
+    for (let z = JOURNEY.railPostStart; z > JOURNEY.roadEnd; z -= JOURNEY.railPostSpacing) {
       const post: number[] = [];
       box(post, [edge - 7, JOURNEY.floorY - 122, z], [14, 122 + JOURNEY.bearingInset, 18]);
       vertices.push(...bendRoadMesh(post, z));
@@ -349,119 +343,6 @@ function roadVertices(): number[] {
   );
 }
 
-/**
- * Architectural silhouettes use setbacks, split crowns and sloping roofs instead of window noise.
- * 建筑剪影采用退台、分体冠部与斜顶，替代零散窗灯。
- */
-function cityTower(
-  vertices: number[],
-  x: number,
-  z: number,
-  width: number,
-  height: number,
-  kind: number,
-  material = 5,
-) {
-  const outline = CITY_PROFILES[kind % CITY_PROFILES.length];
-  if (!outline) throw new Error("Missing city silhouette");
-  const top = JOURNEY.floorY + JOURNEY.cityDrop - height;
-  const points = outline.map(
-    ([u, v]): Point => [x - width / 2 + u * width, top + v * (height + 180)],
-  );
-  const mesh = extrudeContour(points, 420 + kind * 90);
-  for (let index = 0; index < mesh.length; index += 7) {
-    vertices.push(
-      mesh[index] ?? 0,
-      mesh[index + 1] ?? 0,
-      (mesh[index + 2] ?? 0) + z,
-      mesh[index + 3] ?? 0,
-      mesh[index + 4] ?? 0,
-      mesh[index + 5] ?? 0,
-      material,
-    );
-  }
-  for (let index = 1; index < points.length - 2; index++) {
-    const a = points[index],
-      b = points[index + 1];
-    if (!a || !b || (kind % 3 === 0 && index % 2 === 0)) continue;
-    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const dx = ((b[1] - a[1]) / length) * 3,
-      dy = (-(b[0] - a[0]) / length) * 3;
-    quad(
-      vertices,
-      [
-        [a[0], a[1], z + 3],
-        [b[0], b[1], z + 3],
-        [b[0] + dx, b[1] + dy, z + 3],
-        [a[0] + dx, a[1] + dy, z + 3],
-      ],
-      [0, 0, 1],
-      6,
-    );
-  }
-  if (kind % 2 === 0) {
-    for (const level of [0.68, 0.72, 0.76]) {
-      box(vertices, [x - width * 0.38, top + height * level, z + 4], [width * 0.76, 4, 3], 6);
-    }
-  }
-}
-
-function skylineVertices(): number[] {
-  const vertices: number[] = [];
-  for (let index = -10; index <= 10; index++) {
-    const x = JOURNEY.roadX + index * 1500;
-    const height = 3200 + ((index * index * 13 + 17) % 9) * 620;
-    cityTower(
-      vertices,
-      x,
-      -24000 - Math.abs(index % 3) * 1900,
-      1050,
-      height + JOURNEY.cityDrop,
-      Math.abs(index) % 4,
-      8,
-    );
-  }
-  for (const side of [-1, 1]) {
-    for (let row = 0; row < 3; row++) {
-      for (let index = 0; index < 15; index++) {
-        const seed = (index * 17 + row * 11 + (side + 1) * 7) % 23;
-        const kind = seed % 4;
-        const width = 380 + (seed % 5) * 110;
-        const height =
-          kind === 3 ? 850 + (seed % 4) * 150 : 2350 + ((seed * 7) % 9) * 190 + row * 160;
-        const setback = kind === 3 ? 1400 : 2500;
-        const x = JOURNEY.roadX + side * (setback + row * 1900 + (seed % 3) * 260);
-        const z = -2200 - index * 1550 - row * 650;
-        cityTower(vertices, x, z, width, height, kind);
-        if (index % 3 === 0) {
-          box(
-            vertices,
-            [x - width * 0.64, JOURNEY.floorY + JOURNEY.cityDrop - 240, z + 70],
-            [width * 1.28, 420, 740],
-            5,
-          );
-        }
-      }
-    }
-  }
-  return vertices;
-}
-
-function arrivalVertices(): number[] {
-  const vertices: number[] = [];
-  for (const z of ARRIVAL_FRAMES) {
-    const frame: number[] = [];
-    const left = JOURNEY.roadX - ARRIVAL_ENTRY.width / 2,
-      top = JOURNEY.floorY - ARRIVAL_ENTRY.height;
-    box(frame, [left, top, z], [7, ARRIVAL_ENTRY.height, 9], 7);
-    box(frame, [left + ARRIVAL_ENTRY.width - 7, top, z], [7, ARRIVAL_ENTRY.height, 9], 7);
-    box(frame, [left, top, z], [ARRIVAL_ENTRY.width, 7, 9], 7);
-    box(frame, [left + 160, JOURNEY.floorY - 3, z], [880, 3, 10], 7);
-    vertices.push(...bendRoadMesh(frame, z));
-  }
-  return vertices;
-}
-
 function viaductVertices(): number[] {
   const vertices: number[] = [];
   for (let z = -1600; z > JOURNEY.roadEnd; z -= 1700) {
@@ -480,13 +361,11 @@ function viaductVertices(): number[] {
 }
 
 export function createMarkMesh(paths: SVGPathElement[], panelRadius: number): Float32Array {
-  const body = paths.flatMap((path) => [...extrudeContour(sampleContour(path), JOURNEY.bodyDepth)]);
   const parts = [
-    skylineVertices(),
-    body,
+    createCityMesh(),
+    ...paths.map((path) => extrudeContour(sampleContour(path), JOURNEY.bodyDepth)),
     roadVertices(),
     sceneryVertices(panelRadius),
-    arrivalVertices(),
     createAuditoriumMesh(),
     viaductVertices(),
   ];

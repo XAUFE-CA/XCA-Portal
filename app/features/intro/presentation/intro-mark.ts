@@ -1,3 +1,4 @@
+import { journeyPerspective } from "../core/intro-geometry";
 import { createIntroJourney, type TerminalPlacement, terminalFrames } from "../core/intro-journey";
 import { INTRO_HANDOFF, INTRO_PACING } from "../core/timing";
 
@@ -51,6 +52,7 @@ export async function playIntroMark(context: MarkContext) {
     bounds.width / centered.scale,
     bounds.height / centered.scale,
     centered,
+    journeyPerspective(root.clientWidth),
   );
   const arrival = animate(terminal, [], { duration: duration * INTRO_HANDOFF.arrival }, signal);
   await Promise.all([

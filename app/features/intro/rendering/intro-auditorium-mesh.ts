@@ -29,8 +29,8 @@ function roundedSection(
     [radius, height - radius],
   ] as const;
   for (const [corner, center] of centers.entries()) {
-    for (let step = 0; step <= 2; step++) {
-      const angle = Math.PI + (corner * Math.PI) / 2 + (step * Math.PI) / 4;
+    for (let step = 0; step <= 4; step++) {
+      const angle = Math.PI + (corner * Math.PI) / 2 + (step * Math.PI) / 8;
       const nx = Math.cos(angle);
       const ny = Math.sin(angle);
       points.push([center[0] + nx * (radius - inset), center[1] + ny * (radius - inset), nx, ny]);

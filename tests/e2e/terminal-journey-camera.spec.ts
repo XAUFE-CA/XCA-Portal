@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
   advanceToScreen,
-  advanceToStage,
   expectCenteredTerminal,
   expectStageGlass,
   freezeApproach,
@@ -65,29 +64,28 @@ for (const mode of [
       await recordBannerPrinting(page);
       await expect(terminal).toHaveAttribute("data-journey-persistent", "yes");
       await expectCenteredTerminal(page, mode);
-      await advanceToStage(page, "cruise");
-      await expect(scene).toHaveAttribute("data-journey", "cruise", { timeout: SCENE_TIMEOUT });
-      await expect
-        .poll(() => page.locator(".xca-terminal-bootlog__line").count(), { timeout: SCENE_TIMEOUT })
-        .toBeGreaterThan(0);
-      await advanceToStage(page, "retreat");
-      await expect(scene).toHaveAttribute("data-journey", "retreat", { timeout: SCENE_TIMEOUT });
-      await expect(page.locator(".xca-terminal-hero__heading")).not.toHaveCSS("opacity", "0");
-      await advanceToScreen(page, "brand");
-      await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--brand/);
-      await expect(scene).toHaveCount(0);
-      await expect(terminal).toHaveAttribute("data-journey-persistent", "yes");
       await advanceToScreen(page, "ready");
       await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--ready/, {
         timeout: SCENE_TIMEOUT,
       });
+      await expect(page.locator(".xca-terminal-hero__heading")).not.toHaveCSS("opacity", "0");
+      await expect(scene).toHaveCount(0);
+      await expect(terminal).toHaveAttribute("data-journey-persistent", "yes");
       // Boot lines print one at a time; the records prove it without racing live counts.
       // 开机日志逐行打印；记录足以证明，无需与实时行数赛跑。
       const { sequence } = await terminalRecords(page);
+      // Assert transient stages from the DOM recorder, not from a later live render.
+      // 通过 DOM 记录断言瞬时阶段，不依赖随后读取的实时画面。
+      const cruise = sequence.findIndex((entry) => entry.stage === "cruise");
+      const retreat = sequence.findIndex((entry) => entry.stage === "retreat");
+      expect(cruise).toBeGreaterThanOrEqual(0);
+      expect(retreat).toBeGreaterThan(cruise);
+      expect(sequence.some((entry) => entry.screen.includes("brand"))).toBe(true);
       const cruiseLines = sequence
         .filter((entry) => entry.stage === "cruise")
         .map((entry) => entry.bootLines);
       expect(Math.max(0, ...cruiseLines)).toBeLessThan(5);
+      expect(cruiseLines.some((count) => count > 0)).toBe(true);
       // The boot log unmounts once the terminal is ready, so only its printed prefix is monotonic.
       // 终端就绪后开机日志会卸载，因此只有已打印的前缀需要单调。
       const printedRecords = sequence.filter((entry) => entry.bootLines > 0);

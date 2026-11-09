@@ -1,85 +1,110 @@
+import {
+  HalfFloatType,
+  Mesh,
+  OrthographicCamera,
+  PlaneGeometry,
+  Scene,
+  ShaderMaterial,
+  Vector2,
+  type WebGLRenderer,
+  WebGLRenderTarget,
+} from "three";
+
+export interface CityLayer {
+  target: WebGLRenderTarget;
+  composite(opacity: number): void;
+  dispose(): void;
+}
+
 const VERTEX = `
-attribute vec2 position;
-varying vec2 uv;
+varying vec2 cityUv;
 void main() {
-  gl_Position = vec4(position, 0.0, 1.0);
-  uv = position * 0.5 + 0.5;
+  cityUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
 }`;
 const FRAGMENT = `
-precision mediump float;
 uniform sampler2D cityTexture;
 uniform float cityOpacity;
-varying vec2 uv;
+uniform vec2 cityTexel;
+varying vec2 cityUv;
+vec3 bloom(vec2 offset) {
+  vec4 sampleColor = texture2D(cityTexture, cityUv + offset * cityTexel);
+  float brightness = max(sampleColor.r, max(sampleColor.g, sampleColor.b));
+  return sampleColor.rgb * smoothstep(1.0, 2.5, brightness);
+}
 void main() {
-  gl_FragColor = texture2D(cityTexture, uv) * cityOpacity;
+  vec4 city = texture2D(cityTexture, cityUv);
+  vec3 halo = (bloom(vec2(-2.0, 0.0)) + bloom(vec2(2.0, 0.0)) +
+    bloom(vec2(0.0, -2.0)) + bloom(vec2(0.0, 2.0))) * 0.035;
+  gl_FragColor = vec4(city.rgb + halo, city.a);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  // Fade after display conversion, keeping low-alpha transitions continuous.
+  // 在显示颜色转换后淡出，保持低透明度过渡连续。
+  gl_FragColor.a *= cityOpacity;
+  #include <premultiplied_alpha_fragment>
 }`;
 
 /**
- * Fade the completed city once, rather than quantizing opacity on every overlapping facade.
- * 对完整城市只淡入淡出一次，避免每个重叠立面分别量化透明度。
+ * Opaque city surfaces share depth before the completed image fades exactly once.
+ * 不透明城市表面共用深度缓冲，完整图像只淡出一次。
  */
-export function createCityLayer(
-  gl: WebGLRenderingContext,
-  width: number,
-  height: number,
-  makeProgram: (vertex: string, fragment: string) => WebGLProgram,
-) {
-  const texture = gl.createTexture();
-  const framebuffer = gl.createFramebuffer();
-  const buffer = gl.createBuffer();
-  let program: WebGLProgram | null = null;
+export function createCityLayer(renderer: WebGLRenderer, width: number, height: number): CityLayer {
+  const gl = renderer.getContext();
+  if (!(gl instanceof WebGL2RenderingContext)) throw new Error("Intro city requires WebGL2");
+  const supported: unknown = gl.getInternalformatParameter(gl.RENDERBUFFER, gl.RGBA16F, gl.SAMPLES);
+  const samples =
+    supported instanceof Int32Array ? (supported.find((count) => count > 0 && count <= 2) ?? 0) : 0;
+  const target = new WebGLRenderTarget(width, height, {
+    type: HalfFloatType,
+    depthBuffer: true,
+    stencilBuffer: false,
+    samples,
+  });
+  target.texture.name = "intro.city";
+  const geometry = new PlaneGeometry(2, 2);
+  const cityOpacity = { value: 0 };
+  const material = new ShaderMaterial({
+    uniforms: {
+      cityTexture: { value: target.texture },
+      cityOpacity,
+      cityTexel: { value: new Vector2(1 / width, 1 / height) },
+    },
+    vertexShader: VERTEX,
+    fragmentShader: FRAGMENT,
+    transparent: true,
+    premultipliedAlpha: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const scene = new Scene();
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quad = new Mesh(geometry, material);
+  quad.frustumCulled = false;
+  scene.add(quad);
   const dispose = () => {
-    gl.deleteTexture(texture);
-    gl.deleteFramebuffer(framebuffer);
-    gl.deleteBuffer(buffer);
-    gl.deleteProgram(program);
+    target.dispose();
+    geometry.dispose();
+    material.dispose();
+    scene.clear();
   };
-  try {
-    if (!texture || !framebuffer || !buffer) throw new Error("City layer unavailable");
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
-      throw new Error("City layer incomplete");
-    program = makeProgram(VERTEX, FRAGMENT);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return {
-      framebuffer,
-      texture,
-      buffer,
-      program,
-      dispose,
-      position: gl.getAttribLocation(program, "position"),
-      opacity: gl.getUniformLocation(program, "cityOpacity"),
-      sampler: gl.getUniformLocation(program, "cityTexture"),
-    };
-  } catch {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  // Allocate attachments now so initialization failure still takes the SVG fallback.
+  // 立即分配附件，使初始化失败仍可进入 SVG 回退。
+  renderer.initRenderTarget(target);
+  const previous = renderer.getRenderTarget();
+  renderer.setRenderTarget(target);
+  const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+  renderer.setRenderTarget(previous);
+  if (!complete) {
     dispose();
-    return null;
+    throw new Error("Intro city framebuffer unavailable");
   }
-}
-
-export function compositeCityLayer(
-  gl: WebGLRenderingContext,
-  layer: NonNullable<ReturnType<typeof createCityLayer>>,
-  opacity: number,
-) {
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.useProgram(layer.program);
-  gl.bindBuffer(gl.ARRAY_BUFFER, layer.buffer);
-  gl.enableVertexAttribArray(layer.position);
-  gl.vertexAttribPointer(layer.position, 2, gl.FLOAT, false, 0, 0);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, layer.texture);
-  gl.uniform1i(layer.sampler, 0);
-  gl.uniform1f(layer.opacity, opacity);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  return {
+    target,
+    composite(opacity: number) {
+      cityOpacity.value = opacity;
+      renderer.render(scene, camera);
+    },
+    dispose,
+  };
 }
