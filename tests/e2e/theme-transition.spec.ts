@@ -68,6 +68,31 @@ function recordThemeTransitions(page: Page) {
   });
 }
 
+/** How many theme captures the page has started since it loaded. */
+function transitionCount(page: Page) {
+  return page.evaluate(
+    () => (window as unknown as { themeTransitions: unknown[] }).themeTransitions.length,
+  );
+}
+
+/** The most recent capture, recorded by the init script on the page's window. */
+async function latestTransition(page: Page) {
+  const latest = await page.evaluate(() => {
+    const observedWindow = window as unknown as {
+      themeTransitions: {
+        duration: string;
+        opacity: number[];
+        rootName: string;
+        contentName: string;
+        clip: string;
+      }[];
+    };
+    return observedWindow.themeTransitions.at(-1) ?? null;
+  });
+  if (latest === null) throw new Error("Theme transition observation is missing");
+  return latest;
+}
+
 async function openLightPage(page: Page, path = "/") {
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
   await setThemePreference(page, "light");
@@ -95,33 +120,14 @@ async function settled(page: Page, theme: string) {
 
 test("header theme changes crossfade the whole page using shared motion", async ({ page }) => {
   await openLightPage(page);
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { themeTransitions: unknown[] }).themeTransitions.length,
-    ),
-  ).toBe(0);
+  expect(await transitionCount(page)).toBe(0);
   for (const [label, theme] of [
     ["深色", "dark"],
     ["浅色", "light"],
   ] as const) {
     await page.getByRole("radio", { name: label, exact: true }).click();
     await settled(page, theme);
-    const transition = await page.evaluate(() => {
-      // The init script records these observations on the page's window.
-      // 初始化脚本将这些观测记录在页面 window 上。
-      const observedWindow = window as unknown as {
-        themeTransitions: {
-          duration: string;
-          opacity: number[];
-          rootName: string;
-          contentName: string;
-          clip: string;
-        }[];
-      };
-      const latest = observedWindow.themeTransitions.at(-1);
-      if (!latest) throw new Error("Theme transition observation is missing");
-      return latest;
-    });
+    const transition = await latestTransition(page);
     expect(parseFloat(transition.duration)).toBeGreaterThan(0);
     expect(transition.opacity.some((opacity) => opacity > 0 && opacity < 1)).toBe(true);
     // Capturing the document is what makes the canvas, the header and the footer fade with the
@@ -131,6 +137,26 @@ test("header theme changes crossfade the whole page using shared motion", async 
     expect(transition.contentName).toBe("none");
     expect(transition.clip).toBe("none");
   }
+});
+
+test("theme chosen from the context menu crossfades after its panel closes", async ({ page }) => {
+  await openLightPage(page);
+  await page.locator(".xca-terminal-hero__heading").click({ button: "right" });
+  const panel = page.locator(".ui-context-menu:visible");
+  await expect(panel).toBeVisible();
+  await panel.getByRole("menuitem", { name: "切换主题" }).click();
+  const submenu = page.locator(".ui-context-menu__submenu");
+  await expect(submenu).toBeVisible();
+  await submenu.getByRole("menuitemradio", { name: "深色" }).click();
+  await settled(page, "dark");
+  // The row closes its own panel before the palette changes, so the capture no longer has to
+  // skip the top layer: the page crossfades exactly like a header switch.
+  // 该行先关闭自身面板再更换配色，截取因此不必跳过顶层，页面与页头切换一样淡化。
+  expect(await transitionCount(page)).toBe(1);
+  const transition = await latestTransition(page);
+  expect(parseFloat(transition.duration)).toBeGreaterThan(0);
+  expect(transition.opacity.some((opacity) => opacity > 0 && opacity < 1)).toBe(true);
+  expect(transition.rootName).toBe("root");
 });
 
 test("rapid switches settle on the latest choice and preserve terminal input", async ({ page }) => {
@@ -167,11 +193,7 @@ test("reduced motion switches immediately without a view transition", async ({ p
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("radio", { name: "深色", exact: true }).click();
   await settled(page, "dark");
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { themeTransitions: unknown[] }).themeTransitions.length,
-    ),
-  ).toBe(0);
+  expect(await transitionCount(page)).toBe(0);
 });
 
 test("without View Transitions the shared semantic colors interpolate", async ({ page }) => {
@@ -208,7 +230,12 @@ test("without View Transitions the shared semantic colors interpolate", async ({
     if (!dark) throw new Error("Dark theme control is missing");
     dark.click();
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    const animations = document.getAnimations();
+    // Only token transitions take part in the stepping: ambient animations such as the
+    // shared caret breathe would otherwise stretch the span past the colour window.
+    // 只有 token 过渡参与步进：否则共享光标呼吸等环境动画会把采样式跨度拉长到颜色窗口之外。
+    const animations = document
+      .getAnimations()
+      .filter((animation): animation is CSSTransition => animation instanceof CSSTransition);
     if (!animations.length) throw new Error("The theme change must animate its colors");
     const span = Math.max(
       ...animations.map((animation) => Number(animation.effect?.getComputedTiming().duration ?? 0)),
@@ -238,11 +265,7 @@ test("system mode resolves correctly and restoration does not animate", async ({
     .evaluate((el) => getComputedStyle(el).backgroundColor);
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { themeTransitions: unknown[] }).themeTransitions.length,
-    ),
-  ).toBe(0);
+  expect(await transitionCount(page)).toBe(0);
   expect(
     await page.locator(".site-shell").evaluate((el) => getComputedStyle(el).backgroundColor),
   ).toBe(background);

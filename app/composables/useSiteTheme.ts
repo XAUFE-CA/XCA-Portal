@@ -1,7 +1,11 @@
+import type { GlassRenderer } from "@neoverse-ui/glass-runtime";
 import { nextTick } from "vue";
-import { hasOpenTopLayerSurface } from "~/utils/top-layer";
+import { hasOpenTopLayerSurface, waitForTopLayerClose } from "~/utils/top-layer";
 
 export type SiteTheme = "light" | "dark" | "system";
+
+/** The shared Aurora Glass renderer repaints its edge for the new palette. */
+type Glass = Pick<GlassRenderer, "refresh"> | undefined;
 
 const COOKIE_KEY = "xca-theme";
 // Track the active theme capture independently of route and language transitions.
@@ -22,6 +26,74 @@ function resetPendingWork(): void {
   if (refreshFrame !== undefined) cancelAnimationFrame(refreshFrame);
   cleanupTimer = undefined;
   refreshFrame = undefined;
+}
+
+/** Commit the new palette at once, for reduced motion, an unchanged result or a kept-open surface. */
+function commitTheme(apply: () => void, glass: Glass): void {
+  apply();
+  glass?.refresh();
+}
+
+/**
+ * Crossfade the whole document from the old palette to the new one. View Transitions capture the
+ * page itself; browsers without support interpolate the registered semantic color variables.
+ * 把整个文档从旧配色淡化到新配色。视图过渡截取页面本身；不支持的浏览器改为插值已注册的语义颜色变量。
+ */
+function animateTheme(root: HTMLElement, apply: () => void, version: number, glass: Glass): void {
+  if (typeof document.startViewTransition === "function") {
+    try {
+      root.setAttribute(themeViewTransitionAttribute, "");
+      const active = document.startViewTransition(async () => {
+        apply();
+        await nextTick();
+        // Include the shared WebGL Aurora Glass edge in the incoming snapshot.
+        // 把共享的 WebGL 极光玻璃边缘纳入进入快照。
+        glass?.refresh();
+      });
+      transition = active;
+      const cleanup = () => {
+        if (version !== request) return;
+        transition = undefined;
+        root.removeAttribute(themeViewTransitionAttribute);
+      };
+      void active.ready.catch(() => undefined);
+      void active.updateCallbackDone.catch(() => {
+        apply();
+        glass?.refresh();
+      });
+      void active.finished.then(cleanup, cleanup);
+      return;
+    } catch {
+      root.removeAttribute(themeViewTransitionAttribute);
+    }
+  }
+  // Older browsers interpolate the registered color variables in shared motion CSS.
+  // 旧版浏览器依靠共享动效 CSS 对已注册颜色变量做插值。
+  root.setAttribute(COLOR_TRANSITION, "");
+  const style = getComputedStyle(root);
+  const duration = style.getPropertyValue("--neoverse-motion-theme-fallback-duration").trim();
+  const milliseconds = Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
+  // Resolve the old color with transition properties active before changing variables.
+  // 在更改样式变量前先让过渡属性生效并解析旧颜色。
+  style.getPropertyValue("--neoverse-color-surface-canvas");
+  apply();
+  const refresh = () => {
+    if (version !== request) return;
+    glass?.refresh();
+    refreshFrame = requestAnimationFrame(refresh);
+  };
+  refresh();
+  cleanupTimer = window.setTimeout(
+    () => {
+      if (version !== request) return;
+      if (refreshFrame !== undefined) cancelAnimationFrame(refreshFrame);
+      refreshFrame = undefined;
+      cleanupTimer = undefined;
+      root.removeAttribute(COLOR_TRANSITION);
+      glass?.refresh();
+    },
+    Number.isFinite(milliseconds) ? milliseconds : 0,
+  );
 }
 
 export function useSiteTheme() {
@@ -54,71 +126,26 @@ export function useSiteTheme() {
     };
     if (
       options.animate === false ||
-      // An open menu owns a glass surface in the native top layer, which a capture cannot
-      // back-drop: commit the new colors directly so the glass material survives.
-      // 打开的菜单在原生顶层持有玻璃表面，快照无法为其采样背景；直接提交新配色以保留玻璃材质。
-      hasOpenTopLayerSurface() ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
       resolve(root.dataset.theme) === resolve(value)
     ) {
-      apply();
-      $glassRenderer?.refresh();
+      commitTheme(apply, $glassRenderer);
       return;
     }
-    if (typeof document.startViewTransition === "function") {
-      try {
-        root.setAttribute(themeViewTransitionAttribute, "");
-        const active = document.startViewTransition(async () => {
-          apply();
-          await nextTick();
-          // Include the shared WebGL Aurora Glass edge in the incoming snapshot.
-          // 把共享的 WebGL 极光玻璃边缘纳入进入快照。
-          $glassRenderer?.refresh();
-        });
-        transition = active;
-        const cleanup = () => {
-          if (version !== request) return;
-          transition = undefined;
-          root.removeAttribute(themeViewTransitionAttribute);
-        };
-        void active.ready.catch(() => undefined);
-        void active.updateCallbackDone.catch(() => {
-          apply();
-          $glassRenderer?.refresh();
-        });
-        void active.finished.then(cleanup, cleanup);
-        return;
-      } catch {
-        root.removeAttribute(themeViewTransitionAttribute);
-      }
+    // An open surface in the native top layer cannot sample the page behind it, so the capture
+    // has to wait for it. A menu row closes its own panel in the same tick as it commits this
+    // preference, so that panel is still open here and only a kept-open surface commits at once.
+    // 原生顶层中打开的表面上无法采样其背后的页面，因此截取必须等它离开。菜单行在提交本偏好的
+    // 同一时刻关闭自身面板，此刻它仍然打开；只有保持打开的表面才立即提交。
+    if (!hasOpenTopLayerSurface()) {
+      animateTheme(root, apply, version, $glassRenderer);
+      return;
     }
-    // Older browsers interpolate the registered color variables in shared motion CSS.
-    // 旧版浏览器依靠共享动效 CSS 对已注册颜色变量做插值。
-    root.setAttribute(COLOR_TRANSITION, "");
-    const style = getComputedStyle(root);
-    const duration = style.getPropertyValue("--neoverse-motion-theme-fallback-duration").trim();
-    const milliseconds = Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
-    // Resolve the old color with transition properties active before changing variables.
-    // 在更改样式变量前先让过渡属性生效并解析旧颜色。
-    style.getPropertyValue("--neoverse-color-surface-canvas");
-    apply();
-    const refresh = () => {
+    void waitForTopLayerClose().then((closed) => {
       if (version !== request) return;
-      $glassRenderer?.refresh();
-      refreshFrame = requestAnimationFrame(refresh);
-    };
-    refresh();
-    cleanupTimer = window.setTimeout(
-      () => {
-        if (version !== request) return;
-        if (refreshFrame !== undefined) cancelAnimationFrame(refreshFrame);
-        refreshFrame = undefined;
-        cleanupTimer = undefined;
-        root.removeAttribute(COLOR_TRANSITION);
-        $glassRenderer?.refresh();
-      },
-      Number.isFinite(milliseconds) ? milliseconds : 0,
-    );
+      if (closed) animateTheme(root, apply, version, $glassRenderer);
+      else commitTheme(apply, $glassRenderer);
+    });
   }
 
   return { theme, setTheme };

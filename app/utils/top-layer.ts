@@ -17,3 +17,33 @@ export function hasOpenTopLayerSurface(): boolean {
       : false;
   return document.querySelector(popover ? ":popover-open, dialog[open]" : "dialog[open]") !== null;
 }
+
+// A surface that closes because of the current interaction leaves within a frame or two.
+// 因当前交互而关闭的表面会在一两帧内离开。
+const SETTLE_FRAMES = 3;
+
+/**
+ * Wait for the top layer to clear, then report whether it did. A menu row commits its preference
+ * in the same tick as it closes its own panel, so that panel is still in the top layer at that
+ * instant; a couple of frames later it is gone and a capture can sample the page again. A surface
+ * that stays open resolves `false`, so callers keep their direct commit.
+ * 等待顶层清空并报告结果。菜单行在关闭自身面板的同一时刻提交偏好，此时面板仍在顶层；一两帧后
+ * 它已离开，截取又能采样页面。仍然打开的表面解析为 false，调用方因此保留直接提交。
+ */
+export function waitForTopLayerClose(): Promise<boolean> {
+  return new Promise((resolve) => {
+    let remaining = SETTLE_FRAMES;
+    const step = () => {
+      if (!hasOpenTopLayerSurface()) {
+        resolve(true);
+        return;
+      }
+      if (remaining-- <= 0) {
+        resolve(false);
+        return;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
