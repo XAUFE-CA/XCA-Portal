@@ -119,3 +119,61 @@ test("the screen has a clear front bay above the seats and inside the surroundin
     expect(object.origin[2] - object.size[2]).toBeGreaterThan(AUDITORIUM.back);
   }
 });
+
+test("linked rows share supports and every seating terrace descends toward the stage", () => {
+  for (const side of [-1, 1]) {
+    let previous = JOURNEY.floorY - 76;
+    for (let row = 0; row < 10; row++) {
+      const tier = AUDITORIUM_OBJECTS.find((object) => object.id === `tier.${side}.${row}`);
+      const beam = AUDITORIUM_OBJECTS.find((object) => object.id === `row.${side}.${row}.beam`);
+      if (!tier || !beam) throw new Error(`Missing tier or shared beam for ${side}.${row}`);
+      expect(tier.origin[1] - previous).toBe(76);
+      previous = tier.origin[1];
+      const pedestals = AUDITORIUM_OBJECTS.filter((object) =>
+        object.id.startsWith(`row.${side}.${row}.pedestal.`),
+      );
+      for (const pedestal of pedestals) {
+        expect(pedestal.origin[1] + pedestal.size[1]).toBe(tier.origin[1] - 3);
+        expect(pedestal.origin[1]).toBeLessThan(beam.origin[1] + beam.size[1]);
+      }
+      for (const back of AUDITORIUM_OBJECTS.filter(
+        (object) => object.id.startsWith(`seat.${side}.${row}.`) && object.id.endsWith(".back"),
+      )) {
+        expect(back.origin[0]).toBeGreaterThan(beam.origin[0]);
+        expect(back.origin[0] + back.size[0]).toBeLessThan(beam.origin[0] + beam.size[0]);
+      }
+    }
+  }
+});
+
+test("ceiling emitters clear their opaque supports instead of intersecting them", () => {
+  for (const emitter of AUDITORIUM_OBJECTS.filter(
+    (object) => object.id.startsWith("canopy-inlay.") || object.id.startsWith("ceiling-cove."),
+  )) {
+    const parts = emitter.id.split(".");
+    const supportId = emitter.id.startsWith("canopy-inlay.")
+      ? `suspended-canopy.${parts[1]}`
+      : `ceiling-rail.${parts[1]}`;
+    const support = AUDITORIUM_OBJECTS.find((object) => object.id === supportId);
+    if (!support) throw new Error(`Missing support for ${emitter.id}`);
+    expect(emitter.origin[1], emitter.id).toBeGreaterThan(support.origin[1] + support.size[1]);
+    expect(overlaps(bounds(emitter), bounds(support)), emitter.id).toBe(false);
+  }
+});
+
+test("the stage and its stairs rest on the room floor without buried faces or suspended treads", () => {
+  const floor = AUDITORIUM_OBJECTS.find((object) => object.id === "floor");
+  if (!floor) throw new Error("Missing auditorium floor");
+  for (const object of AUDITORIUM_OBJECTS.filter(
+    (item) => item.id === "stage" || item.id.startsWith("stage-step."),
+  )) {
+    expect(object.origin[1] + object.size[1], object.id).toBe(AUDITORIUM.floorY);
+    expect(overlaps(bounds(object), bounds(floor)), object.id).toBe(false);
+  }
+  for (const fascia of AUDITORIUM_OBJECTS.filter((object) =>
+    object.id.startsWith("stage-fascia."),
+  )) {
+    expect(fascia.origin[1]).toBeGreaterThan(AUDITORIUM.stageY);
+    expect(fascia.origin[1] + fascia.size[1]).toBeLessThan(AUDITORIUM.floorY);
+  }
+});

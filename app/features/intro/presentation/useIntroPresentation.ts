@@ -14,12 +14,7 @@ import {
   entryTerminalFrames,
   playEntryTransition,
 } from "../core/intro-entry";
-import {
-  centerTerminal,
-  createIntroJourney,
-  type TerminalPlacement,
-  terminalDockFrames,
-} from "../core/intro-journey";
+import { centerTerminal, createIntroJourney, type TerminalPlacement } from "../core/intro-journey";
 import { createIntroPlayback } from "../core/intro-playback";
 import { INTRO_PACING } from "../core/timing";
 import { BOOT_SEQUENCE } from "./boot-script";
@@ -277,10 +272,9 @@ export function useIntroPresentation(getCommandCount: () => number) {
     signal.throwIfAborted();
   }
   async function dockTerminal(element: HTMLElement, unit: number, signal: AbortSignal) {
-    const from = new DOMMatrixReadOnly(getComputedStyle(element).transform).toFloat64Array();
     await animateIntro(
       element,
-      terminalDockFrames(from),
+      entryTerminalFrames(element, false),
       {
         duration: unit * INTRO_PACING.arrival,
         easing: "linear",

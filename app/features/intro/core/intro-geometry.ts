@@ -5,7 +5,7 @@ const ROAD_END = -12400;
  * 场景坐标沿用 CA 标识 SVG 居中的 1254 单位 viewBox。
  */
 export const JOURNEY = {
-  depth: -ROAD_END + 4600,
+  depth: -ROAD_END + 6800,
   perspective: 900,
   roadX: 180,
   floorY: 300,

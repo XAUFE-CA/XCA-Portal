@@ -6,11 +6,13 @@ export interface AuditoriumPalette {
   floor: Color;
   fabric: Color;
   panel: Color;
-  glass: Color;
+  wallBand: Color;
+  carpet: Color;
+  graphite: Color;
+  lightIntensity: number;
   keyLight: Color;
   fillLight: Color;
   accentLight: Color;
-  environmentIntensity: number;
 }
 
 export type IntroSkyMode = "night" | "day";
@@ -102,27 +104,29 @@ export function selectIntroSky(read: ReadPrimitive, daylight: number): IntroSkyS
   };
 }
 
-/** Night keeps the same blue identity at a lower exposure; coves and glazing stay bright.
-    夜景沿用同一蓝色调但降低曝光，灯槽与玻璃高光仍保持明亮。 */
+/** The same neutral finishes use dimmed architectural lighting at night.
+    同一套中性饰面在夜间使用调暗的建筑照明。 */
 export function createAuditoriumPalette(
   read: ReadPrimitive,
   daylight: number,
   accentPrimary: Color,
 ): AuditoriumPalette {
-  const exposure = 0.38 + daylight * 0.62;
+  const exposure = 0.86 + daylight * 0.14;
   const finish = (first: string, second: string, amount: number, scale: number) =>
     mix(read(first), read(second), amount).multiplyScalar(scale * exposure);
   return {
-    structure: finish("blue-200", "cyan-100", 0.38, 0.7).lerp(accentPrimary, 0.12 * exposure),
-    alloy: finish("blue-100", "cyan-200", 0.45, 0.82),
-    floor: finish("blue-300", "blue-500", 0.55, 0.58),
-    fabric: finish("blue-300", "cyan-300", 0.32, 0.78),
-    panel: finish("blue-200", "cyan-200", 0.5, 0.8),
-    glass: mix(read("cyan-100"), read("blue-100"), 0.4).multiplyScalar(0.6 + daylight * 0.4),
-    keyLight: mix(read("blue-50"), read("cyan-100"), 0.35),
-    fillLight: mix(read("blue-100"), read("cyan-200"), 0.4).multiplyScalar(0.75 + daylight * 0.25),
-    accentLight: mix(read("cyan-300"), read("blue-300"), 0.35).lerp(accentPrimary, 0.18),
-    environmentIntensity: 0.34 + daylight * 0.44,
+    structure: finish("neutral-400", "neutral-200", 0.42, 0.58),
+    alloy: finish("neutral-200", "white", 0.4, 0.9),
+    floor: finish("neutral-400", "neutral-200", 0.1, 0.26),
+    fabric: finish("blue-900", "blue-800", 0.2, 0.7),
+    panel: finish("neutral-200", "white", 0.2, 0.75),
+    wallBand: finish("neutral-400", "neutral-200", 0.24, 0.48),
+    carpet: finish("neutral-400", "blue-950", 0.32, 0.2),
+    graphite: finish("neutral-400", "blue-950", 0.18, 0.12),
+    keyLight: mix(read("white"), read("blue-50"), 0.05),
+    fillLight: mix(read("neutral-200"), read("blue-100"), 0.1),
+    accentLight: mix(read("cyan-300"), read("blue-300"), 0.35).lerp(accentPrimary, 0.15),
+    lightIntensity: 0.24 + daylight * 0.76,
   };
 }
 

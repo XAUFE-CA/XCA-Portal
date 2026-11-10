@@ -80,9 +80,25 @@ export function entryTerminalFrames(element: HTMLElement, brief: boolean): Keyfr
   const style = getComputedStyle(element);
   const visible = style.visibility !== "hidden" && Number(style.opacity) > 0;
   const opacity = visible ? Number(style.opacity) : 0;
-  const frames = visible
+  const frames: Keyframe[] = visible
     ? terminalDockFrames(new DOMMatrixReadOnly(style.transform).toFloat64Array())
     : [{ transform: "translateZ(0)" }, { transform: "translateZ(0)" }];
+  // Restore the shared filter on the docking timeline, not when the printed intro becomes ready.
+  // 共享滤镜随归位时间线恢复，不等到打印入场结束后才切换。
+  const targetFilter = window.matchMedia("(prefers-reduced-transparency: reduce)").matches
+    ? "none"
+    : "var(--neoverse-material-filter-elevated)";
+  frames[0] = {
+    ...frames[0],
+    backdropFilter: style.backdropFilter || "none",
+    webkitBackdropFilter:
+      style.getPropertyValue("-webkit-backdrop-filter") || style.backdropFilter || "none",
+  };
+  frames[frames.length - 1] = {
+    ...frames[frames.length - 1],
+    backdropFilter: targetFilter,
+    webkitBackdropFilter: targetFilter,
+  };
   return frames.map((frame, index) => ({
     ...frame,
     opacity: opacity + ((1 - opacity) * index) / (frames.length - 1),

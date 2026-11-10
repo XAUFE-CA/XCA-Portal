@@ -18,7 +18,13 @@ export const INTRO_PACING = {
   briefEnter: 1.6,
   briefStagger: 0.2,
 } as const;
-export const INTRO_HANDOFF = { rise: 0.72, start: 0.91, boot: 0.98, arrival: 0.99 } as const;
+export const INTRO_HANDOFF = {
+  rise: 0.7,
+  start: 0.78,
+  content: 0.81,
+  settled: 0.86,
+  arrival: 0.9,
+} as const;
 /**
  * Hero typewriter rhythm, measured in reading intervals.
  * 首页标题打字节奏，以阅读间隔计量。

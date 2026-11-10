@@ -321,3 +321,23 @@ test("destination geometry in front of the portal cannot form an exterior shell"
   expect(interior[0]?.partial).toBe(0);
   expect(interior[0]?.outside).toBe(0);
 });
+
+test("road growth clips only the connection, never the auditorium floor or stage", async ({
+  page,
+}) => {
+  await prepareRoomProbe(page);
+  const probe = roomPortalProbe(
+    ARRIVAL_ENTRY.front - JOURNEY.near * 2,
+    [1],
+    AUDITORIUM_MATERIAL.ground,
+  );
+  probe.growth = 0;
+  const floor = await sampleRoomPortal(page, probe);
+  expect(floor[0]?.covered).toBeGreaterThan(100);
+  expect(floor[0]?.partial).toBe(0);
+  const connection = await sampleRoomPortal(page, {
+    ...probe,
+    material: AUDITORIUM_MATERIAL.connection,
+  });
+  expect(connection).toEqual([{ covered: 0, partial: 0, outside: 0 }]);
+});

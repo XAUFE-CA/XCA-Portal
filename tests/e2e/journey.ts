@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../../app/features/intro/core/intro-auditorium";
 import { ARRIVAL_ENTRY, JOURNEY } from "../../app/features/intro/core/intro-geometry";
-import { advanceUntil } from "./timing";
+import { advanceUntil, SCENE_TIMEOUT } from "./timing";
 
 type ProbeRect = readonly [left: number, top: number, right: number, bottom: number];
 export interface RoomPortalProbe {
@@ -11,6 +11,7 @@ export interface RoomPortalProbe {
   material: number;
   vertices: number[];
   levels: number[];
+  growth: number;
   masks: ProbeRect[];
   expected: number[];
   tolerance: number[];
@@ -128,23 +129,25 @@ export async function expectCenteredTerminal(
   viewport: { width: number; height: number },
 ) {
   const terminal = page.locator(".xca-terminal-window");
-  const geometry = await terminal.evaluate((node) => {
-    const bounds = node.getBoundingClientRect();
-    const transform = new DOMMatrixReadOnly(getComputedStyle(node).transform);
-    return {
-      width: bounds.width,
-      height: bounds.height,
-      x: (bounds.left + bounds.right) / 2,
-      y: (bounds.top + bounds.bottom) / 2,
-      scaleX: transform.a,
-      scaleY: transform.d,
-    };
-  });
-  expect(geometry.scaleX).toBeCloseTo(geometry.scaleY, 3);
-  expect(geometry.width).toBeLessThanOrEqual(viewport.width);
-  expect(geometry.height).toBeLessThanOrEqual(viewport.height);
-  expect(geometry.x).toBeCloseTo(viewport.width / 2, 0);
-  expect(geometry.y).toBeCloseTo(viewport.height / 2, 0);
+  await expect(async () => {
+    const geometry = await terminal.evaluate((node) => {
+      const bounds = node.getBoundingClientRect();
+      const transform = new DOMMatrixReadOnly(getComputedStyle(node).transform);
+      return {
+        width: bounds.width,
+        height: bounds.height,
+        x: (bounds.left + bounds.right) / 2,
+        y: (bounds.top + bounds.bottom) / 2,
+        scaleX: transform.a,
+        scaleY: transform.d,
+      };
+    });
+    expect(geometry.scaleX).toBeCloseTo(geometry.scaleY, 3);
+    expect(geometry.width).toBeLessThanOrEqual(viewport.width);
+    expect(geometry.height).toBeLessThanOrEqual(viewport.height);
+    expect(geometry.x).toBeCloseTo(viewport.width / 2, 0);
+    expect(geometry.y).toBeCloseTo(viewport.height / 2, 0);
+  }).toPass({ timeout: SCENE_TIMEOUT });
   await expect(terminal).not.toHaveAttribute("inert");
 }
 
@@ -221,6 +224,7 @@ export function roomPortalProbe(
     material,
     vertices,
     levels,
+    growth: 1,
     masks,
     expected,
     tolerance,
@@ -427,8 +431,9 @@ function drawRoomPortal(probe: RoomPortalProbe) {
   ]);
   gl.uniform3f(gl.getUniformLocation(program, "cameraPosition"), probe.roadX, 0, probe.eyeZ);
   gl.uniform3f(gl.getUniformLocation(program, "uIntroEye"), probe.roadX, 0, probe.eyeZ);
-  for (const name of ["uIntroFill", "uIntroGrowth", "uIntroArrival"])
+  for (const name of ["uIntroFill", "uIntroArrival"])
     gl.uniform1f(gl.getUniformLocation(program, name), 1);
+  gl.uniform1f(gl.getUniformLocation(program, "uIntroGrowth"), probe.growth);
   gl.uniform1f(gl.getUniformLocation(program, "uIntroTravel"), 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(

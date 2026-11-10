@@ -10,7 +10,12 @@ import {
   roadBend,
   roadGrowth,
 } from "./intro-geometry";
-import { cameraFrames, terminalDockFrames, terminalFrames } from "./intro-journey";
+import {
+  cameraFrames,
+  createIntroJourney,
+  terminalDockFrames,
+  terminalFrames,
+} from "./intro-journey";
 import { INTRO_HANDOFF, INTRO_PACING } from "./timing";
 
 function eye(frame: Keyframe): number[] {
@@ -87,7 +92,7 @@ test("the camera rises through the hall to screen-centre height without pitching
       (frame) => (eye(frame)[2] ?? 0) < ARRIVAL_ENTRY.back - JOURNEY.near * 2,
     );
     const launch = frames.find((frame) => frame.offset === INTRO_HANDOFF.start);
-    const settled = frames.find((frame) => frame.offset === INTRO_HANDOFF.boot);
+    const settled = frames.find((frame) => frame.offset === INTRO_HANDOFF.arrival);
     if (!entered || !launch || !settled) throw new Error("Missing hall camera boundaries");
     expect(eye(settled)[1]).toBeCloseTo(AUDITORIUM.screen.y, 7);
     expect(eye(launch)[1]).toBeLessThan(eye(entered)[1] ?? 0);
@@ -145,7 +150,7 @@ for (const [width, height] of [
       const frame = frames.find((value) => value.offset === pose.offset);
       if (!frame) throw new Error("Missing synchronized screen frame");
       if (z >= ARRIVAL_ENTRY.assemblyEnd) expect(frame.opacity).toBe(0);
-      if (Number(frame.opacity) === 0 || Number(frame.offset) >= INTRO_HANDOFF.start) continue;
+      if (Number(frame.opacity) === 0 || Number(frame.offset) >= INTRO_HANDOFF.rise) continue;
       for (const sx of [-1, 1]) {
         for (const sy of [-1, 1]) {
           const world = [
@@ -171,7 +176,7 @@ for (const [width, height] of [
     }
   });
 
-  test(`the ${width}×${height} screen reaches native terminal geometry before boot`, () => {
+  test(`the ${width}×${height} screen stays centred while shrinking to native geometry`, () => {
     const frames = terminalFrames(
       Math.min(352, (width + 48) * 0.64),
       width,
@@ -179,14 +184,15 @@ for (const [width, height] of [
       centered,
       journeyPerspective(width + 48),
     );
-    const boot = frames.filter((frame) => Number(frame.offset) >= INTRO_HANDOFF.boot);
-    for (const frame of boot) {
+    const handoff = frames.filter((frame) => Number(frame.offset) >= INTRO_HANDOFF.start);
+    for (const frame of handoff) {
       const values = matrix(frame);
       expect(frame.opacity).toBe(1);
+      expect(screenPoint(frame, 0, 0).x).toBeCloseTo(centered.x, 8);
+      expect(screenPoint(frame, 0, 0).y).toBeCloseTo(centered.y, 8);
+      if (Number(frame.offset) < INTRO_HANDOFF.settled) continue;
       expect(values[0]).toBeCloseTo(0.8, 8);
       expect(values[5]).toBeCloseTo(0.8, 8);
-      expect(values[12]).toBeCloseTo(30, 8);
-      expect(values[13]).toBeCloseTo(60, 8);
       expect(values[3]).toBe(0);
       expect(values[7]).toBe(0);
     }
@@ -218,35 +224,40 @@ test("interpolated glass visibility stays within the portal and completes before
   }
 });
 
-test("screen shrink overlaps the continuing ascent after clearing the seats", () => {
+test("screen shrink overlaps forward camera travel and ascent inside the hall", () => {
   const camera = cameraFrames(352, 448 * centered.scale, JOURNEY.perspective);
   const frames = terminalFrames(352, 1040, 448, centered, JOURNEY.perspective);
   const launch = frames.find((frame) => frame.offset === INTRO_HANDOFF.start);
   const launchCamera = camera.find((frame) => frame.offset === INTRO_HANDOFF.start);
   if (!launch || !launchCamera) throw new Error("Missing handoff boundary");
   const launchWidth = screenPoint(launch, 520, 224).x - screenPoint(launch, -520, 224).x;
-  const nearestSeat = Math.min(
-    ...AUDITORIUM_OBJECTS.filter(
-      (object) => object.id.startsWith("seat.") || object.id.startsWith("tier."),
-    ).map((object) => object.origin[2] - object.size[2]),
-  );
-  expect(eye(launchCamera)[2]).toBeLessThan(nearestSeat - JOURNEY.near * 2);
+  expect(eye(launchCamera)[2]).toBeLessThan(AUDITORIUM.entrance - JOURNEY.near * 2);
+  let previousDepth = eye(launchCamera)[2] ?? 0;
   let previousWidth = launchWidth;
   for (const pose of camera) {
     const at = Number(pose.offset);
-    if (at < INTRO_HANDOFF.start || at > INTRO_HANDOFF.boot) continue;
+    if (at < INTRO_HANDOFF.start || at > INTRO_HANDOFF.settled) continue;
     const frame = frames.find((value) => value.offset === pose.offset);
     if (!frame) throw new Error("Missing synchronized screen sample");
     const width = screenPoint(frame, 520, 224).x - screenPoint(frame, -520, 224).x;
     expect(width).toBeLessThanOrEqual(previousWidth + 1e-7);
-    expect(eye(pose)[2]).toBeCloseTo(eye(launchCamera)[2] ?? 0, 6);
+    const depth = eye(pose)[2] ?? 0;
+    expect(depth).toBeLessThanOrEqual(previousDepth + 1e-7);
+    previousDepth = depth;
     previousWidth = width;
-    if (at > INTRO_HANDOFF.start && at < INTRO_HANDOFF.boot) {
+    if (at > INTRO_HANDOFF.start && at < INTRO_HANDOFF.settled) {
       expect(eye(pose)[1]).toBeLessThan(eye(launchCamera)[1] ?? 0);
       expect(eye(pose)[1]).toBeGreaterThan(AUDITORIUM.screen.y);
     }
   }
+  expect(previousDepth).toBeLessThan((eye(launchCamera)[2] ?? 0) - JOURNEY.near * 4);
   expect(previousWidth).toBeCloseTo(1040 * centered.scale, 8);
+  const content = frames.find((frame) => frame.offset === INTRO_HANDOFF.content);
+  if (!content) throw new Error("Missing content handoff");
+  const contentWidth = screenPoint(content, 520, 224).x - screenPoint(content, -520, 224).x;
+  expect(content.opacity).toBe(1);
+  expect(contentWidth).toBeLessThan(launchWidth);
+  expect(contentWidth).toBeGreaterThan(previousWidth);
 });
 
 test("terminal descent settles gradually instead of spending most movement in the first frames", () => {
@@ -296,9 +307,10 @@ test("the road starts during the close approach and then extends ahead of the mo
   }
 });
 
-test("road cruise stays below the sign-reading speed budget without stopping", () => {
+test("road cruise stays readable and the hall approach decelerates without a speed burst", () => {
   const positions = cameraFrames(352, 448, JOURNEY.perspective);
   const seconds = (INTRO_PACING.journey * INTRO_READING_UNIT_MS) / 1000;
+  let hallSpeed = Infinity;
   for (let index = 1; index < positions.length; index++) {
     const before = positions[index - 1],
       after = positions[index];
@@ -306,11 +318,42 @@ test("road cruise stays below the sign-reading speed budget without stopping", (
     const from = eye(before)[2] ?? 0,
       to = eye(after)[2] ?? 0;
     const frameSeconds = (Number(after.offset) - Number(before.offset)) * seconds;
-    if (from > -3000 || to < JOURNEY.roadEnd) continue;
+    if (from > -3000) continue;
     const speed = (from - to) / frameSeconds;
-    expect(speed).toBeGreaterThan(1000);
+    if (to >= JOURNEY.roadEnd) expect(speed).toBeGreaterThan(1000);
     expect(speed).toBeLessThan(3600);
+    if (from > ARRIVAL_ENTRY.front) continue;
+    expect(speed).toBeLessThanOrEqual(hallSpeed + 1e-7);
+    hallSpeed = speed;
   }
+});
+
+test("hall cruise starts and ends without a velocity kick", async () => {
+  let frames: Keyframe[] = [];
+  const root = {
+    dataset: {},
+    querySelectorAll: () => [{}],
+  } as unknown as HTMLElement;
+  const journey = createIntroJourney(async (_element, keyframes) => {
+    frames = keyframes;
+  });
+  await journey.cruise(root, 1000, new AbortController().signal);
+  const points = frames.map((frame) => ({
+    at: Number(frame.offset),
+    z: Number(String(frame.transform).match(/translateZ\(([-\d.e+]+)px\)/)?.[1]),
+  }));
+  const first = points[0],
+    last = points.at(-1);
+  if (!first || !last) throw new Error("Missing cruise endpoints");
+  const average = (last.z - first.z) / (last.at - first.at);
+  const speeds = points.slice(1).map((point, index) => {
+    const before = points[index];
+    if (!before) throw new Error("Missing cruise interval");
+    return (point.z - before.z) / (point.at - before.at);
+  });
+  for (const speed of speeds) expect(speed).toBeGreaterThanOrEqual(0);
+  expect((speeds[0] ?? NaN) / average).toBeLessThan(0.05);
+  expect((speeds.at(-1) ?? NaN) / average).toBeLessThan(0.05);
 });
 
 test("the entrance camera keeps near-plane clearance below the roof", () => {

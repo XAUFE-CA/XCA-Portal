@@ -1,9 +1,44 @@
 import { expect, test } from "@playwright/test";
 import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
-test("glass edge follows the same terminal throughout docking and settles without a jump", async ({
+interface GlassFinish {
+  filter: string;
+  background: string;
+}
+interface IntroGlassContinuity {
+  brand: GlassFinish | null;
+  ready: GlassFinish | null;
+}
+
+declare global {
+  interface Window {
+    terminalIntroMaterial?: IntroGlassContinuity;
+  }
+}
+
+function recordIntroGlassMaterial() {
+  const material: IntroGlassContinuity = { brand: null, ready: null };
+  window.terminalIntroMaterial = material;
+  new MutationObserver(() => {
+    const terminal = document.querySelector(".xca-terminal-window");
+    const screen = document.querySelector(".xca-terminal-screen");
+    if (!terminal || !screen) return;
+    const style = getComputedStyle(terminal);
+    const finish = { filter: style.backdropFilter, background: style.backgroundColor };
+    if (screen.classList.contains("xca-terminal-screen--brand")) material.brand = finish;
+    if (
+      screen.classList.contains("xca-terminal-screen--ready") &&
+      material.brand &&
+      !material.ready
+    )
+      material.ready = finish;
+  }).observe(document, { subtree: true, attributes: true, childList: true });
+}
+
+test("glass edge and background stay continuous through docking and intro completion", async ({
   page,
 }) => {
+  await page.addInitScript(recordIntroGlassMaterial);
   await page.addInitScript(() => {
     const drawn: [number, number, number, number][] = [];
     const renderers = new WeakSet<WebGLRenderingContext | WebGL2RenderingContext>();
@@ -77,6 +112,11 @@ test("glass edge follows the same terminal throughout docking and settles withou
   await expect(terminal).not.toHaveAttribute("data-neoverse-glass-edge-pass");
   await expect(page.locator("html")).toHaveAttribute("data-neoverse-glass-renderer", "webgl");
   expect(await terminal.evaluate((el) => getComputedStyle(el).backdropFilter)).toContain("blur(");
+  const material = await page.evaluate(() => window.terminalIntroMaterial);
+  if (!material?.brand || !material.ready)
+    throw new Error("Intro material boundaries were not recorded");
+  expect(material.brand.filter).toContain("blur(");
+  expect(material.ready).toEqual(material.brand);
   const ready = samples.findIndex((sample) => sample.ready);
   if (ready > 0) {
     const current = samples[ready];

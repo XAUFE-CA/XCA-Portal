@@ -25,9 +25,9 @@ for (const mode of [
       const scene = page.locator(".xca-ca-intro");
       await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
       const terminal = page.locator(".xca-terminal-window");
-      for (const fraction of [0, 0.24, 0.43, 0.57, 0.8, 0.85]) {
+      for (const fraction of [0, 0.24, 0.43, 0.57, 0.78, 0.8]) {
         await freezeApproach(page, fraction);
-        if (fraction >= 0.8) {
+        if (fraction >= 0.78) {
           await expect(terminal).toHaveCSS("visibility", "visible");
           await expect(terminal).toHaveCSS("opacity", "1");
           await expect(terminal).toHaveAttribute("inert", "");
@@ -55,7 +55,7 @@ for (const mode of [
       await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
       const terminal = page.locator(".xca-terminal-window");
       await terminal.evaluate((node) => node.setAttribute("data-journey-persistent", "yes"));
-      await freezeApproach(page, 0.85);
+      await freezeApproach(page, 0.8);
       await resumeScene(page);
       await advanceToScreen(page, "boot");
       await expect(page.locator(".xca-terminal-screen")).toHaveClass(/xca-terminal-screen--boot/, {

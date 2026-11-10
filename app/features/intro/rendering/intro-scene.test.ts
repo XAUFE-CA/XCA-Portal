@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { Matrix4, Mesh, MeshStandardMaterial, Vector3, Vector4 } from "three";
+import { AUDITORIUM } from "../core/intro-auditorium";
 import { JOURNEY } from "../core/intro-geometry";
 import { createIntroCamera, createIntroScene } from "./intro-scene";
+import { createRoomLight } from "./intro-scene-lighting";
 
 function cssMatrix(matrix: Matrix4): DOMMatrixReadOnly {
   const fields: Record<string, number> = {};
@@ -68,4 +70,28 @@ test("surface batching corrects reflected winding without losing normals or road
   }
   scene.dispose();
   material.dispose();
+});
+
+test("the auditorium shadow beam covers the aisle but excludes the enclosing roof", () => {
+  const light = createRoomLight();
+  try {
+    light.updateMatrixWorld();
+    light.target.updateMatrixWorld();
+    light.shadow.updateMatrices(light);
+    const frustum = light.shadow.getFrustum();
+    expect(frustum.containsPoint(light.target.position)).toBe(true);
+    for (const x of [-AUDITORIUM.halfWidth + 100, 0, AUDITORIUM.halfWidth - 100]) {
+      for (const z of [
+        AUDITORIUM.entrance - 800,
+        (AUDITORIUM.entrance + AUDITORIUM.back) / 2,
+        AUDITORIUM.back + 100,
+      ]) {
+        expect(
+          frustum.containsPoint(new Vector3(JOURNEY.roadX + x, -AUDITORIUM.ceiling + 1, z)),
+        ).toBe(false);
+      }
+    }
+  } finally {
+    light.dispose();
+  }
 });

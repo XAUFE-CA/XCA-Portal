@@ -46,6 +46,7 @@ app/                    门户应用（Nuxt 4 srcDir）
         intro-city-{layout,environment,primitives}.ts  地块坐标、地面设施与闭合网格
         intro-city-layer.ts        城市离屏绘制与整体合成
         intro-auditorium-mesh.ts   报告厅静态网格与圆角、倒角生成
+        intro-auditorium-surfaces.ts  报告厅织物、穿孔板、金属与石材表面
         *.test.ts                  网格、场景合批与投影单元测试
       presentation/     入场编排与启动输出
         useIntroPresentation.ts    入场阶段、启动输出、跳过与清理

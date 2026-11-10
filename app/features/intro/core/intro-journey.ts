@@ -58,7 +58,8 @@ const CAMERA_OFFSETS = [
     ...Array.from({ length: 181 }, (_, index) => index / 180),
     INTRO_HANDOFF.rise,
     INTRO_HANDOFF.start,
-    INTRO_HANDOFF.boot,
+    INTRO_HANDOFF.content,
+    INTRO_HANDOFF.settled,
   ]),
 ].sort((a, b) => a - b);
 
@@ -153,10 +154,10 @@ function cameraSamples(markSize: number, terminalHeight: number, perspective: nu
     [x, y, -8000],
     [x, y, -9900],
     [x, y, JOURNEY.roadEnd + 600],
-    [x, y, ARRIVAL_ENTRY.front],
-    [x, y, AUDITORIUM.entrance - 450],
-    [x, y, AUDITORIUM.entrance - 1250],
-    [x, y, AUDITORIUM.stageFront + 1900],
+    [x, y, AUDITORIUM.entrance - 750],
+    [x, y, AUDITORIUM.entrance - 2550],
+    [x, y, AUDITORIUM.stageFront + 2200],
+    [x, y, AUDITORIUM.stageFront + 1200],
     end,
     end,
     end,
@@ -199,7 +200,7 @@ function cameraSamples(markSize: number, terminalHeight: number, perspective: nu
     // 将机位升到屏幕中心高度，同时保持水平视线。
     const ahead = roadBend(eye[2] - 1100);
     const follow = ramp(-eye[2], 600, 1800);
-    const rise = ramp(at, INTRO_HANDOFF.rise, INTRO_HANDOFF.boot);
+    const rise = ramp(at, INTRO_HANDOFF.rise, INTRO_HANDOFF.arrival);
     const heightOffset =
       clearance * entryGrowth(eye[2]) + (AUDITORIUM.screen.y - y - clearance) * rise;
     aim[0] += ahead.x * follow;
@@ -284,10 +285,6 @@ function screenProjection(
   ];
 }
 
-/**
- * One glass surface leaves its stage projection and becomes the readable terminal.
- * 同一玻璃表面从舞台投影连续过渡为可读终端。
- */
 export function terminalFrames(
   markSize: number,
   terminalWidth: number,
@@ -324,8 +321,8 @@ export function terminalFrames(
     const blend = (z - before.eye[2]) / (after.eye[2] - before.eye[2]);
     cues.push(before.offset + (after.offset - before.offset) * blend);
   }
-  // Include reveal and boot boundaries exactly, so WAAPI cannot light the screen early.
-  // 显现和开机边界直接加入关键帧，避免 WAAPI 插值提前点亮屏幕。
+  // Include reveal boundaries exactly so WAAPI cannot light the screen early.
+  // 显现边界直接加入关键帧，避免 WAAPI 插值提前点亮屏幕。
   for (const offset of cues) {
     const index = samples.findIndex((sample) => sample.offset >= offset);
     const before = samples[index - 1],
@@ -346,16 +343,24 @@ export function terminalFrames(
     });
   }
   samples.sort((a, b) => a.offset - b.offset);
+  let handoffProjection: number[] | undefined;
   return samples.map((pose) => {
     const offset = pose.offset;
-    const matrix = screenProjection(pose, terminalWidth, terminalHeight, centered, perspective);
-    const handoff = ramp(offset, INTRO_HANDOFF.start, INTRO_HANDOFF.boot);
+    // Detach the screen at handoff so forward camera travel cannot enlarge it during shrink.
+    // 交接时让屏幕脱离场景投影，避免镜头继续推进时终端反而变大。
+    const matrix =
+      handoffProjection?.slice() ??
+      screenProjection(pose, terminalWidth, terminalHeight, centered, perspective);
+    if (offset === INTRO_HANDOFF.start) handoffProjection = matrix.slice();
+    const handoff = ramp(offset, INTRO_HANDOFF.start, INTRO_HANDOFF.settled);
+    const position = ramp(offset, INTRO_HANDOFF.rise, INTRO_HANDOFF.start);
     matrix.forEach((source, index) => {
       let target = index % 5 === 0 ? 1 : 0;
       if (index === 0 || index === 5) target = centered.scale;
       if (index === 12) target = centered.x;
       if (index === 13) target = centered.y;
-      matrix[index] = source + (target - source) * handoff;
+      const progress = index === 12 || index === 13 ? position : handoff;
+      matrix[index] = source + (target - source) * progress;
     });
     // Light the glass only once the complete screen fits through both portal planes.
     // 完整屏幕能透过入口前后开口时，再点亮玻璃。
@@ -461,7 +466,7 @@ export function createIntroJourney(animate: IntroAnimate) {
       root,
       ".xca-ca-intro__travel",
       sampledFrames((at) => ({
-        transform: `translateZ(${220 * (1 - (1 - at) ** 3)}px)`,
+        transform: `translateZ(${220 * ramp(at, 0, 1)}px)`,
       })),
       duration,
       signal,

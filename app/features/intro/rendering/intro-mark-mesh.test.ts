@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../core/intro-auditorium";
 import { ARRIVAL_ENTRY, JOURNEY, JOURNEY_STATIONS, roadBend } from "../core/intro-geometry";
 import { createMarkMesh, extrudeContour, roundedPanelContour } from "./intro-mark-mesh";
 
@@ -210,32 +211,46 @@ test("bridge supports do not overlap the driving surface with coplanar top faces
   expect(coplanarFaces).toBe(0);
 });
 
-test("the curved bridge, entrance and auditorium provide an unbroken walking surface", () => {
+test("the bridge and tiered central aisle form a continuous route without oversized drops", () => {
   const mesh = createMarkMesh([], 16);
   type Point = readonly [number, number];
-  const floors: [Point, Point, Point][] = [];
+  const floors: { points: [Point, Point, Point]; height: number }[] = [];
   const cross = (a: Point, b: Point, x: number, z: number) =>
     (b[0] - a[0]) * (z - a[1]) - (b[1] - a[1]) * (x - a[0]);
   for (let offset = 0; offset < mesh.length; offset += 21) {
-    if (mesh[offset + 4] !== -1) continue;
-    if (![0, 7, 14].every((at) => mesh[offset + at + 1] === JOURNEY.floorY)) continue;
+    if (
+      mesh[offset + 4] !== -1 ||
+      ![
+        1,
+        AUDITORIUM_MATERIAL.ground,
+        AUDITORIUM_MATERIAL.carpet,
+        AUDITORIUM_MATERIAL.connection,
+      ].includes(mesh[offset + 6] ?? 0)
+    )
+      continue;
     const points = [0, 7, 14].map(
       (at) => [mesh[offset + at] ?? 0, mesh[offset + at + 2] ?? 0] as const,
     );
     const [a, b, c] = points;
-    if (a && b && c && Math.abs(cross(a, b, c[0], c[1])) > 0.01) floors.push([a, b, c]);
+    if (a && b && c && Math.abs(cross(a, b, c[0], c[1])) > 0.01)
+      floors.push({ points: [a, b, c], height: mesh[offset + 1] ?? 0 });
   }
-  const covered = (z: number) => {
+  let previous: number = JOURNEY.floorY;
+  for (let z = JOURNEY.roadStart - 10; z >= -JOURNEY.depth + JOURNEY.perspective; z -= 37) {
     const x = JOURNEY.roadX + roadBend(z).x;
-    return floors.some(([a, b, c]) => {
-      const signs = [cross(a, b, x, z), cross(b, c, x, z), cross(c, a, x, z)];
-      return signs.every((value) => value >= -0.001) || signs.every((value) => value <= 0.001);
-    });
-  };
-  for (let z = JOURNEY.roadStart - 10; z >= -JOURNEY.depth + JOURNEY.perspective; z -= 37)
-    expect(covered(z)).toBe(true);
-  for (const z of [JOURNEY.roadEnd + 0.01, JOURNEY.roadEnd, JOURNEY.roadEnd - 0.01])
-    expect(covered(z)).toBe(true);
+    const heights = floors
+      .filter(({ points: [a, b, c] }) => {
+        const signs = [cross(a, b, x, z), cross(b, c, x, z), cross(c, a, x, z)];
+        return signs.every((value) => value >= -0.001) || signs.every((value) => value <= 0.001);
+      })
+      .map((floor) => floor.height);
+    const height = Math.min(...heights);
+    expect(Number.isFinite(height), `Missing floor at ${z}`).toBe(true);
+    expect(height - previous).toBeGreaterThanOrEqual(-0.001);
+    expect(height - previous).toBeLessThanOrEqual(38.001);
+    previous = height;
+  }
+  expect(previous).toBe(AUDITORIUM.floorY);
 });
 
 test("the entrance cutout meets both bridge edges throughout the connection", () => {
@@ -249,7 +264,7 @@ test("the entrance cutout meets both bridge edges throughout the connection", ()
     const shoulder: number[] = [];
     for (let offset = 0; offset < mesh.length; offset += 21) {
       const material = mesh[offset + 6];
-      if (material !== 1 && material !== 14) continue;
+      if (material !== 1 && material !== AUDITORIUM_MATERIAL.connection) continue;
       const section = material === 1 ? road : shoulder;
       for (const [a, b] of [
         [0, 7],

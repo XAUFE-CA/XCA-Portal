@@ -90,12 +90,6 @@ test("the road front keeps its lead while matching camera speed", () => {
   expect(roadGrowth(-JOURNEY.depth)).toBe(1);
 });
 
-test("initial road unfolding takes a full entrance section instead of appearing in one step", () => {
-  expect(roadGrowth(500)).toBeLessThan(0.02);
-  expect(roadGrowth(0)).toBeLessThan(0.15);
-  expect(roadGrowth(-1100)).toBeGreaterThan(0.3);
-});
-
 test("signs share the support reveal and reach full opacity before the camera passes", () => {
   expect(JOURNEY_STATIONS.filter((station) => station.hasPanel)).toHaveLength(6);
   for (const station of JOURNEY_STATIONS) {

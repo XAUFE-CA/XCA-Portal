@@ -337,6 +337,7 @@ onBeforeUnmount(() => {
         :session="session"
         :intro="phase !== 'ready'"
         :intro-stage="phase"
+        :projected="spatialIntro && !revealing"
         :boot-lines="bootLines"
         :boot-progress="bootProgress"
         :banner-rows-visible="bannerRowsVisible"

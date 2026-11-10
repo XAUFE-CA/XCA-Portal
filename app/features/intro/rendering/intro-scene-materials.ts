@@ -14,6 +14,14 @@ import {
   ROAD_MATERIALIZATION,
   SCENERY_REVEAL,
 } from "../core/intro-geometry";
+import {
+  AUDITORIUM_EMISSION,
+  AUDITORIUM_NORMAL,
+  AUDITORIUM_ROUGHNESS,
+  AUDITORIUM_SURFACE,
+  createAuditoriumMaterial,
+  updateAuditoriumMaterial,
+} from "./intro-auditorium-surfaces";
 import { createFacadeTexture } from "./intro-city-facade";
 import type { IntroPalette } from "./intro-scene-palette";
 
@@ -87,7 +95,7 @@ if (introSelector > 8.5) {
     vec2 introBounds = vec2(0.5, ${(ARRIVAL_ENTRY.height / ARRIVAL_ENTRY.width / 2).toFixed(9)}) * uIntroEntry;
     if (min(introBounds.x * introDistance - abs(introRay.x), introBounds.y * introDistance - abs(introRay.y)) < 0.0) discard;
   }
-  if (introSelector > 13.5 && introSelector < 15.5 && introRoadDepth > uIntroGrowth) discard;
+  if (introSelector == 21.0 && introRoadDepth > uIntroGrowth) discard;
 } else if (introSelector < 0.5) {
   introVisibility = uIntroFill;
 } else if (introSelector < 1.5) {
@@ -132,6 +140,8 @@ vec3 introOfficeTint = uIntroOffice;
 float introDetail = 1.0 - smoothstep(0.0008, 0.003, max(length(dFdx(vIntroUv)), length(dFdy(vIntroUv))));
 float introFinish = introGrain(floor(vIntroUv * vec2(145.0, 190.0))) - 0.5;
 float introGuide = 0.0;
+float roomFinish = 0.0;
+float roomRelief = 0.0;
 if (introSelector > 4.5 && introSelector < 8.5 && abs(introSelector - 7.0) > 0.1 && (introSelector < 5.5 || introSelector > 7.5)) {
   introFacadeData = texture2D(uIntroFacade, vIntroUv * vec2(0.217014, 0.052083)).rgb;
   float introVertical = 1.0 - smoothstep(0.35, 0.85, abs(normalize(vIntroNormal).y));
@@ -177,9 +187,7 @@ if (introSelector > 4.5 && introSelector < 8.5 && abs(introSelector - 7.0) > 0.1
   float introJoint = smoothstep(0.47, 0.495, abs(fract(introRoadDepth * 72.0) - 0.5));
   diffuseColor.rgb *= 1.0 + introFinish * 0.055 * introDetail - introJoint * 0.075 * introDetail;
 } else if (introSelector > 8.5) {
-  float introWeave = sin(vIntroUv.x * 1500.0) * sin(vIntroUv.y * 1200.0);
-  float introFabric = abs(introSelector - 10.0) < 0.1 ? introWeave * 0.025 : 0.0;
-  diffuseColor.rgb *= 1.0 + (introFinish * 0.035 + introFabric) * introDetail;
+  ${AUDITORIUM_SURFACE}
 }
 diffuseColor.a *= introVisibility;
 `;
@@ -189,6 +197,7 @@ if (introWindows > 0.0) {
   roughnessFactor = mix(roughnessFactor, 0.48 + introFacadeData.r * 0.14, introWindows);
 }
 roughnessFactor = clamp(roughnessFactor + introFinish * introDetail * 0.035, 0.18, 1.0);
+${AUDITORIUM_ROUGHNESS}
 `;
 
 const EMISSION = `
@@ -198,20 +207,18 @@ if (introWindows > 0.0) {
 if (introGuide > 0.0) {
   totalEmissiveRadiance += mix(uIntroSignal, uIntroSecondary, 0.12) * introGuide * 0.72;
 }
+${AUDITORIUM_EMISSION}
 `;
 
 // Screen-space surface gradients perturb the real PBR normal, not the final color.
 // 屏幕空间表面梯度扰动真实 PBR 法线，而非最终颜色。
 const MICRO_NORMAL = `
-if (abs(introSelector - 1.0) < 0.1 || abs(introSelector - 9.0) < 0.1 || abs(introSelector - 10.0) < 0.1 || abs(introSelector - 12.0) < 0.1 || abs(introSelector - 14.0) < 0.1) {
+if (abs(introSelector - 1.0) < 0.1) {
   vec3 introAnchor = vec3(vIntroWorld.xy, vIntroAlong);
-  float introFrequency = abs(introSelector - 10.0) < 0.1 ? 3.5 : 0.75;
+  float introFrequency = 0.75;
   float introFootprint = max(length(dFdx(introAnchor)), length(dFdy(introAnchor))) * introFrequency;
   float introMicroFilter = 1.0 - smoothstep(0.35, 1.2, introFootprint);
-  float introHeight = introNoise(introAnchor * introFrequency) * (introSelector < 1.5 ? 0.16 : 0.07);
-  if (abs(introSelector - 10.0) < 0.1 || abs(introSelector - 12.0) < 0.1) {
-    introHeight = (sin(introAnchor.x * introFrequency) + sin(introAnchor.y * introFrequency) + sin(introAnchor.z * introFrequency)) * 0.025;
-  }
+  float introHeight = introNoise(introAnchor * introFrequency) * 0.16;
   introHeight *= introMicroFilter;
   vec3 introDx = dFdx(-vViewPosition);
   vec3 introDy = dFdy(-vViewPosition);
@@ -221,6 +228,7 @@ if (abs(introSelector - 1.0) < 0.1 || abs(introSelector - 9.0) < 0.1 || abs(intr
   vec3 introGradient = sign(introDet) * (dFdx(introHeight) * introRx + dFdy(introHeight) * introRy);
   normal = normalize(max(abs(introDet), 1e-8) * normal - introGradient);
 }
+${AUDITORIUM_NORMAL}
 `;
 
 function frameUniforms(frame: IntroFrame) {
@@ -251,6 +259,8 @@ function buildMaterial(selector: number): IntroMaterial {
   let material: IntroMaterial;
   if (selector === 0) {
     material = new MeshBasicMaterial({ color: 0xffffff, toneMapped: false, vertexColors: true });
+  } else if (selector >= 9) {
+    material = createAuditoriumMaterial(selector);
   } else if (selector === 4) {
     material = new MeshPhysicalMaterial({
       roughness: 0.34,
@@ -267,37 +277,6 @@ function buildMaterial(selector: number): IntroMaterial {
       clearcoat: selector === 5.4 ? 0.035 : 0.02,
       clearcoatRoughness: 0.58,
     });
-  } else if (selector === 10 || selector === 12) {
-    // Acoustic panels read as frosted glass; seats keep their woven fabric.
-    // 声学板采用磨砂玻璃观感，座椅保留织物纹理。
-    material = new MeshPhysicalMaterial({
-      roughness: selector === 10 ? 0.82 : 0.34,
-      sheen: selector === 10 ? 0.35 : 0.22,
-      sheenRoughness: 0.8,
-      clearcoat: selector === 12 ? 0.9 : 0,
-      clearcoatRoughness: selector === 12 ? 0.24 : 0.18,
-      ior: 1.5,
-      specularIntensity: selector === 12 ? 1 : 0.5,
-    });
-  } else if (selector === 16) {
-    material = new MeshPhysicalMaterial({
-      roughness: 0.07,
-      metalness: 0.02,
-      clearcoat: 1,
-      clearcoatRoughness: 0.04,
-      ior: 1.5,
-      specularIntensity: 1,
-      iridescence: 0.16,
-    });
-  } else if (selector === 13) {
-    material = new MeshPhysicalMaterial({
-      roughness: 0.22,
-      metalness: 0.72,
-      anisotropy: 0.18,
-      anisotropyRotation: Math.PI / 2,
-      clearcoat: 0.4,
-      clearcoatRoughness: 0.12,
-    });
   } else if (selector === 5.2 || selector === 2) {
     material = new MeshPhysicalMaterial({
       roughness: selector === 5.2 ? 0.9 : 0.74,
@@ -306,24 +285,11 @@ function buildMaterial(selector: number): IntroMaterial {
       anisotropyRotation: Math.PI / 2,
     });
   } else {
-    let roughness = selector >= 9 ? 0.68 : 0.55;
-    let metalness = 0.04;
+    let roughness = 0.55;
     if (selector === 1) roughness = 0.76;
-    if (selector === 14) {
-      roughness = 0.2;
-      metalness = 0.12;
-    }
     if (selector === 5.6 || selector === 5.9) roughness = 0.94;
     if (selector === 5.7) roughness = 0.86;
-    material =
-      selector === 14
-        ? new MeshPhysicalMaterial({
-            roughness,
-            metalness,
-            clearcoat: 0.9,
-            clearcoatRoughness: 0.1,
-          })
-        : new MeshStandardMaterial({ roughness, metalness });
+    material = new MeshStandardMaterial({ roughness, metalness: 0.04 });
   }
   material.name = `intro-pbr-${selector}`;
   material.side = material.shadowSide = DoubleSide;
@@ -346,48 +312,7 @@ function updateMaterial(material: IntroMaterial, selector: number, palette: Intr
   }
   const daylight = palette.daylight;
   if (selector >= 9) {
-    const room = palette.auditorium;
-    const fabric = selector === 10;
-    const panel = selector === 12;
-    const glass = selector === 16;
-    material.color.copy(
-      glass
-        ? room.glass
-        : panel
-          ? room.panel
-          : fabric
-            ? room.fabric
-            : selector === 13
-              ? room.alloy
-              : selector === 14
-                ? room.floor
-                : room.structure,
-    );
-    material.emissive.setRGB(0, 0, 0);
-    // Brighter reflections separate clear glazing, frosted panels, metal and polished floor.
-    // 更高的反射强度区分清透玻璃、磨砂板、金属与抛光地面。
-    material.envMapIntensity = glass
-      ? 1.3
-      : panel
-        ? 1.0
-        : fabric
-          ? 0.3
-          : selector === 13
-            ? 1.1
-            : selector === 14
-              ? 1.25
-              : 0.7;
-    if (selector === 13) material.color.lerp(room.accentLight, 0.12);
-    if (selector === 14) material.color.lerp(room.accentLight, 0.05);
-    if (material instanceof MeshPhysicalMaterial) {
-      material.sheenColor.copy(selector === 10 ? room.fabric : room.panel);
-      if (panel || glass) material.specularColor.copy(room.glass);
-    }
-    if (selector === 11 || selector === 18) {
-      material.color.copy(room.accentLight);
-      material.emissive.copy(room.accentLight);
-      material.emissiveIntensity = 1.15;
-    }
+    updateAuditoriumMaterial(material, selector, palette.auditorium);
     return;
   }
   material.emissive.setRGB(0, 0, 0);
@@ -464,7 +389,7 @@ export function createIntroMaterials(renderer: WebGLRenderer, frame: IntroFrame)
             `#include <emissivemap_fragment>\n${EMISSION}`,
           );
       };
-      material.customProgramCacheKey = () => `intro-pbr-${selector}-v3`;
+      material.customProgramCacheKey = () => `intro-pbr-${selector}-v5`;
       materials.set(selector, material);
       if (palette) updateMaterial(material, selector, palette);
       return material;

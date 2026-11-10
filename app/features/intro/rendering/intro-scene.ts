@@ -138,7 +138,7 @@ export function createIntroScene(
     mesh.layers.set(
       city ? INTRO_LAYERS.city : id >= 9 ? INTRO_LAYERS.auditorium : INTRO_LAYERS.exterior,
     );
-    mesh.castShadow = id >= 9 && id < 14;
+    mesh.castShadow = (id >= 9 && id < 14 && id !== 11) || id === 19;
     mesh.receiveShadow = id >= 9;
     (id === 0 ? mark : world).add(mesh);
   }

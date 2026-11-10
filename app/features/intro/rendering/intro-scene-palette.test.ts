@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { Color } from "three";
+import { AUDITORIUM_MATERIAL } from "../core/intro-auditorium";
+import { createAuditoriumMaterial, updateAuditoriumMaterial } from "./intro-auditorium-surfaces";
 import { createAuditoriumPalette, selectIntroSky } from "./intro-scene-palette";
 
 const TOKENS: Record<string, string> = {
@@ -63,20 +65,36 @@ test("night and day are separate skies, with dense stars exclusive to night", ()
   expect(selectIntroSky(read, 0.5).starIntensity).toBe(0);
 });
 
-test("auditorium stays blue in both themes but night is clearly darker than day", () => {
+test("auditorium separates blue upholstery from silver finishes and dims lighting at night", () => {
   const night = createAuditoriumPalette(read, 0, read("accent-primary"));
   const day = createAuditoriumPalette(read, 1, read("accent-primary"));
   for (const room of [night, day]) {
-    for (const surface of [room.structure, room.alloy, room.floor, room.panel, room.glass]) {
-      expect(surface.b).toBeGreaterThan(surface.r);
-      expect(luminance(surface)).toBeGreaterThan(0.05);
+    expect(luminance(room.alloy)).toBeGreaterThan(luminance(room.fabric) * 5);
+    expect(luminance(room.panel)).toBeGreaterThan(luminance(room.carpet) * 4);
+    expect(room.fabric.b).toBeGreaterThan(room.fabric.r * 3);
+    expect(room.keyLight.b / room.keyLight.r).toBeLessThan(1.1);
+  }
+  expect(night.lightIntensity).toBeLessThan(day.lightIntensity / 3);
+  expect(luminance(night.alloy)).toBeGreaterThan(luminance(day.alloy) * 0.75);
+});
+
+test("auditorium architecture stays matte and opaque without environment reflections", () => {
+  const room = createAuditoriumPalette(read, 0, read("accent-primary"));
+  for (const selector of [
+    AUDITORIUM_MATERIAL.structure,
+    AUDITORIUM_MATERIAL.ground,
+    AUDITORIUM_MATERIAL.acoustic,
+    AUDITORIUM_MATERIAL.wallBand,
+  ]) {
+    const material = createAuditoriumMaterial(selector);
+    try {
+      updateAuditoriumMaterial(material, selector, room);
+      expect(material.roughness).toBeGreaterThanOrEqual(0.6);
+      expect(material.envMapIntensity).toBe(0);
+      expect(material.transparent).toBe(false);
+      expect(material.opacity).toBe(1);
+    } finally {
+      material.dispose();
     }
   }
-  expect(luminance(night.structure)).toBeLessThan(luminance(day.structure) * 0.6);
-  expect(luminance(night.floor)).toBeLessThan(luminance(day.floor) * 0.6);
-  expect(luminance(day.structure)).toBeGreaterThan(0.3);
-  expect(day.environmentIntensity).toBeGreaterThan(night.environmentIntensity);
-  // Bright blue coves survive the darker night exposure instead of dimming the whole room.
-  // 明亮的蓝色灯槽在较暗夜景曝光下仍保持发光，不把整厅压黑。
-  expect(luminance(night.accentLight)).toBeGreaterThan(0.4);
 });

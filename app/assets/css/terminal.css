@@ -127,9 +127,8 @@
 .xca-terminal-window--screen {
   --neoverse-terminal-header-background: transparent;
 }
-/* A per-frame perspective transform resamples the live scene behind the glass.
-   Keep the tint and painted edge, but suspend the shifting blur until the terminal docks.
-   逐帧透视变换会反复采样玻璃后的实时场景。保留色调与绘制描边，停靠前暂停移动的模糊。 */
+/* Suspend sampling only during perspective projection; docking restores the shared filter.
+   只在透视投影期间暂停采样，归位时沿用时间线恢复共享滤镜。 */
 .xca-terminal-window--projected {
   --neoverse-material-filter: none;
   --neoverse-material-edge-filter: none;

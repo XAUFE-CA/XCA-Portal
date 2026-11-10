@@ -69,7 +69,7 @@ export async function playIntroMark(context: MarkContext) {
       signal,
     ),
     (async () => {
-      await animate(terminal, [], { duration: duration * INTRO_HANDOFF.boot }, signal);
+      await animate(terminal, [], { duration: duration * INTRO_HANDOFF.content }, signal);
       signal.throwIfAborted();
       await onHandoff(arrival);
     })(),
