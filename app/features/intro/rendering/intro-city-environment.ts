@@ -1,6 +1,7 @@
 import { JOURNEY } from "../core/intro-geometry";
 import { CITY_GRID, cityParcel, CITY_GROUND as GROUND, isCityPark } from "./intro-city-layout";
-import { cityPlane, prism } from "./intro-city-primitives";
+import { CITY_TRAFFIC_MATERIAL } from "./intro-city-life";
+import { cityPlane, face, prism } from "./intro-city-primitives";
 
 function streetLamp(vertices: number[], x: number, z: number, side: number) {
   prism(vertices, {
@@ -31,9 +32,9 @@ function car(vertices: number[], x: number, z: number, side: number) {
     width: 96,
     depth: 208,
     top: GROUND - 42,
-    bottom: GROUND - 10,
-    material: 5.8,
-    bevel: 15,
+    bottom: GROUND + 2,
+    material: CITY_TRAFFIC_MATERIAL,
+    bottomFace: false,
   });
   prism(vertices, {
     x,
@@ -42,20 +43,23 @@ function car(vertices: number[], x: number, z: number, side: number) {
     depth: 112,
     top: GROUND - 75,
     bottom: GROUND - 40,
-    material: 5.4,
-    bevel: 14,
+    material: CITY_TRAFFIC_MATERIAL,
+    bottomFace: false,
     topScale: 0.8,
   });
   for (const edge of [-1, 1]) {
-    prism(vertices, {
-      x: x + edge * 30,
-      z: z + side * 102,
-      width: 22,
-      depth: 4,
-      top: GROUND - 32,
-      bottom: GROUND - 24,
-      material: 6,
-    });
+    const front = z + side * 105;
+    const left = x + edge * 30 - 11;
+    face(
+      vertices,
+      [
+        [left, GROUND - 32, front],
+        [left + 22, GROUND - 32, front],
+        [left + 22, GROUND - 24, front],
+        [left, GROUND - 24, front],
+      ],
+      CITY_TRAFFIC_MATERIAL,
+    );
   }
 }
 

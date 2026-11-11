@@ -72,6 +72,7 @@
 | PBR | Physically Based Rendering（基于物理的渲染） | 指场景材质与光照，不指共享 UI 的极光玻璃 |
 | PMREM | Prefiltered Mipmapped Radiance Environment Map（预过滤多级辐射环境贴图） | 用于场景材质随粗糙度变化的环境反射 |
 | HDR | High Dynamic Range（高动态范围） | 描述场景离屏颜色与灯光范围，不表示显示设备能力 |
+| LED | Light-emitting Diode（发光二极管） | 指城市楼体上的发光显示屏，不指真实终端或独立页面 |
 | CLI | Command-Line Interface（命令行界面） | 保留官方大写，不翻译、不展开 |
 | UI | User Interface（用户界面） | 保留官方大写，不翻译、不展开 |
 | SHA | Secure Hash Algorithm（安全哈希算法） | 保留官方大写，不翻译、不展开 |

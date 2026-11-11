@@ -1,4 +1,11 @@
-import { ACESFilmicToneMapping, Fog, SRGBColorSpace, Vector3, WebGLRenderer } from "three";
+import {
+  ACESFilmicToneMapping,
+  Fog,
+  MathUtils,
+  SRGBColorSpace,
+  Vector3,
+  WebGLRenderer,
+} from "three";
 import { tokenLength } from "~/utils/cssTokens";
 import {
   arrivalOpacity,
@@ -93,15 +100,15 @@ function createPipeline(
     };
     const materials = createIntroMaterials(renderer, frame);
     releases.unshift(() => materials.dispose());
-    const radius = tokenLength(root, "--neoverse-radius-lg");
+    const radius = root.clientWidth <= 767 ? 0 : tokenLength(root, "--neoverse-radius-lg");
     const scene = createIntroScene(createMarkMesh(paths, radius), materials);
     releases.unshift(() => scene.dispose());
-    const lighting = createIntroLighting(scene.scene, renderer);
+    const sky = createIntroSky(renderer);
+    releases.unshift(() => sky.dispose());
+    const lighting = createIntroLighting(scene.scene, renderer, sky);
     releases.unshift(() => lighting.dispose());
     const city = createCityLayer(renderer, canvas.width, canvas.height);
     releases.unshift(() => city.dispose());
-    const sky = createIntroSky(renderer);
-    releases.unshift(() => sky.dispose());
     const view = createIntroCamera(
       root.clientWidth,
       root.clientHeight,
@@ -109,7 +116,7 @@ function createPipeline(
     );
     const palette = createIntroPalette(canvas);
     sky.update(palette);
-    const fog = new Fog(palette.haze, 2800, 30000);
+    const fog = new Fog(palette.haze, 9000, 65000);
     scene.scene.fog = fog;
     return {
       renderer,
@@ -165,25 +172,30 @@ function draw(
   }
   state.lighting.useExterior();
   view.camera.layers.set(INTRO_LAYERS.city);
-  state.fog.near = 2800;
-  state.fog.far = 30000;
+  state.fog.near = 9000;
+  state.fog.far = 65000;
+  city.resize(renderer.domElement.width, renderer.domElement.height);
   renderer.setRenderTarget(city.target);
   renderer.clear();
-  // The static room shadow map belongs to the foreground, never the city pass.
-  // 静态室内阴影图属于前景，不在城市阶段更新。
+  // Exterior and room shadows warm independently, then reuse their static depth images.
+  // 室外与室内阴影分别预热，随后复用各自的静态深度图。
   const shadows = renderer.shadowMap.needsUpdate;
-  renderer.shadowMap.needsUpdate = false;
   renderer.render(scene.scene, view.camera);
+  renderer.shadowMap.needsUpdate = false;
   renderer.setRenderTarget(null);
   renderer.clear();
-  // The aura still owns the reveal ramp; the WebGL sky samples world directions.
-  // 入场显现仍由光晕控制，WebGL 天空按世界方向采样。
-  const reveal = Math.min(1, Number.parseFloat(getComputedStyle(aura).opacity || "0") / 0.58);
+  // Daylight enters later; night retains its existing reveal cadence.
+  // 日景延后显现，夜景保留原有的显现节奏。
+  const auraOpacity = Number.parseFloat(getComputedStyle(aura).opacity || "0");
+  const reveal =
+    state.palette.daylight >= 0.5
+      ? MathUtils.smoothstep(auraOpacity, 0.18, 0.92)
+      : Math.min(1, auraOpacity / 0.58);
   sky.draw(view.camera, reveal);
-  city.composite(skylineOpacity(frame.eye.value.z));
+  city.composite(skylineOpacity(frame.eye.value.z), state.palette.daylight);
   view.camera.layers.set(INTRO_LAYERS.exterior);
-  state.fog.near = 1800;
-  state.fog.far = 11000;
+  state.fog.near = 6000;
+  state.fog.far = 30000;
   renderer.render(scene.scene, view.camera);
   view.camera.layers.set(INTRO_LAYERS.auditorium);
   state.lighting.useAuditorium();
@@ -206,9 +218,11 @@ interface RenderElements {
 }
 
 async function warmPipeline(state: Pipeline, elements: RenderElements, signal: AbortSignal) {
+  await state.sky.prepare(signal);
+  signal.throwIfAborted();
   state.materials.update(state.palette);
   state.sky.update(state.palette);
-  state.lighting.update(state.palette, state.frame.travel.value);
+  state.materials.setEnvironment(state.lighting.update(state.palette, state.frame.travel.value));
   state.lighting.useExterior();
   state.renderer.shadowMap.needsUpdate = true;
   // Precompile both output variants before SVG stroke animation can start.
@@ -288,7 +302,9 @@ class MarkRenderer {
     this.state.fog.color.copy(this.state.palette.haze);
     this.state.materials.update(this.state.palette);
     this.state.sky.update(this.state.palette);
-    this.state.lighting.update(this.state.palette, this.state.frame.travel.value);
+    this.state.materials.setEnvironment(
+      this.state.lighting.update(this.state.palette, this.state.frame.travel.value),
+    );
     this.state.renderer.shadowMap.needsUpdate = true;
     this.paint();
   };

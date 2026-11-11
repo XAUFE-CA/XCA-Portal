@@ -40,10 +40,13 @@ app/                    门户应用（Nuxt 4 srcDir）
         intro-mark-renderer.ts     异步预热、绘制与资源清理
         intro-scene.ts             场景合批与 CSS 相机投影适配
         intro-scene-{palette,materials,lighting,environment}.ts  配色、PBR、PMREM 与阴影
-        intro-sky.ts               世界方向天空、体积云、星点与太阳辉光
+        intro-sky.ts               日夜天空全景预载与世界方向采样
         intro-city-mesh.ts         城市街区、高层地标与同侧连廊
-        intro-city-facade.ts       Canvas 立面数据图集与 Three.js 纹理
+        intro-city-facade.ts       立面数据图集、镀膜玻璃与视差室内
+        intro-city-led.ts          楼体屏幕、实体边框与显示面网格
+        intro-city-led-surface.ts  LED 像素图案与日夜发光
         intro-city-{layout,environment,primitives}.ts  地块坐标、地面设施与闭合网格
+        intro-city-life.ts         屋顶生活场景、街道车流与镜头驱动位移
         intro-city-layer.ts        城市离屏绘制与整体合成
         intro-auditorium-mesh.ts   报告厅静态网格与圆角、倒角生成
         intro-auditorium-surfaces.ts  报告厅织物、穿孔板、金属与石材表面
@@ -99,6 +102,7 @@ docs/                   架构说明、现行接口、ADR 与术语体系（写�
 scripts/                门禁与检查脚本、构建信息、quality-budgets.json、字体工具
 tests/e2e/              随功能提交的 Playwright 用例与 Windows 图片基线
 public/                 静态资产：学社标识、共享库字标、字体许可证、intro-gate.js
+  intro/                入场日夜天空全景：写实云层与玻璃反射共用的纹理
 .agents/notes/          未解决事项与必要过程记录，其余子目录预留给 skills 等
 .github/                CI 工作流（quality.yml）与 PR 模板
 ```

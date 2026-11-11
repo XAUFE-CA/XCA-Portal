@@ -141,8 +141,8 @@ export const SCENERY_REVEAL = { start: 0.01, span: 0.06 } as const;
 export const ROAD_MATERIALIZATION = { reach: 0.18, feather: 900 } as const;
 
 /**
- * Shared mounting coordinates for the mesh supports and their Vue sign faces.
- * 网格支架及其 Vue 标志面共用的安装坐标。
+ * Shared mounting coordinates keep the landscape sign face aligned with its housing.
+ * 共用安装坐标让横向路牌与实体壳体保持一致。
  */
 export const JOURNEY_STATIONS = Array.from(
   { length: 6 },

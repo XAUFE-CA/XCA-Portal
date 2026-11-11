@@ -36,7 +36,7 @@ if (introSelector == 10.0 || introSelector == 17.0) {
   roomFinish = (stone - 0.5) * 0.10 + joint * 0.15;
   roomRelief = (roomGrain - 0.5) * 0.035 - joint * 0.12;
   diffuseColor.rgb *= 0.95 + stone * 0.10 - joint * 0.20;
-} else if (introSelector == 9.0 || introSelector == 19.0) {
+} else if (introSelector == 9.0 || introSelector == 19.0 || introSelector == 22.0) {
   roomFinish = (roomGrain - 0.5) * 0.06;
   roomRelief = roomFinish * 0.08;
   diffuseColor.rgb *= 1.0 + roomFinish * 0.2;
@@ -101,6 +101,7 @@ export function updateAuditoriumMaterial(
 ) {
   const finishes: Partial<Record<number, Color>> = {
     [SURFACE.structure]: room.structure,
+    [SURFACE.backdrop]: room.backdrop,
     [SURFACE.gateway]: room.graphite,
     [SURFACE.seat]: room.fabric,
     [SURFACE.acoustic]: room.panel,

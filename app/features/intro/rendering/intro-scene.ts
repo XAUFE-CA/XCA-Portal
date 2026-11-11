@@ -10,9 +10,19 @@ import {
   SRGBColorSpace,
 } from "three";
 import { JOURNEY, roadBend } from "../core/intro-geometry";
+import { CITY_GRID, cityParcel } from "./intro-city-layout";
+import {
+  CITY_LED_MATERIAL,
+  CITY_LED_PATTERN_U,
+  CITY_LED_PORTRAIT_U,
+  CITY_LED_UV,
+  CITY_LED_VARIANTS,
+} from "./intro-city-led";
+import { CITY_TRAFFIC_MATERIAL } from "./intro-city-life";
 import type { IntroMaterials } from "./intro-scene-materials";
 
 export const INTRO_LAYERS = { exterior: 0, city: 1, auditorium: 2 } as const;
+const LED_PARCEL_ORIGIN = cityParcel(1, 0, 0);
 
 export interface IntroScene {
   scene: Scene;
@@ -68,6 +78,7 @@ function geometryFor(source: Float32Array, material: number, count: number): Buf
   const shade = material === 0 ? new Color() : null;
   const city = material > 4.5 && material < 8.5 && material !== 7;
   let vertex = 0;
+  let ledShape = 0;
   for (let offset = 0; offset < source.length; offset += 7) {
     if (selector(source, offset) !== material) continue;
     const x = source[offset] ?? 0;
@@ -91,8 +102,29 @@ function geometryFor(source: Float32Array, material: number, count: number): Buf
       colors[vertex * 3 + 1] = shade.g;
       colors[vertex * 3 + 2] = shade.b;
     }
-    uv[vertex * 2] = (city ? (Math.abs(nx) > 0.5 ? z : x) : x + z * 0.43) / 500;
-    uv[vertex * 2 + 1] = y / 320;
+    if (material === CITY_LED_MATERIAL) {
+      if (vertex % 6 === 0) {
+        const width = Math.hypot((source[offset + 7] ?? x) - x, (source[offset + 9] ?? z) - z);
+        const height = Math.abs((source[offset + 15] ?? y) - y);
+        ledShape = height > width ? CITY_LED_PORTRAIT_U : 0;
+        const centerX = (x + (source[offset + 14] ?? x)) / 2;
+        const centerZ = (z + (source[offset + 16] ?? z)) / 2;
+        const column = Math.round(
+          (Math.abs(centerX - JOURNEY.roadX) - (LED_PARCEL_ORIGIN.x - JOURNEY.roadX)) /
+            CITY_GRID.width,
+        );
+        const row = Math.round((LED_PARCEL_ORIGIN.z - centerZ) / CITY_GRID.depth);
+        const face = Math.abs(nx) > 0.5 ? 1 : 0;
+        const pattern =
+          (row + column + (centerX < JOURNEY.roadX ? 0 : 2) + face) % CITY_LED_VARIANTS;
+        ledShape += pattern * CITY_LED_PATTERN_U;
+      }
+      uv[vertex * 2] = (CITY_LED_UV[(vertex % 6) * 2] ?? 0) + ledShape;
+      uv[vertex * 2 + 1] = CITY_LED_UV[(vertex % 6) * 2 + 1] ?? 0;
+    } else {
+      uv[vertex * 2] = (city ? (Math.abs(nx) > 0.5 ? z : x) : x + z * 0.43) / 500;
+      uv[vertex * 2 + 1] = y / 320;
+    }
     across[vertex] = (x - roadBend(z).x - JOURNEY.roadX) / JOURNEY.roadWidth + 0.5;
     along[vertex] = z;
     vertex++;
@@ -112,8 +144,8 @@ function geometryFor(source: Float32Array, material: number, count: number): Buf
 }
 
 /**
- * Keep geometry static and batch by surface; only the mark thickness and world offset move.
- * 几何保持静态并按表面合批，只改变标识厚度与场景偏移。
+ * Batch by surface; only the mark, world offset and bounded street traffic move.
+ * 按表面合批，仅标识、场景偏移与有界街道交通发生位移。
  */
 export function createIntroScene(
   source: Float32Array,
@@ -134,12 +166,21 @@ export function createIntroScene(
     geometries.push(geometry);
     const mesh = new Mesh(geometry, materials.get(id));
     mesh.name = `intro.surface.${id}`;
+    // Whole-bridge batch centers cannot determine the overlap order of transparent glass.
+    // 整座桥的合批中心不能决定透明玻璃的叠放顺序。
+    mesh.renderOrder = id === 1 ? 1 : id === 4 ? 2 : 0;
     const city = id > 4.5 && id < 8.5 && id !== 7;
     mesh.layers.set(
       city ? INTRO_LAYERS.city : id >= 9 ? INTRO_LAYERS.auditorium : INTRO_LAYERS.exterior,
     );
-    mesh.castShadow = (id >= 9 && id < 14 && id !== 11) || id === 19;
-    mesh.receiveShadow = id >= 9;
+    mesh.castShadow =
+      (city && id !== 6 && id !== CITY_TRAFFIC_MATERIAL) ||
+      id === 1 ||
+      id === 2 ||
+      (id >= 9 && id < 14 && id !== 11) ||
+      id === 19 ||
+      id === 22;
+    mesh.receiveShadow = city || id === 1 || id === 2 || id >= 9;
     (id === 0 ? mark : world).add(mesh);
   }
   return {

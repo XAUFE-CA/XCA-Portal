@@ -11,11 +11,10 @@ const props = defineProps<{
   application: boolean;
 }>();
 const { t } = useSiteLocale();
-const details = computed(() => {
-  if (!props.intro) return t(props.running ? "terminal.running" : "terminal.shortcuts");
-  if (props.introStage === "boot") return t("terminal.boot");
-  if (props.introStage === "brand") return t("terminal.welcomeLabel");
-  return t("terminal.entering");
+const introDetails = computed(() => {
+  if (props.introStage === "boot") return "boot";
+  if (props.introStage === "brand") return "brand";
+  return "entering";
 });
 </script>
 
@@ -25,11 +24,45 @@ const details = computed(() => {
       <span>{{ t(application ? "terminal.tui" : "terminal.shell") }}</span>
       <span class="xca-terminal-statusbar__directory" :title="directory">{{ directory }}</span>
     </span>
-    <span class="xca-terminal-statusbar__meta">
-      <span v-if="!intro" class="xca-terminal-statusbar__columns">
-        {{ columns }} {{ t("terminal.columns") }}
+    <span class="xca-terminal-statusbar__meta xca-terminal-chrome-swap">
+      <span
+        class="xca-terminal-chrome-swap__layer"
+        :data-active="intro && introDetails === 'boot'"
+        :aria-hidden="!intro || introDetails !== 'boot' || undefined"
+        :inert="!intro || introDetails !== 'boot'"
+        >{{
+          t("terminal.boot")
+        }}</span
+      >
+      <span
+        class="xca-terminal-chrome-swap__layer"
+        :data-active="intro && introDetails === 'brand'"
+        :aria-hidden="!intro || introDetails !== 'brand' || undefined"
+        :inert="!intro || introDetails !== 'brand'"
+        >{{
+          t("terminal.welcomeLabel")
+        }}</span
+      >
+      <span
+        class="xca-terminal-chrome-swap__layer"
+        :data-active="intro && introDetails === 'entering'"
+        :aria-hidden="!intro || introDetails !== 'entering' || undefined"
+        :inert="!intro || introDetails !== 'entering'"
+        >{{
+          t("terminal.entering")
+        }}</span
+      >
+      <span
+        class="xca-terminal-statusbar__ready xca-terminal-chrome-swap__layer"
+        :data-active="!intro"
+        :aria-hidden="intro || undefined"
+        :inert="intro"
+      >
+        <span class="xca-terminal-statusbar__columns">
+          {{ columns }} {{ t("terminal.columns") }}
+        </span>
+        <span>{{ t(running ? "terminal.running" : "terminal.shortcuts") }}</span>
       </span>
-      <span>{{ details }}</span>
     </span>
   </UiTerminalLine>
 </template>
@@ -43,7 +76,7 @@ const details = computed(() => {
   padding-top: var(--neoverse-space-2);
 }
 .xca-terminal-statusbar__context,
-.xca-terminal-statusbar__meta {
+.xca-terminal-statusbar__ready {
   display: flex;
   align-items: center;
   gap: var(--neoverse-space-3);
@@ -58,7 +91,13 @@ const details = computed(() => {
   white-space: nowrap;
 }
 .xca-terminal-statusbar__meta {
+  display: grid;
+  align-items: center;
   flex-shrink: 0;
+}
+.xca-terminal-statusbar__ready {
+  justify-self: stretch;
+  justify-content: end;
   gap: var(--neoverse-space-4);
 }
 .xca-terminal-statusbar__columns {
@@ -71,7 +110,7 @@ const details = computed(() => {
     flex-direction: column;
     gap: var(--neoverse-space-2);
   }
-  .xca-terminal-statusbar__meta {
+  .xca-terminal-statusbar__ready {
     justify-content: space-between;
   }
 }

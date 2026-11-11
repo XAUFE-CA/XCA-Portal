@@ -42,7 +42,17 @@ async function observeCity(page: Page, theme: "light" | "dark") {
       // Three caches unchanged uniforms, so override the real consumer immediately before drawing.
       // Three 会缓存未变的 uniform，因此在实际消费者绘制前直接覆盖。
       if (probe.opacity !== null) gl.uniform1f(opacity, probe.opacity);
-      return probe.opacity !== null && gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) === null;
+      const sampling =
+        probe.opacity !== null && gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) === null;
+      if (sampling) {
+        // Isolate the city composite from the separately rendered opaque world sky.
+        // 隔离城市合成与独立绘制的不透明世界天空。
+        const clear = gl.getParameter(gl.COLOR_CLEAR_VALUE) as Float32Array;
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.clearColor(clear[0] ?? 0, clear[1] ?? 0, clear[2] ?? 0, clear[3] ?? 0);
+      }
+      return sampling;
     };
     const sample = (gl: WebGL2RenderingContext) => {
       const width = Math.floor(gl.drawingBufferWidth * 0.3);

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../core/intro-auditorium";
 import { ARRIVAL_ENTRY, JOURNEY, JOURNEY_STATIONS, roadBend } from "../core/intro-geometry";
+import { CITY_TRAFFIC_SWAY } from "./intro-city-life";
 import { createMarkMesh, extrudeContour, roundedPanelContour } from "./intro-mark-mesh";
 
 test("extrusion closes a concave cap without filling its opening", () => {
@@ -122,21 +123,147 @@ test("sign housing follows the same corner radius as its content face", () => {
   }
 });
 
-test("city buildings leave the road corridor open within the combined district mesh budget", () => {
+test("city buildings clear the finite road and keep the central skyline behind the auditorium", () => {
   const mesh = createMarkMesh([], 16);
   let count = 0;
-  for (let offset = 0; offset < mesh.length; offset += 7) {
+  for (let offset = 0; offset < mesh.length; offset += 21) {
     const material = mesh[offset + 6] ?? 0;
     if (material <= 4.5 || material >= 8.5 || material === 7) continue;
-    count++;
-    if (material < 5.5)
-      expect(Math.abs((mesh[offset] ?? 0) - JOURNEY.roadX)).toBeGreaterThan(
-        JOURNEY.roadWidth / 2 + 140,
-      );
+    count += 3;
+    if (material >= 5.5 && material !== 8) continue;
+    const xs = [0, 7, 14].map((at) => (mesh[offset + at] ?? 0) - JOURNEY.roadX);
+    const zs = [0, 7, 14].map((at) => mesh[offset + at + 2] ?? 0);
+    const left = Math.min(...xs),
+      right = Math.max(...xs),
+      back = Math.min(...zs),
+      front = Math.max(...zs);
+    expect(
+      right <= -JOURNEY.roadWidth / 2 - 140 ||
+        left >= JOURNEY.roadWidth / 2 + 140 ||
+        front <= JOURNEY.roadEnd ||
+        back >= JOURNEY.roadStart,
+    ).toBe(true);
+    // Entire central triangles must stay behind the room, not merely their individual corners.
+    // 中央三角形整体必须位于报告厅后方，不能仅凭各顶点在通道外侧判断。
+    if (material === 8 && left < AUDITORIUM.halfWidth && right > -AUDITORIUM.halfWidth)
+      expect(front).toBeLessThanOrEqual(AUDITORIUM.back - 1800);
   }
   // Buildings and street furniture stay below twenty thousand triangles.
   // 楼宇与街道设施保持少于两万个三角形。
   expect(count).toBeLessThan(60000);
+});
+
+test("the horizon stays filled above the road with gaps between clusters during approach", () => {
+  const mesh = createMarkMesh([], 16);
+  const facades: { left: number; right: number; z: number; top: number }[] = [];
+  for (let offset = 0; offset < mesh.length; offset += 21) {
+    if (mesh[offset + 6] !== 8 || (mesh[offset + 5] ?? 0) < 0.9) continue;
+    facades.push({
+      left: Math.min(...[0, 7, 14].map((at) => mesh[offset + at] ?? 0)) - JOURNEY.roadX,
+      right: Math.max(...[0, 7, 14].map((at) => mesh[offset + at] ?? 0)) - JOURNEY.roadX,
+      z: mesh[offset + 2] ?? 0,
+      top: Math.min(...[0, 7, 14].map((at) => mesh[offset + at + 1] ?? 0)),
+    });
+  }
+  for (const eyeZ of [-1000, -6000, -10000]) {
+    // Sample fixed rays on a reference plane, so apparent gaps survive camera movement.
+    // 在参考平面上采样固定视线，确保镜头推进后仍有可见的天际线间隙。
+    const elevation = (x: number) => {
+      const slope = x / (eyeZ - (AUDITORIUM.back - 5000));
+      return Math.max(
+        0,
+        ...facades.map(({ left, right, z, top }) => {
+          const distance = eyeZ - z;
+          const at = slope * distance;
+          return distance > 0 && at >= left && at <= right ? (JOURNEY.floorY - top) / distance : 0;
+        }),
+      );
+    };
+    const left = elevation(-3400),
+      center = elevation(0),
+      right = elevation(4250);
+    expect(Math.min(left, center, right)).toBeGreaterThan(0.14);
+    expect(elevation(-950)).toBeLessThan(Math.min(left, right) * 0.65);
+  }
+});
+
+test("forward horizon advertisements occupy mounted middle facades, not only crowns", () => {
+  const mesh = createMarkMesh([], 16);
+  const walls: { x: number; y: number; z: number }[] = [];
+  const screens: { x: number; y: number; z: number }[] = [];
+  for (let offset = 0; offset < mesh.length; offset += 7) {
+    const x = mesh[offset] ?? 0;
+    const y = mesh[offset + 1] ?? 0;
+    const z = mesh[offset + 2] ?? 0;
+    if (z > AUDITORIUM.back - 1800) continue;
+    if ((mesh[offset + 5] ?? 0) < 0.9) continue;
+    if (mesh[offset + 6] === 8) walls.push({ x, y, z });
+    if (Math.abs(x - JOURNEY.roadX) <= 3300 && Math.abs((mesh[offset + 6] ?? 0) - 8.2) < 0.001)
+      screens.push({ x, y, z });
+  }
+  for (const side of [-1, 1]) {
+    expect(screens.some(({ x, y }) => (x - JOURNEY.roadX) * side > 0 && y > -3000)).toBe(true);
+  }
+  for (const screen of screens) {
+    const wall = walls.filter(({ z }) => Math.abs(z + 40 - screen.z) < 0.01);
+    expect(screen.x).toBeGreaterThanOrEqual(Math.min(...wall.map(({ x }) => x)));
+    expect(screen.x).toBeLessThanOrEqual(Math.max(...wall.map(({ x }) => x)));
+    expect(screen.y).toBeGreaterThan(Math.min(...wall.map(({ y }) => y)));
+    expect(screen.y).toBeLessThan(Math.max(...wall.map(({ y }) => y)));
+  }
+});
+
+test("moving traffic stays grounded inside real street lanes for its entire excursion", () => {
+  const mesh = createMarkMesh([], 16);
+  for (let offset = 0; offset < mesh.length; offset += 7) {
+    if (Math.abs((mesh[offset + 6] ?? 0) - 8.4) > 0.001) continue;
+    const x = Math.abs((mesh[offset] ?? 0) - JOURNEY.roadX);
+    const y = mesh[offset + 1] ?? 0;
+    const z = mesh[offset + 2] ?? 0;
+    const lane = 3500 + Math.round((x - 3500) / 3000) * 3000;
+    const rowCenter = -2000 + Math.round((z + 2000) / 3200) * 3200;
+    expect(x - lane).toBeGreaterThanOrEqual(54);
+    expect(x - lane).toBeLessThanOrEqual(150);
+    expect(Math.abs(z - rowCenter) + CITY_TRAFFIC_SWAY).toBeLessThan(1390);
+    expect(y).toBeGreaterThanOrEqual(JOURNEY.floorY + JOURNEY.cityDrop - 75);
+    expect(y).toBeLessThanOrEqual(JOURNEY.floorY + JOURNEY.cityDrop + 2);
+  }
+});
+
+test("near-road cafe groups fit supported low roofs without entering the bridge corridor", () => {
+  const mesh = createMarkMesh([], 16);
+  const roofs: { left: number; right: number; back: number; front: number; y: number }[] = [];
+  for (let offset = 0; offset < mesh.length; offset += 21) {
+    if (mesh[offset + 6] !== 5 || (mesh[offset + 4] ?? 0) > -0.9) continue;
+    const xs = [0, 7, 14].map((at) => mesh[offset + at] ?? 0);
+    const zs = [0, 7, 14].map((at) => mesh[offset + at + 2] ?? 0);
+    roofs.push({
+      left: Math.min(...xs),
+      right: Math.max(...xs),
+      back: Math.min(...zs),
+      front: Math.max(...zs),
+      y: mesh[offset + 1] ?? 0,
+    });
+  }
+  for (let offset = 0; offset < mesh.length; offset += 7) {
+    if (Math.abs((mesh[offset + 6] ?? 0) - 8.1) > 0.001) continue;
+    const x = mesh[offset] ?? 0;
+    const y = mesh[offset + 1] ?? 0;
+    const z = mesh[offset + 2] ?? 0;
+    if (y > JOURNEY.floorY + JOURNEY.cityDrop - 300) continue;
+    expect(Math.abs(x - JOURNEY.roadX)).toBeGreaterThan(JOURNEY.roadWidth / 2 + 140);
+    expect(
+      roofs.some(
+        (roof) =>
+          x >= roof.left &&
+          x <= roof.right &&
+          z >= roof.back &&
+          z <= roof.front &&
+          y <= roof.y &&
+          y >= roof.y - 250,
+      ),
+    ).toBe(true);
+  }
 });
 
 test("the viaduct crosses between visible lower roofs and taller towers", () => {

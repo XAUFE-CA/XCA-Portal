@@ -4,6 +4,7 @@ import {
   MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
+  type Texture,
   type Vector3,
   type WebGLProgramParametersWithUniforms,
   type WebGLRenderer,
@@ -22,7 +23,22 @@ import {
   createAuditoriumMaterial,
   updateAuditoriumMaterial,
 } from "./intro-auditorium-surfaces";
-import { createFacadeTexture } from "./intro-city-facade";
+import {
+  createFacadeTexture,
+  FACADE_DECLARATIONS,
+  FACADE_OPTICS,
+  FACADE_SURFACE,
+} from "./intro-city-facade";
+import { CITY_LED_FRAME_MATERIAL, CITY_LED_MATERIAL } from "./intro-city-led";
+import {
+  createLedUniforms,
+  LED_DECLARATIONS,
+  LED_EMISSION,
+  LED_SURFACE,
+  updateLedMaterial,
+  updateLedUniforms,
+} from "./intro-city-led-surface";
+import { CITY_LIFE_EMISSION, CITY_LIFE_SURFACE, CITY_LIFE_VERTEX } from "./intro-city-life";
 import type { IntroPalette } from "./intro-scene-palette";
 
 export interface IntroFrame {
@@ -47,6 +63,7 @@ interface FrameUniforms {
 export interface IntroMaterials {
   get(selector: number): IntroMaterial;
   update(palette: IntroPalette): void;
+  setEnvironment(environment: Texture): void;
   dispose(): void;
 }
 
@@ -112,6 +129,7 @@ if (introVisibility < 0.001) discard;
 const SURFACE_DECLARATIONS = `
 uniform sampler2D uIntroFacade;
 uniform vec3 uIntroGlass;
+uniform vec3 uIntroMineral;
 uniform vec3 uIntroOffice;
 uniform vec3 uIntroSignal;
 uniform vec3 uIntroSecondary;
@@ -131,6 +149,8 @@ float introNoise(vec3 p) {
   float high = mix(mix(introGrain(b), introGrain(b + vec2(1.0, 0.0)), t.x), mix(introGrain(b + vec2(0.0, 1.0)), introGrain(b + vec2(1.0)), t.x), t.y);
   return mix(low, high, t.z);
 }
+${FACADE_DECLARATIONS}
+${LED_DECLARATIONS}
 `;
 
 const SURFACE = `
@@ -140,29 +160,16 @@ vec3 introOfficeTint = uIntroOffice;
 float introDetail = 1.0 - smoothstep(0.0008, 0.003, max(length(dFdx(vIntroUv)), length(dFdy(vIntroUv))));
 float introFinish = introGrain(floor(vIntroUv * vec2(145.0, 190.0))) - 0.5;
 float introGuide = 0.0;
+float introStructure = 0.0;
+float introRoadFinish = 0.0;
+float introWindowRelief = 0.0;
 float roomFinish = 0.0;
 float roomRelief = 0.0;
-if (introSelector > 4.5 && introSelector < 8.5 && abs(introSelector - 7.0) > 0.1 && (introSelector < 5.5 || introSelector > 7.5)) {
-  introFacadeData = texture2D(uIntroFacade, vIntroUv * vec2(0.217014, 0.052083)).rgb;
-  float introVertical = 1.0 - smoothstep(0.35, 0.85, abs(normalize(vIntroNormal).y));
-  float introAlloy = 1.0 - smoothstep(0.06, 0.16, abs(introSelector - 5.2));
-  introWindows = introFacadeData.r * introVertical * (1.0 - introAlloy);
-  float introRoomEnergy = dot(uIntroOffice, vec3(0.2126, 0.7152, 0.0722));
-  vec3 introNeutralRoom = mix(vec3(introRoomEnergy), uIntroOffice, 0.18);
-  vec3 introCoolRoom = mix(introNeutralRoom * vec3(0.78, 0.92, 1.0), uIntroSignal, 0.10);
-  vec3 introWarmRoom = introNeutralRoom * vec3(1.12, 0.84, 0.54);
-  float introWarm = 1.0 - smoothstep(0.18, 0.30, introFacadeData.b);
-  float introAccent = smoothstep(0.78, 0.90, introFacadeData.b);
-  introOfficeTint = mix(introCoolRoom, introWarmRoom, introWarm);
-  introOfficeTint = mix(introOfficeTint, uIntroSecondary, introAccent * 0.38);
-  float introFacadeVariation = introNoise(vIntroWorld * vec3(0.0007, 0.0004, 0.0007));
-  float introFloorVariation = introNoise(vec3(vIntroUv.x * 0.35, floor(vIntroUv.y * 3.333333), 4.0));
-  float introElevation = clamp((vIntroWorld.y + ${(JOURNEY.floorY + JOURNEY.cityDrop).toFixed(1)}) / 4600.0, 0.0, 1.0);
-  float introBlockTint = introNoise(floor(vIntroWorld * 0.00035));
-  diffuseColor.rgb *= mix(0.82, 1.06, introElevation);
-  diffuseColor.rgb *= 0.82 + introFacadeVariation * 0.2 + introBlockTint * 0.1 + introFinish * 0.02;
-  vec3 introPane = uIntroGlass * (0.64 + introFacadeVariation * 0.2 + introFloorVariation * 0.12);
-  diffuseColor.rgb = mix(diffuseColor.rgb, introPane, introWindows);
+vec3 introLedRadiance = vec3(0.0);
+if (introSelector == ${CITY_LED_MATERIAL.toFixed(1)}) {
+  ${LED_SURFACE}
+} else if (introSelector == 5.0 || introSelector == 5.4 || introSelector == 5.8 || introSelector == 8.0) {
+  ${FACADE_SURFACE}
 } else if (introSelector > 5.55 && introSelector < 5.75) {
   vec2 introStreet = vec2(vIntroWorld.x - ${JOURNEY.roadX.toFixed(1)}, vIntroAlong);
   float introGx = abs(mod(abs(introStreet.x) - 2000.0, 3000.0) - 1500.0);
@@ -178,54 +185,83 @@ if (introSelector > 4.5 && introSelector < 8.5 && abs(introSelector - 7.0) > 0.1
     diffuseColor.rgb *= 1.0 - max(smoothstep(0.47, 0.5, introJoints.x), smoothstep(0.47, 0.5, introJoints.y)) * introDetail * 0.14;
   }
 } else if (abs(introSelector - 1.0) < 0.1) {
+  // Glass panels stay fixed to the authored deck, including their filtered joints.
+  // 玻璃分板及其过滤后的接缝固定于原始桥面坐标。
+  vec2 introRoad = vec2(vIntroAcross * ${JOURNEY.roadWidth.toFixed(1)}, vIntroAlong);
+  float introFootprint = max(length(dFdx(introRoad)), length(dFdy(introRoad)));
+  vec2 introPanelSize = vec2(${(JOURNEY.roadWidth / 4).toFixed(1)}, 1200.0);
+  vec2 introPanelDistance = abs(fract(introRoad / introPanelSize + 0.5) - 0.5) * introPanelSize;
+  vec2 introPanelEdge = 1.0 - smoothstep(vec2(0.8), vec2(1.6 + introFootprint), introPanelDistance);
+  float introJoint = max(introPanelEdge.x, introPanelEdge.y) * 1.6 / (1.6 + introFootprint);
+  introRoadFinish = introJoint * 0.12;
+  diffuseColor.rgb = mix(diffuseColor.rgb, uIntroSecondary * 0.24, introJoint * 0.65);
+  vec3 introDeckView = normalize((uIntroEye - vIntroWorld) * vec3(1.0, -1.0, 1.0));
+  float introGrazing = pow(1.0 - clamp(abs(dot(normalize(vIntroNormal), introDeckView)), 0.0, 1.0), 3.0);
+  diffuseColor.a *= mix(0.78, 1.2, introGrazing);
+  diffuseColor.a = mix(diffuseColor.a, 0.94, introJoint * 0.45);
   float introAcross = min(vIntroAcross, 1.0 - vIntroAcross);
-  float introInlay = smoothstep(0.050, 0.051, introAcross) * (1.0 - smoothstep(0.052, 0.053, introAcross));
-  float introStrip = smoothstep(0.078, 0.079, introAcross) * (1.0 - smoothstep(0.081, 0.082, introAcross));
-  float introSegment = smoothstep(0.10, 0.18, fract(introRoadDepth * 18.0)) * (1.0 - smoothstep(0.78, 0.86, fract(introRoadDepth * 18.0)));
-  float introPulse = pow(max(0.0, sin(introRoadDepth * 42.0 - uIntroGrowth * 8.0)), 8.0);
-  introGuide = introInlay * 0.07 + introStrip * introSegment * (0.12 + introPulse * 0.14);
-  float introJoint = smoothstep(0.47, 0.495, abs(fract(introRoadDepth * 72.0) - 0.5));
-  diffuseColor.rgb *= 1.0 + introFinish * 0.055 * introDetail - introJoint * 0.075 * introDetail;
+  float introStripFootprint = max(fwidth(vIntroAcross), 0.000001);
+  float introStrip = (1.0 - smoothstep(0.0008, 0.0008 + introStripFootprint, abs(introAcross - 0.0796))) * 0.0016 / (0.0016 + introStripFootprint);
+  introStrip *= 1.0 - smoothstep(180.0, 540.0, introFootprint);
+  float introSegment = smoothstep(0.12, 0.18, fract(-vIntroAlong / 900.0)) * (1.0 - smoothstep(0.78, 0.84, fract(-vIntroAlong / 900.0)));
+  introGuide = introStrip * introSegment * mix(0.14, 1.7, uIntroNight);
+  diffuseColor.rgb = mix(diffuseColor.rgb, uIntroSecondary, introStrip * introSegment * 0.55);
+} else if (introSelector == 2.0) {
+  // Shared selector: metal above the deck, mineral bearings and supports below it.
+  // 共用选择器：桥面以上为金属，以下的支座与桥墩为矿物混凝土。
+  introStructure = smoothstep(${(JOURNEY.floorY - 6).toFixed(1)}, ${(JOURNEY.floorY + 24).toFixed(1)}, vIntroWorld.y);
+  vec3 introStructureAnchor = vec3(vIntroWorld.xy, vIntroAlong);
+  float introConcrete = introNoise(introStructureAnchor * 0.035) - 0.5;
+  diffuseColor.rgb = mix(diffuseColor.rgb, uIntroMineral * (0.94 + introConcrete * 0.12), introStructure);
 } else if (introSelector > 8.5) {
   ${AUDITORIUM_SURFACE}
 }
+${CITY_LIFE_SURFACE}
 diffuseColor.a *= introVisibility;
 `;
 
 const ROUGHNESS = `
-if (introWindows > 0.0) {
-  roughnessFactor = mix(roughnessFactor, 0.48 + introFacadeData.r * 0.14, introWindows);
+if (introSelector < 8.5) {
+  if (introSelector == 1.0) {
+    roughnessFactor = clamp(roughnessFactor + introRoadFinish, 0.065, 0.24);
+  } else if (introSelector == 2.0) {
+    roughnessFactor = mix(roughnessFactor, 0.88, introStructure);
+  } else if (introSelector == 5.0 || introSelector == 5.4 || introSelector == 5.8 || introSelector == 8.0) {
+    roughnessFactor = mix(0.80, 0.045 + (1.0 - introFacadeData.r) * 0.02, introWindows);
+  }
+} else {
+  roughnessFactor = clamp(roughnessFactor + introFinish * introDetail * 0.035, 0.18, 1.0);
 }
-roughnessFactor = clamp(roughnessFactor + introFinish * introDetail * 0.035, 0.18, 1.0);
 ${AUDITORIUM_ROUGHNESS}
+`;
+
+const METALNESS = `
+if (introSelector == 2.0) metalnessFactor *= 1.0 - introStructure;
+if (introSelector == 5.0 || introSelector == 5.4 || introSelector == 5.8 || introSelector == 8.0) metalnessFactor *= introWindows;
 `;
 
 const EMISSION = `
 if (introWindows > 0.0) {
-  totalEmissiveRadiance += introOfficeTint * introFacadeData.g * introWindows * mix(0.025, 1.15, uIntroNight);
+  totalEmissiveRadiance += introOfficeTint * introFacadeData.g * introWindows * mix(0.006, 0.75, uIntroNight);
 }
 if (introGuide > 0.0) {
-  totalEmissiveRadiance += mix(uIntroSignal, uIntroSecondary, 0.12) * introGuide * 0.72;
+  totalEmissiveRadiance += mix(uIntroSignal, uIntroSecondary, 0.9) * introGuide;
 }
 ${AUDITORIUM_EMISSION}
+${LED_EMISSION}
+${CITY_LIFE_EMISSION}
 `;
 
 // Screen-space surface gradients perturb the real PBR normal, not the final color.
 // 屏幕空间表面梯度扰动真实 PBR 法线，而非最终颜色。
 const MICRO_NORMAL = `
-if (abs(introSelector - 1.0) < 0.1) {
-  vec3 introAnchor = vec3(vIntroWorld.xy, vIntroAlong);
-  float introFrequency = 0.75;
-  float introFootprint = max(length(dFdx(introAnchor)), length(dFdy(introAnchor))) * introFrequency;
-  float introMicroFilter = 1.0 - smoothstep(0.35, 1.2, introFootprint);
-  float introHeight = introNoise(introAnchor * introFrequency) * 0.16;
-  introHeight *= introMicroFilter;
+if (introWindows > 0.0) {
   vec3 introDx = dFdx(-vViewPosition);
   vec3 introDy = dFdy(-vViewPosition);
   vec3 introRx = cross(introDy, normal);
   vec3 introRy = cross(normal, introDx);
   float introDet = dot(introDx, introRx) * faceDirection;
-  vec3 introGradient = sign(introDet) * (dFdx(introHeight) * introRx + dFdy(introHeight) * introRy);
+  vec3 introGradient = sign(introDet) * (dFdx(introWindowRelief) * introRx + dFdy(introWindowRelief) * introRy);
   normal = normalize(max(abs(introDet), 1e-8) * normal - introGradient);
 }
 ${AUDITORIUM_NORMAL}
@@ -246,7 +282,10 @@ function installCoordinates(shader: WebGLProgramParametersWithUniforms, uniforms
   Object.assign(shader.uniforms, uniforms);
   shader.vertexShader = shader.vertexShader
     .replace("#include <common>", `#include <common>\n${DECLARATIONS}${VERTEX_DECLARATIONS}`)
-    .replace("#include <project_vertex>", `#include <project_vertex>\n${WORLD_COORDINATES}`);
+    .replace(
+      "#include <project_vertex>",
+      `${CITY_LIFE_VERTEX}\n#include <project_vertex>\n${WORLD_COORDINATES}`,
+    );
   shader.fragmentShader = shader.fragmentShader
     .replace("#include <common>", `#include <common>\n${DECLARATIONS}`)
     .replace(
@@ -261,35 +300,43 @@ function buildMaterial(selector: number): IntroMaterial {
     material = new MeshBasicMaterial({ color: 0xffffff, toneMapped: false, vertexColors: true });
   } else if (selector >= 9) {
     material = createAuditoriumMaterial(selector);
-  } else if (selector === 4) {
+  } else if (selector === 1 || selector === 4) {
+    const deck = selector === 1;
     material = new MeshPhysicalMaterial({
-      roughness: 0.34,
-      transmission: 0.48,
+      roughness: deck ? 0.085 : 0.16,
+      metalness: deck ? 0.12 : 0,
+      transmission: deck ? 0 : 0.76,
       ior: 1.46,
-      thickness: 5,
-      opacity: 0.68,
+      thickness: deck ? 28 : 5,
+      opacity: deck ? 0.7 : 0.38,
+      clearcoat: deck ? 1 : 0,
+      clearcoatRoughness: 0.045,
     });
-  } else if (selector === 5.4 || selector === 5.8) {
+  } else if (selector === 5 || selector === 5.4 || selector === 5.8 || selector === 8) {
+    // A thin metallic solar coating supplies frontal reflection without a fictitious IOR.
+    // 薄金属遮阳镀层提供正视反射，无需虚构的高折射率。
     material = new MeshPhysicalMaterial({
-      roughness: selector === 5.4 ? 0.52 : 0.68,
-      metalness: 0.03,
-      specularIntensity: selector === 5.4 ? 0.32 : 0.22,
-      clearcoat: selector === 5.4 ? 0.035 : 0.02,
-      clearcoatRoughness: 0.58,
+      roughness: 0.05,
+      metalness: 0.62,
+      clearcoat: 0.95,
+      clearcoatRoughness: 0.035,
+      specularIntensity: 1,
+      ior: 1.5,
     });
   } else if (selector === 5.2 || selector === 2) {
     material = new MeshPhysicalMaterial({
-      roughness: selector === 5.2 ? 0.9 : 0.74,
-      metalness: selector === 5.2 ? 0.08 : 0.24,
-      anisotropy: selector === 5.2 ? 0 : 0.22,
-      anisotropyRotation: Math.PI / 2,
+      roughness: selector === 5.2 ? 0.88 : 0.4,
+      metalness: selector === 5.2 ? 0 : 0.82,
     });
   } else {
     let roughness = 0.55;
-    if (selector === 1) roughness = 0.76;
     if (selector === 5.6 || selector === 5.9) roughness = 0.94;
     if (selector === 5.7) roughness = 0.86;
-    material = new MeshStandardMaterial({ roughness, metalness: 0.04 });
+    if (selector === 8.1 || selector === 8.4) roughness = selector === 8.1 ? 0.72 : 0.28;
+    material = new MeshStandardMaterial({
+      roughness,
+      metalness: selector === 8.4 ? 0.24 : 0,
+    });
   }
   material.name = `intro-pbr-${selector}`;
   material.side = material.shadowSide = DoubleSide;
@@ -316,19 +363,19 @@ function updateMaterial(material: IntroMaterial, selector: number, palette: Intr
     return;
   }
   material.emissive.setRGB(0, 0, 0);
-  material.envMapIntensity = 0.2 + daylight * 0.16;
+  material.envMapIntensity = 0.65;
   if (selector === 1 || selector === 5.6) {
-    material.color.copy(palette.pavement).multiplyScalar(0.62 + daylight * 0.32);
-    material.envMapIntensity = 0.1 + daylight * 0.16;
-  } else if (selector === 4 || selector === 5.4) {
-    material.color.copy(palette.glazing);
-    if (selector === 4) material.color.lerp(palette.accentLight, 0.12);
-    material.envMapIntensity = selector === 4 ? 0.32 : 0.15 + daylight * 0.16;
+    material.color.copy(selector === 1 ? palette.glazing : palette.pavement);
+    material.envMapIntensity = selector === 1 ? 1.55 + (1 - daylight) * 0.65 : 0.55;
+  } else if (selector === 4) {
+    material.color.copy(palette.glazing).lerp(palette.alloy, 0.2);
+    material.envMapIntensity = 1.0 + (1 - daylight) * 0.75;
+  } else if (selector === 5 || selector === 5.4 || selector === 5.8 || selector === 8) {
+    material.color.copy(palette.architecture);
+    material.envMapIntensity = 1.15 + (1 - daylight) * 1.25;
   } else if (selector === 2 || selector === 5.2) {
-    material.color
-      .copy(selector === 5.2 ? palette.architecture : palette.alloy)
-      .multiplyScalar(selector === 5.2 ? 0.66 + daylight * 0.16 : 0.46 + daylight * 0.26);
-    material.envMapIntensity = selector === 5.2 ? 0.055 + daylight * 0.045 : 0.14;
+    material.color.copy(selector === 5.2 ? palette.architecture : palette.alloy);
+    material.envMapIntensity = selector === 5.2 ? 0.55 : 1.0;
   } else if (selector === 5.7) {
     material.color
       .copy(palette.pavement)
@@ -336,18 +383,29 @@ function updateMaterial(material: IntroMaterial, selector: number, palette: Intr
       .multiplyScalar(0.78 + daylight * 0.12);
   } else if (selector === 5.9) {
     material.color.copy(palette.pavement).lerp(palette.glazing, 0.18);
-    material.envMapIntensity = 0.16;
+    material.envMapIntensity = 0.5;
+  } else if (selector === CITY_LED_MATERIAL || selector === CITY_LED_FRAME_MATERIAL) {
+    updateLedMaterial(material, selector, palette);
+  } else if (selector === 8.1 || selector === 8.4) {
+    material.color.setRGB(1, 1, 1);
   } else {
     material.color.copy(palette.architecture).multiplyScalar(selector === 8 ? 0.76 : 1);
-    if (selector === 5.8) material.color.lerp(palette.alloy, 0.18);
   }
   if (material instanceof MeshPhysicalMaterial) material.sheenColor.copy(palette.fabric);
   // Light sources retain colored radiance; reflective roofs never share their emission.
   // 光源保留彩色辐射，反射屋面不会共用光源的自发光。
   if (selector === 3 || selector === 6 || selector === 7) {
-    material.color.copy(palette.accentLight).lerp(palette.accentSecondary, 0.18);
+    material.color
+      .copy(palette.accentLight)
+      .lerp(palette.accentSecondary, selector === 3 ? 0.78 : 0.18);
     material.emissive.copy(material.color);
-    material.emissiveIntensity = selector === 3 ? 0.18 : selector === 6 ? 0.65 : 0.48;
+    material.emissiveIntensity =
+      selector === 3
+        ? 0.004 + (1 - daylight) * 0.14
+        : selector === 6
+          ? 0.04 + (1 - daylight) * 0.28
+          : 0.48;
+    if (selector === 3) material.color.multiplyScalar(0.22);
   }
 }
 
@@ -357,19 +415,24 @@ export function createIntroMaterials(renderer: WebGLRenderer, frame: IntroFrame)
   const uniforms = {
     ...frameUniforms(frame),
     uIntroFacade: { value: facade },
+    ...createLedUniforms(renderer.capabilities.getMaxAnisotropy()),
     uIntroGlass: { value: new Color() },
+    uIntroMineral: { value: new Color() },
     uIntroOffice: { value: new Color() },
     uIntroSignal: { value: new Color() },
     uIntroSecondary: { value: new Color() },
     uIntroNight: { value: 1 },
   };
   let palette: IntroPalette | undefined;
+  let environment: Texture | null = null;
   return {
     get(selector: number): IntroMaterial {
       selector = Math.round(selector * 10) / 10;
       const existing = materials.get(selector);
       if (existing) return existing;
       const material = buildMaterial(selector);
+      if (selector > 0 && selector < 9 && material instanceof MeshStandardMaterial)
+        material.envMap = environment;
       material.onBeforeCompile = (shader) => {
         installCoordinates(shader, uniforms);
         Object.assign(shader.uniforms, uniforms);
@@ -381,6 +444,14 @@ export function createIntroMaterials(renderer: WebGLRenderer, frame: IntroFrame)
             `#include <roughnessmap_fragment>\n${ROUGHNESS}`,
           )
           .replace(
+            "#include <metalnessmap_fragment>",
+            `#include <metalnessmap_fragment>\n${METALNESS}`,
+          )
+          .replace(
+            "#include <lights_physical_fragment>",
+            `#include <lights_physical_fragment>\n${FACADE_OPTICS}`,
+          )
+          .replace(
             "#include <normal_fragment_maps>",
             `#include <normal_fragment_maps>\n${MICRO_NORMAL}`,
           )
@@ -389,7 +460,7 @@ export function createIntroMaterials(renderer: WebGLRenderer, frame: IntroFrame)
             `#include <emissivemap_fragment>\n${EMISSION}`,
           );
       };
-      material.customProgramCacheKey = () => `intro-pbr-${selector}-v5`;
+      material.customProgramCacheKey = () => `intro-pbr-${selector}-v12`;
       materials.set(selector, material);
       if (palette) updateMaterial(material, selector, palette);
       return material;
@@ -399,14 +470,25 @@ export function createIntroMaterials(renderer: WebGLRenderer, frame: IntroFrame)
       uniforms.uIntroNight.value = 1 - next.daylight;
       uniforms.uIntroSignal.value.copy(next.accentLight);
       uniforms.uIntroSecondary.value.copy(next.accentSecondary);
+      updateLedUniforms(uniforms, next);
       uniforms.uIntroGlass.value.copy(next.glazing);
+      uniforms.uIntroMineral.value.copy(next.architecture);
       uniforms.uIntroOffice.value.copy(next.officeLight);
       for (const [selector, material] of materials) updateMaterial(material, selector, next);
+    },
+    setEnvironment(next: Texture) {
+      environment = next;
+      for (const [selector, material] of materials) {
+        if (selector <= 0 || selector >= 9 || !(material instanceof MeshStandardMaterial)) continue;
+        if (material.envMap === null) material.needsUpdate = true;
+        material.envMap = next;
+      }
     },
     dispose() {
       for (const material of materials.values()) material.dispose();
       materials.clear();
       facade.dispose();
+      uniforms.uIntroLed.value.dispose();
     },
   };
 }

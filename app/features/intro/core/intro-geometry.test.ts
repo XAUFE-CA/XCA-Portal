@@ -98,6 +98,20 @@ test("signs share the support reveal and reach full opacity before the camera pa
   }
 });
 
+test("road sign housings keep the deck corridor and entrance clear on their existing mounts", () => {
+  for (const station of JOURNEY_STATIONS.filter((item) => item.hasPanel)) {
+    const panelLeft = station.left + station.panelLeft;
+    const panelRight = panelLeft + station.panelWidth;
+    const innerEdge = station.side < 0 ? panelRight : panelLeft;
+    const panelBottom = station.top + station.panelTop + station.panelHeight;
+    expect(station.side * (innerEdge - JOURNEY.roadX)).toBeGreaterThanOrEqual(
+      JOURNEY.roadWidth / 2 - 40,
+    );
+    expect(panelBottom).toBeLessThanOrEqual(JOURNEY.floorY - 140);
+    expect(station.depth - 32).toBeGreaterThan(ARRIVAL_ENTRY.front);
+  }
+});
+
 test("road growth is continuous and monotone through the initial sweep", () => {
   let previous = 0;
   for (let z = JOURNEY.roadRevealStart; z >= -JOURNEY.depth; z -= 4) {

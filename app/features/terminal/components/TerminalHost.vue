@@ -24,6 +24,8 @@ import TerminalStatusBar from "./TerminalStatusBar.vue";
 import TerminalTranscript from "./TerminalTranscript.vue";
 import TerminalWindowHeader from "./TerminalWindowHeader.vue";
 
+const { $glassRenderer } = useNuxtApp();
+
 const props = defineProps<{
   session: TerminalSession;
   intro: boolean;
@@ -143,6 +145,15 @@ watch(
   (intro) => {
     if (!intro) void nextTick(scheduleMeasurement);
   },
+);
+watch(
+  () => props.projected,
+  () => {
+    // Commit the edge backend with its DOM switch, before a stale document rim can paint.
+    // 边缘后端随 DOM 切换同步提交，避免文档画布的旧轮廓残留到下一帧。
+    $glassRenderer?.refresh();
+  },
+  { flush: "post" },
 );
 watch(viewport, (node, previous) => {
   previous?.removeEventListener("scroll", syncTranscriptScroll);

@@ -2,6 +2,7 @@ import { Color, SRGBColorSpace } from "three";
 
 export interface AuditoriumPalette {
   structure: Color;
+  backdrop: Color;
   alloy: Color;
   floor: Color;
   fabric: Color;
@@ -16,6 +17,10 @@ export interface AuditoriumPalette {
 }
 
 export type IntroSkyMode = "night" | "day";
+
+/** The key and photographic-sky rotation share one fixed world-space azimuth.
+    主光与摄影天空的水平旋转共用固定世界方位。 */
+export const INTRO_SKY_LIGHT_DIRECTION = [0.62, 0.48, -0.62] as const;
 
 /** Night and day own separate authored skies; neither is a brightness variant of the other.
     夜景与日景各自拥有独立天空，不是同一套视觉的明暗变体。 */
@@ -53,6 +58,13 @@ export interface IntroPalette {
   haze: Color;
   accentLight: Color;
   accentSecondary: Color;
+  ledBlue: Color;
+  ledAccent: Color;
+  ledWarm: Color;
+  ledRose: Color;
+  ledGreen: Color;
+  ledSurface: Color;
+  ledFrame: Color;
   brand: Color;
   auditorium: AuditoriumPalette;
 }
@@ -63,44 +75,56 @@ function mix(first: Color, second: Color, amount: number) {
   return first.clone().lerp(second, amount);
 }
 
+/** Public neutral primitives are blue-tinted, so mineral albedo uses their linear luminance.
+    公开中性色基础色偏蓝，因此矿物基色采用其线性亮度。 */
+function neutral(read: ReadPrimitive, name: string) {
+  const color = read(name);
+  const luminance = color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+  return color.setRGB(luminance, luminance, luminance);
+}
+
 /** A hard theme split keeps stars exclusive to night instead of fading them through daylight.
     硬性主题分界让繁星只属于夜空，不随日景亮度渐隐残留。 */
 export function selectIntroSky(read: ReadPrimitive, daylight: number): IntroSkyStyle {
   if (daylight < 0.5) {
-    const top = read("blue-950").multiplyScalar(0.3);
-    const horizon = mix(read("blue-700"), read("cyan-500"), 0.4).multiplyScalar(0.42);
+    const top = mix(read("neutral-900"), read("blue-950"), 0.32).multiplyScalar(0.6);
+    const horizon = mix(read("neutral-800"), read("blue-900"), 0.24).multiplyScalar(0.62);
     return {
       mode: "night",
       top,
       mid: mix(top, horizon, 0.5),
       horizon,
-      haze: mix(top, horizon, 0.32),
-      sunColor: read("blue-100").multiplyScalar(0.5),
-      cloudLight: mix(read("blue-300"), read("cyan-200"), 0.35).multiplyScalar(0.38),
-      cloudShadow: mix(read("blue-950"), read("blue-800"), 0.4),
-      cloudCover: 0.2,
-      sunGlow: 0.05,
-      starIntensity: 1,
-      cloudOpacity: 0.2,
-      glow: 0.06,
+      haze: mix(top, horizon, 0.78),
+      sunColor: mix(neutral(read, "neutral-200"), read("blue-100"), 0.06),
+      cloudLight: mix(neutral(read, "neutral-500"), horizon, 0.7).multiplyScalar(0.4),
+      cloudShadow: top.clone(),
+      cloudCover: 0.12,
+      sunGlow: 0.015,
+      starIntensity: 0.22,
+      cloudOpacity: 0.12,
+      glow: 0.025,
     };
   }
-  // Blue remains the dominant sky color; sunset warmth is a narrow shader-added glow.
-  // 蓝色仍是天空主体，夕阳暖光只是着色器叠加的局部霞光，不把天空染黄。
+  // Desaturated blue and a pale mineral horizon avoid a cyan wash or sunset-wide orange.
+  // 低饱和蓝与浅矿物色地平线避免青色泛染或铺满天空的橙色晚霞。
+  const top = mix(neutral(read, "neutral-500"), read("blue-400"), 0.65);
+  top.g *= 0.65;
+  top.multiplyScalar(0.65);
+  const horizon = mix(neutral(read, "neutral-200"), top, 0.35);
   return {
     mode: "day",
-    top: mix(read("blue-400"), read("blue-500"), 0.5),
-    mid: mix(read("blue-200"), read("cyan-100"), 0.35),
-    horizon: mix(read("blue-200"), read("amber-200"), 0.22),
-    haze: mix(read("blue-200"), read("blue-300"), 0.35),
-    sunColor: mix(read("amber-300"), read("red-400"), 0.22),
-    cloudLight: mix(read("amber-100"), read("white"), 0.55),
-    cloudShadow: mix(read("blue-700"), read("blue-400"), 0.35),
-    cloudCover: 0.5,
-    sunGlow: 0.9,
+    top,
+    mid: mix(top, neutral(read, "neutral-200"), 0.35),
+    horizon,
+    haze: mix(horizon, top, 0.18),
+    sunColor: mix(neutral(read, "neutral-100"), read("amber-100"), 0.28),
+    cloudLight: mix(neutral(read, "neutral-100"), read("amber-100"), 0.08),
+    cloudShadow: mix(neutral(read, "neutral-400"), top, 0.12),
+    cloudCover: 0.24,
+    sunGlow: 0.42,
     starIntensity: 0,
-    cloudOpacity: 0.42,
-    glow: 0.8,
+    cloudOpacity: 0.24,
+    glow: 0.24,
   };
 }
 
@@ -116,6 +140,10 @@ export function createAuditoriumPalette(
     mix(read(first), read(second), amount).multiplyScalar(scale * exposure);
   return {
     structure: finish("neutral-400", "neutral-200", 0.42, 0.58),
+    backdrop:
+      daylight < 0.5
+        ? finish("neutral-400", "neutral-200", 0.42, 0.58)
+        : mix(neutral(read, "neutral-100"), read("white"), 0.7).lerp(read("amber-50"), 0.04),
     alloy: finish("neutral-200", "white", 0.4, 0.9),
     floor: finish("neutral-400", "neutral-200", 0.1, 0.26),
     fabric: finish("blue-900", "blue-800", 0.2, 0.7),
@@ -130,43 +158,44 @@ export function createAuditoriumPalette(
   };
 }
 
+/** Both themes emit cool screen colors; daylight keeps a softly tinted luminous backing.
+    两种主题均使用冷色发光图案，日间保留带色调的柔和发光底面。 */
+export function createLedColors(read: ReadPrimitive, daylight: number) {
+  const day = daylight >= 0.5;
+  return {
+    ledBlue: mix(read("blue-500"), read(day ? "cyan-400" : "cyan-500"), day ? 0.3 : 0.18),
+    ledAccent: mix(read(day ? "blue-500" : "blue-400"), read("red-400"), 0.35),
+    ledWarm: read(day ? "amber-700" : "amber-400"),
+    ledRose: mix(read("red-400"), read("blue-500"), 0.12),
+    ledGreen: day ? mix(read("cyan-400"), read("green-400"), 0.45) : read("green-400"),
+    ledSurface: day
+      ? mix(read("blue-400"), read("cyan-300"), 0.25)
+      : mix(read("blue-950"), read("neutral-900"), 0.3).multiplyScalar(0.22),
+    ledFrame: day
+      ? mix(read("white"), neutral(read, "neutral-200"), 0.2)
+      : neutral(read, "neutral-400").multiplyScalar(0.075),
+  };
+}
+
 function sceneColors(read: ReadPrimitive, daylight: number, sky: IntroSkyStyle) {
   const transition = (night: Color, day: Color) => night.lerp(day, daylight);
-  // Scene hues come from public primitives, never from black/white text roles.
-  // 场景色域源于公开基础色，绝不以黑白文字角色推导建筑与灯光。
-  const coolRim = mix(read("blue-400"), read("cyan-400"), 0.4);
-  // Daytime facades and pavement stay light so warm sunset light reads on them, not on dark grey.
-  // 日景立面与路面保持明亮，让夕阳暖光有可读的受光面，而不是压在深灰上。
-  const architecture = transition(
-    mix(read("neutral-600"), read("neutral-800"), 0.35),
-    mix(read("blue-200"), read("blue-100"), 0.35),
-  );
-  const glazing = transition(
-    mix(read("neutral-800"), read("neutral-600"), 0.12),
-    mix(read("blue-400"), read("cyan-200"), 0.5),
-  );
-  const alloy = transition(
-    mix(read("neutral-700"), read("neutral-400"), 0.18),
-    mix(read("neutral-500"), read("blue-300"), 0.4),
-  );
-  const pavement = transition(
-    mix(read("neutral-600"), read("neutral-700"), 0.5),
-    mix(read("blue-200"), read("cyan-100"), 0.35),
-  );
-  const fabric = transition(read("neutral-900"), mix(read("neutral-500"), read("blue-400"), 0.4));
+  // The same dry finishes survive both themes; lighting, not blue albedo, creates night.
+  // 两种主题共用干燥饰面，以照明而非蓝色基色表现夜景。
+  const architecture = mix(neutral(read, "neutral-400"), read("amber-100"), 0.025);
+  const glazing = mix(neutral(read, "neutral-400"), read("blue-400"), 0.28).multiplyScalar(0.7);
+  const alloy = mix(neutral(read, "neutral-300"), read("neutral-300"), 0.04);
+  const pavement = neutral(read, "neutral-500");
+  const fabric = neutral(read, "neutral-900");
   const keyLight = transition(
-    mix(read("neutral-300"), read("blue-200"), 0.15),
-    mix(read("amber-200"), read("amber-100"), 0.35),
+    mix(neutral(read, "neutral-100"), read("blue-100"), 0.06),
+    mix(neutral(read, "neutral-100"), read("amber-100"), 0.28),
   );
   const fillLight = transition(
-    mix(read("neutral-500"), read("blue-300"), 0.35),
-    mix(read("blue-300"), read("neutral-300"), 0.2),
+    mix(neutral(read, "neutral-300"), read("blue-100"), 0.08),
+    mix(neutral(read, "neutral-200"), read("blue-200"), 0.14),
   );
-  const rimLight = transition(coolRim, mix(read("amber-400"), read("red-300"), 0.24));
-  const officeLight = transition(
-    mix(read("neutral-200"), read("blue-200"), 0.25),
-    mix(read("amber-100"), read("neutral-200"), 0.25),
-  );
+  const rimLight = keyLight.clone();
+  const officeLight = mix(neutral(read, "neutral-100"), read("amber-100"), 0.16);
   // The WebGL sky, reflection environment and fog share one authored theme sky.
   // WebGL 天空、反射环境与雾化共用同一套主题天空颜色。
   const skyTop = sky.top.clone();
@@ -192,6 +221,7 @@ function sceneColors(read: ReadPrimitive, daylight: number, sky: IntroSkyStyle) 
     haze,
     accentLight,
     accentSecondary,
+    ...createLedColors(read, daylight),
     brand: transition(read("white"), read("neutral-900")),
   };
 }

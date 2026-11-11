@@ -23,11 +23,21 @@ const TOKENS: Record<string, string> = {
   "amber-100": "#fef3c7",
   "amber-200": "#fde68a",
   "amber-300": "#fcd34d",
+  "amber-400": "#fbbf24",
+  "amber-700": "#b45309",
   "red-200": "#fecaca",
   "red-300": "#fca5a5",
   "red-400": "#f87171",
+  "red-700": "#b91c1c",
+  "green-400": "#4ade80",
+  "green-700": "#15803d",
+  "neutral-100": "#eaf3f8",
   "neutral-200": "#d8e7ef",
+  "neutral-300": "#bfd4df",
   "neutral-400": "#9aaebb",
+  "neutral-500": "#6c7f90",
+  "neutral-800": "#263b50",
+  "neutral-900": "#0f172a",
   white: "#ffffff",
   "accent-primary": "#38bdf8",
 };
@@ -39,12 +49,12 @@ const read = (name: string) => {
 };
 const luminance = (color: Color) => color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 
-test("night and day are separate skies, with dense stars exclusive to night", () => {
+test("night and day are separate skies, with stars exclusive to night", () => {
   const night = selectIntroSky(read, 0);
   const day = selectIntroSky(read, 1);
   expect(night.mode).toBe("night");
   expect(day.mode).toBe("day");
-  expect(night.starIntensity).toBe(1);
+  expect(night.starIntensity).toBeGreaterThan(0);
   expect(day.starIntensity).toBe(0);
   expect(night.cloudCover).toBeLessThan(day.cloudCover);
   expect(night.sunGlow).toBeLessThan(day.sunGlow);
@@ -76,6 +86,18 @@ test("auditorium separates blue upholstery from silver finishes and dims lightin
   }
   expect(night.lightIntensity).toBeLessThan(day.lightIntensity / 3);
   expect(luminance(night.alloy)).toBeGreaterThan(luminance(day.alloy) * 0.75);
+});
+
+test("auditorium backdrop is pale by day and retains its original structure color at night", () => {
+  const night = createAuditoriumPalette(read, 0, read("accent-primary"));
+  const day = createAuditoriumPalette(read, 1, read("accent-primary"));
+  expect(night.backdrop.equals(night.structure)).toBe(true);
+  expect(luminance(day.backdrop)).toBeGreaterThan(0.85);
+  expect(luminance(day.backdrop)).toBeGreaterThan(luminance(day.structure) * 2);
+  expect(
+    Math.max(day.backdrop.r, day.backdrop.g, day.backdrop.b) -
+      Math.min(day.backdrop.r, day.backdrop.g, day.backdrop.b),
+  ).toBeLessThan(0.06);
 });
 
 test("auditorium architecture stays matte and opaque without environment reflections", () => {

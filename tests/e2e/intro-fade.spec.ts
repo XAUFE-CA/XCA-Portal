@@ -11,7 +11,13 @@ import {
 import { setThemePreference } from "./preferences";
 import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "./timing";
 
-type RoadProbe = { opacity: number; version: number; sampled: number; pixel: number[] };
+type RoadProbe = {
+  opacity: number;
+  deck: number;
+  version: number;
+  sampled: number;
+  pixel: number[];
+};
 
 declare global {
   interface Window {
@@ -74,7 +80,9 @@ test("skipping the journey releases its material textures and city framebuffer",
     };
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-render-engine", "three");
+  await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-render-engine", "three", {
+    timeout: SCENE_TIMEOUT,
+  });
   const resources = () => page.evaluate(() => ({ ...window.cityResources }));
   await expect
     .poll(async () => (await resources()).framebuffers, { timeout: SETTLE_TIMEOUT })
@@ -87,10 +95,14 @@ test("skipping the journey releases its material textures and city framebuffer",
 
 async function observeRoad(page: Page) {
   await page.addInitScript(() => {
-    const probe: RoadProbe = { opacity: 0, version: 0, sampled: -1, pixel: [] };
+    const probe: RoadProbe = { opacity: 0, deck: 1, version: 0, sampled: -1, pixel: [] };
     Object.assign(window, { roadProbe: probe });
     const prototype = WebGL2RenderingContext.prototype;
     const composites = new WeakMap<WebGLProgram, WebGLUniformLocation | null>();
+    const decks = new WeakMap<
+      WebGLProgram,
+      { location: WebGLUniformLocation; opacity: number } | null
+    >();
     const before = (gl: WebGL2RenderingContext) => {
       if (
         !(gl.canvas instanceof HTMLCanvasElement) ||
@@ -108,7 +120,25 @@ async function observeRoad(page: Page) {
         );
       const opacity = composites.get(program);
       if (opacity) gl.uniform1f(opacity, probe.opacity);
-      return gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) === null;
+      const onscreen = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) === null;
+      if (onscreen) {
+        if (!decks.has(program)) {
+          const isDeck = gl
+            .getAttachedShaders(program)
+            ?.some((shader) =>
+              /#define INTRO_MATERIAL 1(?:\.0)?\s*\n/.test(gl.getShaderSource(shader) ?? ""),
+            );
+          const location = isDeck ? gl.getUniformLocation(program, "opacity") : null;
+          const opacity = location ? gl.getUniform(program, location) : null;
+          decks.set(
+            program,
+            location && typeof opacity === "number" ? { location, opacity } : null,
+          );
+        }
+        const deck = decks.get(program);
+        if (deck) gl.uniform1f(deck.location, deck.opacity * probe.deck);
+      }
+      return onscreen;
     };
     const after = (gl: WebGL2RenderingContext) => {
       const pixel = new Uint8Array(4);
@@ -139,22 +169,26 @@ async function observeRoad(page: Page) {
   });
 }
 
-async function roadPixel(page: Page, opacity: number) {
-  return page.evaluate(async (value) => {
-    const probe = window.roadProbe;
-    probe.opacity = value;
-    probe.version++;
-    while (probe.sampled !== probe.version) {
-      const { promise, resolve } = Promise.withResolvers<void>();
-      requestAnimationFrame(() => resolve());
-      await promise;
-    }
-    return probe.pixel;
-  }, opacity);
+async function roadPixel(page: Page, opacity: number, deck = 1) {
+  return page.evaluate(
+    async ({ value, deck }) => {
+      const probe = window.roadProbe;
+      probe.opacity = value;
+      probe.deck = deck;
+      probe.version++;
+      while (probe.sampled !== probe.version) {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        requestAnimationFrame(() => resolve());
+        await promise;
+      }
+      return probe.pixel;
+    },
+    { value: opacity, deck },
+  );
 }
 
 for (const theme of ["light", "dark"] as const) {
-  test(`the road occludes the city and stays opaque through the auditorium entrance in ${theme}`, async ({
+  test(`the glass deck transmits the city while the auditorium floor stays opaque in ${theme}`, async ({
     page,
   }) => {
     await setThemePreference(page, theme);
@@ -163,15 +197,21 @@ for (const theme of ["light", "dark"] as const) {
     const scene = page.locator(".xca-ca-intro");
     await expect(scene).toHaveAttribute("data-journey", "approach", { timeout: SCENE_TIMEOUT });
     await expect(scene).toHaveAttribute("data-render-engine", "three");
-    const depths = [
-      ARRIVAL_ENTRY.assemblyStart,
-      ARRIVAL_ENTRY.assemblyEnd,
-      ARRIVAL_ENTRY.front + 500,
-      ARRIVAL_ENTRY.front + JOURNEY.near * 2,
-      ARRIVAL_ENTRY.front - JOURNEY.near * 2,
-      ARRIVAL_ENTRY.back - 500,
-    ];
-    const positions = [0.55, ...(await approachPositions(page, depths))];
+    await freezeApproach(page, 0.4);
+    const open = await roadPixel(page, 1, 0);
+    const glass = await roadPixel(page, 1);
+    const noCity = await roadPixel(page, 0);
+    const contrast = (first: number[], second: number[]) =>
+      Math.max(
+        ...first.slice(0, 3).map((channel, index) => Math.abs(channel - (second[index] ?? 0))),
+      );
+    expect(contrast(glass, open), "The deck must remain visible over the city").toBeGreaterThan(6);
+    expect(
+      contrast(glass, noCity),
+      "City detail must remain visible through the deck",
+    ).toBeGreaterThan(3);
+    const depths = [ARRIVAL_ENTRY.front - JOURNEY.near * 2, ARRIVAL_ENTRY.back - 500];
+    const positions = await approachPositions(page, depths);
     for (const position of positions) {
       await freezeApproach(page, position);
       const hidden = await roadPixel(page, 0),

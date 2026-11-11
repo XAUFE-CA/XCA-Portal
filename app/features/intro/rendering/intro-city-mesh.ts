@@ -1,15 +1,20 @@
+import { AUDITORIUM } from "../core/intro-auditorium";
 import { JOURNEY } from "../core/intro-geometry";
 import { appendCityEnvironment } from "./intro-city-environment";
 import { CITY_GRID, cityParcel, CITY_GROUND as GROUND, isCityPark } from "./intro-city-layout";
+import { appendCityLed } from "./intro-city-led";
+import { appendCityTerrace, CITY_LIFE_MATERIAL } from "./intro-city-life";
 import { prism, type Volume } from "./intro-city-primitives";
 
 /**
  * Street-edge pairs give the viaduct visible low roofs and narrow ground-level passages.
  * 沿街的成对低楼为高架提供可见屋顶，并在地面保留窄巷。
  */
-function streetBlock(vertices: number[], x: number, z: number, seed: number) {
+function streetBlock(vertices: number[], x: number, z: number, seed: number, terrace: boolean) {
   for (const wing of [-1, 1]) {
     const height = 690 + ((seed + (wing + 1) * 2) % 5) * 145;
+    const nearRoad = wing === (x < JOURNEY.roadX ? 1 : -1);
+    const cafe = terrace && nearRoad;
     const shell: Volume = {
       x: x + wing * 565,
       z: z + wing * (90 + (seed % 3) * 55),
@@ -22,7 +27,7 @@ function streetBlock(vertices: number[], x: number, z: number, seed: number) {
       bottomFace: false,
     };
     prism(vertices, shell);
-    if ((seed + wing) % 3 === 0) {
+    if ((seed + wing) % 3 === 0 && !cafe) {
       prism(vertices, {
         ...shell,
         x: shell.x + wing * 90,
@@ -41,8 +46,21 @@ function streetBlock(vertices: number[], x: number, z: number, seed: number) {
       depth: 12,
       top: GROUND - 250,
       bottom: GROUND - 65,
-      material: 5.4,
+      material: nearRoad ? CITY_LIFE_MATERIAL : 5.4,
     });
+    if (cafe) {
+      appendCityTerrace(vertices, shell.x, shell.z + 250, shell.top);
+      prism(vertices, {
+        x: shell.x,
+        z: shell.z + shell.depth / 2 + 45,
+        width: 820,
+        depth: 140,
+        top: GROUND - 278,
+        bottom: GROUND - 248,
+        material: CITY_LIFE_MATERIAL,
+        bottomFace: false,
+      });
+    }
   }
 }
 
@@ -71,7 +89,7 @@ function entranceCanopy(vertices: number[], x: number, z: number, width: number)
  * Two unequal offices share a street podium, leaving real gaps between their broad facades.
  * 两栋不等高办公楼共用临街裙房，在宽幅立面之间留下真实空隙。
  */
-function officeBlock(vertices: number[], x: number, z: number, seed: number) {
+function officeBlock(vertices: number[], x: number, z: number, seed: number, screens: boolean) {
   const podiumTop = GROUND - 520;
   prism(vertices, {
     x,
@@ -100,6 +118,8 @@ function officeBlock(vertices: number[], x: number, z: number, seed: number) {
       bottomFace: false,
     };
     prism(vertices, shell);
+    if (screens && wing === (x < JOURNEY.roadX ? 1 : -1))
+      appendCityLed(vertices, shell, seed % 3 !== 0);
     if ((variant + (wing + 1) * 3) % 5 === 0)
       neonEdge(
         vertices,
@@ -199,6 +219,7 @@ function landmark(vertices: number[], x: number, z: number, height: number, prof
     bottomFace: false,
   };
   prism(vertices, tower);
+  appendCityLed(vertices, tower, true);
   if (profile !== 1) {
     prism(vertices, {
       ...tower,
@@ -302,7 +323,6 @@ function distantBlock(vertices: number[], side: number, column: number, row: num
       top: GROUND - height,
       bottom: GROUND,
       material: 8,
-      bevel: row < CITY_GRID.rows + 2 && variant % 4 === 0 ? 24 : 0,
       bottomFace: false,
     };
     prism(vertices, silhouette);
@@ -314,13 +334,62 @@ function distantBlock(vertices: number[], side: number, column: number, row: num
         depth: silhouette.depth * 0.76,
         top: silhouette.top - 1450,
         bottom: silhouette.top + 4,
-        bevel: 18,
       });
     }
   }
 }
 
+/**
+ * Staggered rear towers close the road's vanishing point without entering the room or forming a wall.
+ * 错落后排高楼补足道路消失点，不进入报告厅，也不形成封闭高墙。
+ */
+function horizonCity(vertices: number[]) {
+  // Offset, setback behind the room, width, depth and height keep two unequal clusters legible.
+  // 横向偏移、厅后退距、宽度、进深与高度共同塑造两组不对称且可辨的楼群。
+  const blocks = [
+    [-5200, 6000, 1050, 1300, 6200],
+    [-3400, 4300, 900, 1350, 10200],
+    [-1600, 2800, 1150, 1250, 5100],
+    [350, 5300, 850, 1400, 7400],
+    [2200, 3600, 1000, 1500, 5900],
+    [4250, 6900, 1250, 1350, 8700],
+    [-6500, 12700, 1100, 1100, 7000],
+    [-4200, 10800, 1200, 1600, 8500],
+    [-2150, 13600, 950, 1300, 6800],
+    [-450, 9900, 1100, 1500, 9700],
+    [1550, 12200, 1000, 1600, 5700],
+    [3400, 10400, 850, 1400, 6400],
+    [6100, 13900, 1350, 1600, 7900],
+  ] as const;
+  for (const [index, [offset, setback, width, depth, height]] of blocks.entries()) {
+    const stepped = index === 1 || index === 5 || index === 9;
+    const shell: Volume = {
+      x: JOURNEY.roadX + offset,
+      z: AUDITORIUM.back - setback,
+      width,
+      depth,
+      top: GROUND - height * (stepped ? 0.78 : 1),
+      bottom: GROUND,
+      material: 8,
+      bottomFace: false,
+    };
+    prism(vertices, shell);
+    appendCityLed(vertices, shell, index % 3 === 1, 0.38);
+    if (stepped)
+      prism(vertices, {
+        ...shell,
+        width: width * 0.64,
+        depth: depth * 0.72,
+        top: GROUND - height,
+        bottom: shell.top + 4,
+      });
+  }
+}
+
 function distantCity(vertices: number[]) {
+  // Flat remote corners fund taller central silhouettes instead of invisible distant bevels.
+  // 用平直远景转角替代不可见的远距倒角，将面数留给中央高楼轮廓。
+  horizonCity(vertices);
   for (const side of [-1, 1]) {
     for (let column = 0; column < CITY_GRID.columns + CITY_GRID.outerColumns; column++) {
       const firstRow = column < CITY_GRID.columns ? CITY_GRID.rows : 0;
@@ -348,8 +417,9 @@ export function createCityMesh(): number[] {
         else if (side > 0 && column === 1 && row === 4) landmark(vertices, x, z, 8200, 1);
         else if (side < 0 && column === 3 && row === 5) landmark(vertices, x, z, 5600, 2);
         else if (side > 0 && column === 2 && row === 6) landmark(vertices, x, z, 7100, 3);
-        else if (column === 0) streetBlock(vertices, x, z, seed);
-        else officeBlock(vertices, x, z, seed);
+        else if (column === 0)
+          streetBlock(vertices, x, z, seed, row === 0 || row === 1 || row === 3);
+        else officeBlock(vertices, x, z, seed, column <= 2);
       }
     }
   }

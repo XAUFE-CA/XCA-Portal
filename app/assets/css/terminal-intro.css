@@ -92,8 +92,7 @@ body:has(.xca-terminal-hero--intro) {
   pointer-events: none;
   opacity: 1;
   overflow: hidden;
-  transition: opacity var(--neoverse-motion-duration-standard)
-    var(--neoverse-motion-easing-standard);
+  transition: opacity var(--neoverse-motion-duration-fast) var(--neoverse-motion-easing-standard);
 }
 /* The newest ASCII row crosses a moving mask edge while the intro prints it, so each row
    fades in instead of snapping; the ready screen keeps the banner's normal glyph rendering.
@@ -148,7 +147,7 @@ body:has(.xca-terminal-hero--intro) {
   /* Welcome copy joins the printed artwork one line at a time; the intro owns the rhythm.
      欢迎文案随字符画逐行淡入，节奏由入场控制。 */
   .xca-terminal-screen--brand .xca-terminal-history .xca-terminal-line {
-    animation: xca-terminal-print-line var(--neoverse-motion-duration-standard)
+    animation: xca-terminal-print-line var(--neoverse-motion-duration-fast)
       var(--neoverse-motion-easing-standard) both;
   }
 }

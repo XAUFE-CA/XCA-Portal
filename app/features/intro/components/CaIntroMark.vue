@@ -27,15 +27,32 @@ const svg = mark
   .replaceAll("<path", '<path pathLength="1"')
   .replace(/fill="#[\da-f]+"/gi, 'fill="currentColor"');
 const depthLayers = Array.from({ length: 18 }, (_, index) => (index + 1) * 4);
-const signposts: { label: MessageKey; detail: string; command: string }[] = [
+const signposts: {
+  label: MessageKey;
+  compactLabel?: MessageKey;
+  detail: string;
+  command: string;
+  compactCommand?: string;
+}[] = [
   ...SITE.navigation.map((item) => ({
     label: item.label,
     detail: SITE.routes[item.route],
     command: `xca open ${item.route}`,
+    compactCommand: SITE.routes[item.route],
   })),
-  { label: "summary.help", detail: "help", command: "help" },
-  { label: "summary.uname", detail: "uname -a", command: "uname -a" },
-  { label: "terminal.tui", detail: "help / theme", command: "xca explore" },
+  { label: "summary.help", compactLabel: "intro.sign.commands", detail: "help", command: "help" },
+  {
+    label: "summary.uname",
+    compactLabel: "intro.sign.environment",
+    detail: "uname -a",
+    command: "uname -a",
+  },
+  {
+    label: "terminal.tui",
+    compactLabel: "intro.sign.explore",
+    detail: "help / theme",
+    command: "xca explore",
+  },
   { label: "theme.label", detail: "light / dark / system", command: "xca theme" },
   { label: "terminal.shell", detail: "pwd / ls / cat", command: "help" },
 ];
@@ -124,10 +141,20 @@ onBeforeUnmount(() => {
                 <span class="xca-ca-intro__content-brand">{{ SITE.brand.acronym }}</span>
                 <span class="xca-ca-intro__content-index">0{{ fin.index + 1 }}</span>
               </div>
-              <strong>{{ t(fin.panel.label) }}</strong>
-              <code>{{ fin.panel.detail }}</code>
+              <strong>
+                <span class="xca-ca-intro__content-full">{{ t(fin.panel.label) }}</span>
+                <span class="xca-ca-intro__content-compact">
+                  {{ t(fin.panel.compactLabel ?? fin.panel.label) }}
+                </span>
+              </strong>
+              <code class="xca-ca-intro__content-detail">{{ fin.panel.detail }}</code>
               <div class="xca-ca-intro__content-footer">
-                <code>{{ fin.panel.command }}</code>
+                <code>
+                  <span class="xca-ca-intro__content-full">{{ fin.panel.command }}</span>
+                  <span class="xca-ca-intro__content-compact">
+                    {{ fin.panel.compactCommand ?? fin.panel.command }}
+                  </span>
+                </code>
                 <SiteIcon name="arrowUp" class="xca-ca-intro__content-arrow" />
               </div>
             </div>

@@ -2,7 +2,6 @@ import {
   DirectionalLight,
   HemisphereLight,
   PCFShadowMap,
-  PointLight,
   type Scene,
   SpotLight,
   type Texture,
@@ -12,10 +11,11 @@ import { AUDITORIUM, AUDITORIUM_OBJECTS } from "../core/intro-auditorium";
 import { JOURNEY } from "../core/intro-geometry";
 import { INTRO_LAYERS } from "./intro-scene";
 import { createIntroEnvironment } from "./intro-scene-environment";
-import type { IntroPalette } from "./intro-scene-palette";
+import { INTRO_SKY_LIGHT_DIRECTION, type IntroPalette } from "./intro-scene-palette";
+import type { IntroSky } from "./intro-sky";
 
 export interface IntroLighting {
-  update(palette: IntroPalette, travel: number): void;
+  update(palette: IntroPalette, travel: number): Texture;
   move(travel: number): void;
   useExterior(): void;
   useAuditorium(): void;
@@ -32,9 +32,6 @@ const STAGE_FIXTURES = AUDITORIUM_OBJECTS.filter((object) =>
 interface SceneLights {
   cityFill: HemisphereLight;
   cityKey: DirectionalLight;
-  cityRim: PointLight;
-  cityLane: PointLight;
-  cityDistant: PointLight;
   roomFill: HemisphereLight;
   roomKey: SpotLight;
   roomStage: SpotLight[];
@@ -58,23 +55,39 @@ export function createRoomLight() {
   return light;
 }
 
+function createCityLight() {
+  const light = new DirectionalLight();
+  light.castShadow = true;
+  const shadow = light.shadow;
+  shadow.autoUpdate = false;
+  shadow.needsUpdate = true;
+  shadow.mapSize.set(2048, 2048);
+  shadow.camera.left = -20000;
+  shadow.camera.right = 20000;
+  shadow.camera.top = 18000;
+  shadow.camera.bottom = -18000;
+  shadow.camera.near = 100;
+  shadow.camera.far = 100000;
+  shadow.camera.layers.set(INTRO_LAYERS.city);
+  shadow.camera.layers.enable(INTRO_LAYERS.exterior);
+  shadow.bias = -0.0002;
+  shadow.normalBias = 8;
+  shadow.radius = 0.5;
+  shadow.camera.updateProjectionMatrix();
+  return light;
+}
+
 function createLights(): SceneLights {
   const lights = {
     cityFill: new HemisphereLight(),
-    cityKey: new DirectionalLight(),
-    cityRim: new PointLight(undefined, 1, 14000, 2),
-    cityLane: new PointLight(undefined, 1, 6200, 2),
-    cityDistant: new PointLight(undefined, 1, 6800, 2),
+    cityKey: createCityLight(),
     roomFill: new HemisphereLight(),
     roomKey: createRoomLight(),
     roomStage: STAGE_FIXTURES.map(() => new SpotLight(undefined, 1, 7000, 0.52, 0.7, 2)),
     roomCeiling: CEILING_FIXTURES.map(() => new SpotLight(undefined, 1, 6400, Math.PI / 4, 0.6, 2)),
   };
-  lights.cityFill.name = "intro-city-indigo-fill";
-  lights.cityKey.name = "intro-city-sky-key";
-  lights.cityRim.name = "intro-city-local-warm-rim";
-  lights.cityLane.name = "intro-city-near-light-pool";
-  lights.cityDistant.name = "intro-city-distant-light-pool";
+  lights.cityFill.name = "intro-city-neutral-sky-fill";
+  lights.cityKey.name = "intro-city-sun-moon-key";
   lights.roomFill.name = "intro-auditorium-sky-fill";
   lights.roomStage.forEach((light, index) => {
     light.name = `intro-auditorium-stage-wash-${index}`;
@@ -84,13 +97,7 @@ function createLights(): SceneLights {
   });
   // Exterior and auditorium passes gather different lights while retaining one depth buffer.
   // 室外与报告厅绘制分别收集灯光，仍保留同一深度缓冲。
-  for (const light of [
-    lights.cityFill,
-    lights.cityKey,
-    lights.cityRim,
-    lights.cityLane,
-    lights.cityDistant,
-  ]) {
+  for (const light of [lights.cityFill, lights.cityKey]) {
     light.layers.set(INTRO_LAYERS.city);
     light.layers.enable(INTRO_LAYERS.exterior);
   }
@@ -102,16 +109,11 @@ function createLights(): SceneLights {
 function colorLights(lights: SceneLights, palette: IntroPalette) {
   const daylight = palette.daylight;
   lights.cityFill.color.copy(palette.fillLight);
-  lights.cityFill.groundColor.copy(palette.pavement);
-  lights.cityFill.intensity = 0.55 - daylight * 0.18;
+  lights.cityFill.groundColor.copy(palette.pavement).multiplyScalar(0.28);
+  lights.cityFill.intensity = 0.48 + daylight * 0.12;
   lights.cityKey.color.copy(palette.keyLight);
-  lights.cityKey.intensity = 2.2 + daylight * 1.8;
-  lights.cityRim.color.copy(palette.rimLight);
-  lights.cityRim.intensity = 9_000_000 - daylight * 2_000_000;
-  lights.cityLane.color.copy(palette.accentLight);
-  lights.cityLane.intensity = 16_000_000 * (1 - daylight);
-  lights.cityDistant.color.copy(palette.accentLight).lerp(palette.fillLight, 0.2);
-  lights.cityDistant.intensity = 12_000_000 * (1 - daylight);
+  lights.cityKey.intensity = 0.72 + daylight * 2.48;
+  lights.cityKey.shadow.intensity = 0.2 + daylight * 0.8;
   const room = palette.auditorium;
   lights.roomFill.color.copy(room.fillLight);
   lights.roomFill.groundColor.copy(room.floor);
@@ -120,7 +122,9 @@ function colorLights(lights: SceneLights, palette: IntroPalette) {
   lights.roomKey.intensity = 18_000_000 * room.lightIntensity;
   lights.roomStage.forEach((light) => {
     light.color.copy(room.keyLight).lerp(room.accentLight, 0.04);
-    light.intensity = 6_500_000 * room.lightIntensity;
+    light.angle = 0.52 + daylight * 0.42;
+    light.penumbra = 0.7 + daylight * 0.15;
+    light.intensity = 6_500_000 * room.lightIntensity * (1 + daylight * 6);
   });
   lights.roomCeiling.forEach((light) => {
     light.color.copy(room.keyLight);
@@ -130,13 +134,13 @@ function colorLights(lights: SceneLights, palette: IntroPalette) {
 
 function moveLights(lights: SceneLights, travel: number) {
   const roomCenter = (AUDITORIUM.entrance + AUDITORIUM.back) / 2;
-  // Lower lateral key light separates lit facades from roofs and indigo backsides.
-  // 较低的侧向主光区分受光立面、屋顶与靛蓝背光面。
-  lights.cityKey.position.set(JOURNEY.roadX - 8500, 3800, 2500 + travel);
-  lights.cityKey.target.position.set(JOURNEY.roadX, -1900, -8000 + travel);
-  lights.cityRim.position.set(JOURNEY.roadX + 4800, 200, -7500 + travel);
-  lights.cityLane.position.set(JOURNEY.roadX - 1400, 200, -4200 + travel);
-  lights.cityDistant.position.set(JOURNEY.roadX + 1600, 100, -10600 + travel);
+  // A fixed world-space source agrees with the sky and PMREM, while sky fill opens dark facades.
+  // 固定世界方向与天空和 PMREM 一致，天空补光保留暗立面的可读性。
+  lights.cityKey.target.position.set(JOURNEY.roadX, -JOURNEY.floorY, -8000 + travel);
+  lights.cityKey.position.copy(lights.cityKey.target.position);
+  lights.cityKey.position.x += INTRO_SKY_LIGHT_DIRECTION[0] * 60000;
+  lights.cityKey.position.y += INTRO_SKY_LIGHT_DIRECTION[1] * 60000;
+  lights.cityKey.position.z += INTRO_SKY_LIGHT_DIRECTION[2] * 60000;
   // A finite downward shadow cone excludes the enclosing roof instead of projecting it onto the wall.
   // 有限下射阴影光锥排除封闭屋顶，不把屋顶投影到后墙。
   lights.roomKey.position.z = roomCenter + 1200 + travel;
@@ -178,22 +182,24 @@ function moveLights(lights: SceneLights, travel: number) {
   });
   lights.cityKey.updateMatrixWorld();
   lights.cityKey.target.updateMatrixWorld();
-  lights.cityRim.updateMatrixWorld();
-  lights.cityLane.updateMatrixWorld();
-  lights.cityDistant.updateMatrixWorld();
   lights.roomKey.updateMatrixWorld();
   lights.roomKey.target.updateMatrixWorld();
   // The depth image is translation-invariant, but its world projection must still follow.
   // 深度图在整体平移下保持不变，但其世界空间投影仍须跟随移动。
   lights.roomKey.shadow.updateMatrices(lights.roomKey);
+  lights.cityKey.shadow.updateMatrices(lights.cityKey);
 }
 
-export function createIntroLighting(scene: Scene, renderer: WebGLRenderer): IntroLighting {
+export function createIntroLighting(
+  scene: Scene,
+  renderer: WebGLRenderer,
+  sky: IntroSky,
+): IntroLighting {
   const previousEnvironment = scene.environment;
   const previousIntensity = scene.environmentIntensity;
   const previousShadowEnabled = renderer.shadowMap.enabled;
   const previousShadowType = renderer.shadowMap.type;
-  const environment = createIntroEnvironment(renderer);
+  const environment = createIntroEnvironment(renderer, scene, sky);
   const lights = createLights();
   const lightList = Object.values(lights).flat();
   const targets = [
@@ -210,10 +216,11 @@ export function createIntroLighting(scene: Scene, renderer: WebGLRenderer): Intr
   for (const target of targets) scene.add(target);
   return {
     update(palette, travel) {
-      activeEnvironment = environment.update(palette);
-      exteriorIntensity = 0.18 + palette.daylight * 0.36;
+      exteriorIntensity = 0.28 + palette.daylight * 0.32;
       colorLights(lights, palette);
       moveLights(lights, travel);
+      activeEnvironment = environment.update(palette, travel);
+      return activeEnvironment;
     },
     useExterior() {
       scene.environment = activeEnvironment;

@@ -145,6 +145,33 @@
   :is(.xca-terminal-chrome, .xca-terminal-screen, .xca-terminal-statusbar) {
   opacity: 0;
 }
+/* Keep both chrome destinations in layout so crossfades also reverse without remounting.
+   两种终端框架内容始终保留占位，使交叉淡化反向播放时也无需重新挂载。 */
+.xca-terminal-chrome-swap {
+  display: grid;
+}
+.xca-terminal-chrome-swap__layer {
+  grid-area: 1 / 1;
+  justify-self: end;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(var(--neoverse-motion-distance-near));
+  pointer-events: none;
+  transition:
+    opacity var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-linear),
+    transform var(--neoverse-motion-duration-expressive) var(--neoverse-motion-easing-standard);
+}
+.xca-terminal-chrome-swap__layer[data-active="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-terminal-chrome-swap__layer {
+    transform: none;
+    transition: none;
+  }
+}
 .xca-terminal-screen {
   display: flex;
   flex: 1 1 auto;

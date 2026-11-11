@@ -38,6 +38,7 @@ export const AUDITORIUM_MATERIAL = {
   graphite: 19,
   ceilingLight: 20,
   connection: 21,
+  backdrop: 22,
 } as const;
 
 type Material = keyof typeof AUDITORIUM_MATERIAL;
@@ -78,7 +79,12 @@ function architecture(add: AddObject) {
   );
   // Keep the entire terminal backdrop uninterrupted and matte.
   // 终端背后的完整墙面保持无分缝的哑光表面。
-  add("back-wall", [x - halfWidth, ceiling, back], [halfWidth * 2, floor - ceiling, 48]);
+  add(
+    "back-wall",
+    [x - halfWidth, ceiling, back],
+    [halfWidth * 2, floor - ceiling, 48],
+    "backdrop",
+  );
   for (const side of [-1, 1]) {
     const wall = x + side * halfWidth;
     add(`wall.${side}`, [wall - 32, ceiling, entrance], [64, floor - ceiling, length]);

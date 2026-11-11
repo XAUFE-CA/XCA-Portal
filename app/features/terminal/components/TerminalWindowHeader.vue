@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { UiButton, UiIconButton } from "@neoverse-ui/vue";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import SiteIcon from "~/components/site/SiteIcon.vue";
 import { detectTerminalPlatform, type TerminalPlatform } from "../presentation/terminal-platform";
 
-defineProps<{
+const props = defineProps<{
   user: string;
   host: string;
   directory: string;
@@ -15,6 +15,9 @@ defineProps<{
 const emit = defineEmits<{ skip: []; expand: [] }>();
 const { t } = useSiteLocale();
 const platform = ref<TerminalPlatform>("other");
+const skipVisible = computed(
+  () => props.intro && props.introStage !== "logo" && props.introStage !== "handoff",
+);
 onMounted(() => {
   platform.value = detectTerminalPlatform(navigator);
 });
@@ -32,28 +35,42 @@ onMounted(() => {
       <span class="xca-terminal-chrome__session">{{ user }}@{{ host }}</span>
       <span class="xca-terminal-chrome__directory">{{ directory }}</span>
     </span>
-    <span class="xca-terminal-chrome__actions">
-      <UiButton
-        v-if="intro && introStage !== 'logo' && introStage !== 'handoff'"
-        variant="ghost"
-        size="sm"
-        :aria-label="t('terminal.skipLabel')"
-        @click="emit('skip')"
-        >{{
-          t("terminal.skip")
-        }}</UiButton
+    <span class="xca-terminal-chrome__actions xca-terminal-chrome-swap">
+      <span
+        class="xca-terminal-chrome-swap__layer"
+        :data-active="skipVisible"
+        :aria-hidden="!skipVisible || undefined"
+        :inert="!skipVisible"
       >
-      <UiIconButton
-        v-else-if="!intro"
-        variant="ghost"
-        size="sm"
-        :label="expanded ? t('terminal.restoreLabel') : t('terminal.expandLabel')"
-        :title="expanded ? t('terminal.restoreLabel') : t('terminal.expandLabel')"
-        :aria-expanded="expanded"
-        @click="emit('expand')"
+        <UiButton
+          variant="ghost"
+          size="sm"
+          :aria-label="t('terminal.skipLabel')"
+          :tabindex="skipVisible ? undefined : -1"
+          @click="skipVisible && emit('skip')"
+          >{{
+            t("terminal.skip")
+          }}</UiButton
+        >
+      </span>
+      <span
+        class="xca-terminal-chrome-swap__layer"
+        :data-active="!intro"
+        :aria-hidden="intro || undefined"
+        :inert="intro"
       >
-        <SiteIcon :name="expanded ? 'restore' : 'expand'" />
-      </UiIconButton>
+        <UiIconButton
+          variant="ghost"
+          size="sm"
+          :label="expanded ? t('terminal.restoreLabel') : t('terminal.expandLabel')"
+          :title="expanded ? t('terminal.restoreLabel') : t('terminal.expandLabel')"
+          :aria-expanded="expanded"
+          :tabindex="intro ? -1 : undefined"
+          @click="!intro && emit('expand')"
+        >
+          <SiteIcon :name="expanded ? 'restore' : 'expand'" />
+        </UiIconButton>
+      </span>
     </span>
   </div>
 </template>
@@ -92,7 +109,7 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 .xca-terminal-chrome__actions {
-  display: flex;
+  display: grid;
   align-items: center;
   justify-self: end;
   min-height: var(--neoverse-button-height-sm);

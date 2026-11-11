@@ -444,6 +444,11 @@ function drawRoomPortal(probe: RoomPortalProbe) {
   const position = gl.getAttribLocation(program, "position");
   gl.enableVertexAttribArray(position);
   gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
+  const along = gl.getAttribLocation(program, "introAlong");
+  if (along >= 0) {
+    gl.enableVertexAttribArray(along);
+    gl.vertexAttribPointer(along, 1, gl.FLOAT, false, 12, 8);
+  }
   const normal = gl.getAttribLocation(program, "normal");
   if (normal >= 0) gl.vertexAttrib3f(normal, 0, 0, 1);
   const pixels = new Uint8Array(512 * 512 * 4);

@@ -12,7 +12,7 @@ export interface Volume {
   bottomFace?: boolean;
 }
 
-function face(vertices: number[], points: readonly Vertex[], material: number) {
+export function face(vertices: number[], points: readonly Vertex[], material: number) {
   const a = points[0],
     b = points[1],
     c = points[2];
