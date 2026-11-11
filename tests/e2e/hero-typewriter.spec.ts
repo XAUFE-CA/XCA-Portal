@@ -53,16 +53,16 @@ for (const width of [1440, 390]) {
       // 标点靠近基线，应对齐相邻汉字的墨迹，而非字体的字宽框。
       const han = letter.previousElementSibling;
       if (!han) throw new Error("The final letter must follow a Han glyph");
-      const baseline = document.createElement("i");
-      baseline.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
-      han.append(baseline);
-      const baselineY = baseline.getBoundingClientRect().top;
-      baseline.remove();
       const hanText = han.textContent;
       if (hanText === null) throw new Error("The preceding Han glyph must contain text");
       const hanGlyph = context.measureText(hanText);
+      // A zero-width probe lands on the previous line when the title wraps, so the glyph box
+      // plus the font ascent is the only baseline that follows the cursor's own line.
+      // 标题折行时零宽探针会落到上一行；只有字符盒加字体上伸部能跟随光标所在行。
       const glyphCenter =
-        baselineY + (hanGlyph.actualBoundingBoxDescent - hanGlyph.actualBoundingBoxAscent) / 2;
+        letter.getBoundingClientRect().top +
+        hanGlyph.fontBoundingBoxAscent +
+        (hanGlyph.actualBoundingBoxDescent - hanGlyph.actualBoundingBoxAscent) / 2;
       return {
         fontSize: Number.parseFloat(textStyle.fontSize),
         gap: caretBox.left - (letter.getBoundingClientRect().left + glyph.actualBoundingBoxRight),
@@ -75,6 +75,45 @@ for (const width of [1440, 390]) {
     expect(Math.abs(metrics.verticalOffset)).toBeLessThanOrEqual(metrics.fontSize * 0.04);
   });
 }
+
+test("the caret follows the current glyph onto a wrapped line", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await openHero(page);
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator(".xca-terminal-title__letter--visible")).toHaveCount(
+    firstSentenceLength,
+    { timeout: 15000 },
+  );
+  const geometry = await page.evaluate(() => {
+    const letters = [...document.querySelectorAll<HTMLElement>(".xca-terminal-title__letter")];
+    const cursor = document.querySelector<HTMLElement>(".xca-terminal-title__letter--cursor");
+    const caret = document.querySelector<HTMLElement>(".xca-terminal-title__caret");
+    const first = letters[0];
+    if (!first || !cursor || !caret) throw new Error("A wrapped title needs a cursor and caret");
+    caret.style.transition = "none";
+    const style = getComputedStyle(cursor);
+    const context = document.createElement("canvas").getContext("2d");
+    if (!context) throw new Error("A 2D canvas context is required to measure hero glyphs");
+    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const ink = context.measureText((cursor.previousElementSibling ?? cursor).textContent ?? "");
+    const cursorBox = cursor.getBoundingClientRect();
+    const caretBox = caret.getBoundingClientRect();
+    const glyphCenter =
+      cursorBox.top +
+      ink.fontBoundingBoxAscent +
+      (ink.actualBoundingBoxDescent - ink.actualBoundingBoxAscent) / 2;
+    return {
+      lines: new Set(letters.map((node) => Math.round(node.getBoundingClientRect().top))).size,
+      firstTop: first.getBoundingClientRect().top,
+      cursorTop: cursorBox.top,
+      offset: Math.abs(caretBox.top + caretBox.height / 2 - glyphCenter),
+      fontSize: Number.parseFloat(style.fontSize),
+    };
+  });
+  expect(geometry.lines).toBe(2);
+  expect(geometry.cursorTop).toBeGreaterThan(geometry.firstTop);
+  expect(geometry.offset).toBeLessThanOrEqual(geometry.fontSize * 0.04);
+});
 
 test("title deletes and types again without shifting the heading", async ({ page }) => {
   await openHero(page);

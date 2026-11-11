@@ -190,6 +190,65 @@ test("an interrupted language switch keeps resizing from the current edge", asyn
     .toBeCloseTo(before, 0);
 });
 
+test("the action links resize with their new label instead of snapping", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await page.goto("/about");
+  const links = page.locator(".about-actions [data-surface]");
+  await expect(links).toHaveCount(2);
+  const before = await links.evaluateAll((elements) =>
+    elements.map((element) => Number(element.getBoundingClientRect().width.toFixed(2))),
+  );
+
+  // The links are sampled before the copy swaps, then animate to the width the incoming label
+  // needs, so the trailing link travels with the leading one instead of jumping to its offset.
+  // 链接在文案替换前采样，再动画到新标签所需的宽度；后一个随前一个移动，而不是直接跳到新位置。
+  const runs = await page.evaluate(async () => {
+    const elements = [...document.querySelectorAll<HTMLElement>(".about-actions [data-surface]")];
+    const widthRuns = () =>
+      elements.map((element) =>
+        element.getAnimations().find((animation) => {
+          const effect = animation.effect;
+          return (
+            effect instanceof KeyframeEffect &&
+            effect.getKeyframes().some((frame) => typeof frame.width === "string")
+          );
+        }),
+      );
+    const option = [...document.querySelectorAll<HTMLElement>(".site-header [role=radio]")].find(
+      (candidate) => candidate.textContent?.trim() === "English",
+    );
+    option?.click();
+    const deadline = performance.now() + 3000;
+    while (performance.now() < deadline) {
+      const animations = widthRuns();
+      if (animations.every((animation) => animation !== undefined)) {
+        return animations.map((animation) => {
+          const effect = animation?.effect;
+          if (!(effect instanceof KeyframeEffect)) return null;
+          return {
+            duration: Number(effect.getComputedTiming().duration),
+            widths: effect.getKeyframes().map((frame) => String(frame.width)),
+          };
+        });
+      }
+      await new Promise(requestAnimationFrame);
+    }
+    return null;
+  });
+
+  if (!runs) throw new Error("Both action links must run one width animation");
+  for (const [index, run] of runs.entries()) {
+    if (!run) throw new Error("The width animation must expose its keyframes");
+    expect(run.duration).toBeGreaterThan(0);
+    expect(run.widths).toHaveLength(2);
+    // The run starts where the link stood before the swap, not at the destination width.
+    // 动画从替换前的宽度起步，而不是从终点开始。
+    expect(Math.abs(Number.parseFloat(run.widths[0] ?? "") - (before[index] ?? 0))).toBeLessThan(1);
+    expect(run.widths[1]).not.toBe(run.widths[0]);
+  }
+  await expect(page.getByRole("heading", { level: 1, name: "About us" })).toBeVisible();
+});
+
 test("loaded content crossfades with the skeleton in the same card area", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");

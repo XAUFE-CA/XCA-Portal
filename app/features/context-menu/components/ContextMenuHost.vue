@@ -20,15 +20,9 @@ const props = defineProps<{ menu: ContextMenuState }>();
     @update:open="props.menu.isOpen.value = $event"
     @select="props.menu.select($event.id)"
   />
-  <p
-    v-if="props.menu.status.value"
-    class="xca-context-menu-status"
-    role="status"
-    :style="{
-      '--xca-context-menu-x': `${props.menu.point.value.x}px`,
-      '--xca-context-menu-y': `${props.menu.point.value.y}px`,
-    }"
-  >
-    {{ props.menu.status.value }}
-  </p>
+  <Transition name="xca-context-menu-status">
+    <p v-if="props.menu.status.value" class="xca-context-menu-status" role="status">
+      {{ props.menu.status.value }}
+    </p>
+  </Transition>
 </template>

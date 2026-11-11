@@ -1,19 +1,53 @@
-/* Portal geometry for the context-menu confirmation chip; colours and motion belong to
-   Neoverse-UI tokens. The chip sits near the pointer that opened the menu, so it reads as
-   feedback for the row the visitor just chose rather than as page content.
-   上下文菜单确认条的页面几何；颜色与动效归 Neoverse-UI 样式变量所有。确认条位于打开菜单的指针
-   附近，因此读作所选行的反馈，而不是页面正文。 */
+/* The confirmation toast is anchored to the viewport like a mobile toast, not to the
+   pointer that opened the menu, so its lower-viewport position stays fixed for every region.
+   The surface reuses the shared overlay recipe that also paints the context-menu panel.
+   确认提示像手机 toast 一样锚定视口，而非打开菜单的指针，因此各区域的下部位置保持固定；
+   表面复用绘制上下文菜单面板的同一套共享浮层配方。 */
 .xca-context-menu-status {
   position: fixed;
-  z-index: var(--neoverse-layout-layer-overlay);
-  top: min(var(--xca-context-menu-y), calc(100vh - var(--neoverse-space-10)));
-  left: min(var(--xca-context-menu-x), calc(100vw - var(--neoverse-space-24)));
+  z-index: var(--neoverse-overlay-layer);
+  bottom: max(var(--neoverse-space-4), 4svh);
+  left: 50%;
+  transform: translateX(-50%) scale(1);
+  max-width: min(90vw, 28rem);
   margin: 0;
-  padding: var(--neoverse-space-2) var(--neoverse-space-3);
-  border-radius: var(--neoverse-radius-control);
+  padding: var(--neoverse-space-3) var(--neoverse-space-4);
+  border: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
+  border-radius: var(--neoverse-overlay-radius);
   background: var(--neoverse-overlay-background);
-  color: var(--neoverse-color-text-primary);
+  color: var(--neoverse-overlay-foreground);
   box-shadow: var(--neoverse-overlay-shadow);
-  font-size: var(--neoverse-font-size-xs);
+  -webkit-backdrop-filter: var(--neoverse-overlay-filter);
+  backdrop-filter: var(--neoverse-overlay-filter);
+  font-size: var(--neoverse-font-size-sm);
+  line-height: var(--neoverse-line-height-snug);
+  text-align: center;
   pointer-events: none;
+  opacity: 1;
+  filter: blur(0);
+}
+/* Arrival and departure both resolve the blur, so the toast materialises and dissolves
+   instead of popping in and out; only timing curves differ between the two directions.
+   出现与退出都让模糊收敛，提示因此渐显渐隐而非突现突消；两个方向只区分缓动曲线。 */
+.xca-context-menu-status-enter-active,
+.xca-context-menu-status-leave-active {
+  transition:
+    opacity var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-standard),
+    filter var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-standard),
+    transform var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-standard);
+}
+.xca-context-menu-status-leave-active {
+  transition-timing-function: var(--neoverse-motion-easing-accelerate);
+}
+.xca-context-menu-status-enter-from,
+.xca-context-menu-status-leave-to {
+  opacity: 0;
+  filter: blur(var(--neoverse-space-2));
+  transform: translateX(-50%) scale(var(--neoverse-motion-scale-near));
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-context-menu-status-enter-active,
+  .xca-context-menu-status-leave-active {
+    transition: none;
+  }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { motionRoles, prefersReducedMotion } from "@neoverse-ui/motion";
-import { UiCard, UiSkeleton } from "@neoverse-ui/vue";
+import { UiCard, UiSkeleton, useLayoutWidthMotion } from "@neoverse-ui/vue";
 import type { AboutCollectionItem } from "@nuxt/content";
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { ContextMenuHost, type RegionRef, useAboutMenu } from "~/features/context-menu";
@@ -83,6 +83,17 @@ onBeforeUnmount(() => {
   cardAnimation?.cancel();
   cardAnimation = undefined;
   stage.value?.parentElement?.style.removeProperty("overflow");
+});
+
+// The action links carry a different label per language, so their boxes need the same treatment as
+// the card: one shared width run on the spatial role, sampled before the copy swaps, instead of each
+// link snapping to its new width and shoving the next one sideways.
+// 操作入口在两种语言下标签长度不同，盒子需要与卡片相同的处理：在共享 spatial 角色上跑一次宽度过渡，
+// 起点在文案替换前采样，而不是每个链接各自跳到新宽度、把后一个推着瞬移。
+useLayoutWidthMotion({
+  root: pageRoot,
+  targets: ".about-actions [data-surface]",
+  trigger: () => props.page,
 });
 
 function hideLeavingLayer(element: Element) {

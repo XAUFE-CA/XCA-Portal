@@ -385,3 +385,69 @@ for (const mode of [
     await expect(page.locator(".xca-terminal-bootlog")).toHaveCount(0);
   });
 }
+
+test("skipping the CA drawing keeps the terminal's second screen", async ({ page }) => {
+  // Record every printed stage; sampling frames would miss the staged rows.
+  // 记录每一次分阶段输出；按帧采样会漏掉逐行打印。
+  await page.addInitScript(() => {
+    const stages: { rows: number; lines: number; stage: string; prompt: boolean }[] = [];
+    Object.assign(window, { xcaWelcomeStages: stages });
+    const read = () => {
+      const screen = document.querySelector(".xca-terminal-screen");
+      const banner = document.querySelector(".xca-terminal-history .xca-terminal-banner");
+      const prompt = document.querySelector<HTMLElement>(".xca-terminal-prompt");
+      const text = (banner?.textContent ?? "").trim();
+      const stage = {
+        rows: text ? text.split("\n").length : 0,
+        lines: document.querySelectorAll(".xca-terminal-history .xca-terminal-line").length,
+        stage:
+          [...(screen?.classList ?? [])].find((name) => name.startsWith("xca-terminal-screen--")) ??
+          "",
+        prompt: prompt ? getComputedStyle(prompt).visibility === "visible" : false,
+      };
+      const last = stages.at(-1);
+      if (
+        !last ||
+        last.rows !== stage.rows ||
+        last.lines !== stage.lines ||
+        last.stage !== stage.stage ||
+        last.prompt !== stage.prompt
+      )
+        stages.push(stage);
+    };
+    const attach = () => {
+      if (!document.documentElement) return requestAnimationFrame(attach);
+      new MutationObserver(read).observe(document.documentElement, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+      });
+      read();
+    };
+    attach();
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".xca-ca-intro")).toBeVisible({ timeout: SCENE_TIMEOUT });
+  await page.keyboard.press("Escape");
+  await ready(page);
+  const stages = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          xcaWelcomeStages: { rows: number; lines: number; stage: string; prompt: boolean }[];
+        }
+      ).xcaWelcomeStages,
+  );
+  const brand = stages.filter((stage) => stage.stage === "xca-terminal-screen--brand");
+  expect(brand.length).toBeGreaterThan(2);
+  expect(brand.some((stage) => stage.rows > 0 && stage.lines === 0)).toBe(true);
+  expect(brand.some((stage) => stage.lines > 0)).toBe(true);
+  // The second screen hides the command line until the welcome text has finished printing.
+  // 第二屏在欢迎文字打印完成前隐藏命令行。
+  expect(brand.every((stage) => !stage.prompt)).toBe(true);
+  const final = stages.at(-1);
+  expect(final?.stage).toBe("xca-terminal-screen--ready");
+  expect(final?.lines).toBeGreaterThan(0);
+  expect(final?.prompt).toBe(true);
+});

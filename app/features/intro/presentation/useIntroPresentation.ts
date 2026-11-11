@@ -7,6 +7,7 @@ import type TerminalHost from "~/features/terminal/components/TerminalHost.vue";
 import { useTerminalExpansion } from "~/features/terminal/presentation/useTerminalExpansion";
 import { refreshGlassDuring as trackGlassMotion } from "~/utils/glass-motion";
 import { expressiveDuration, INTRO_READING_UNIT_MS } from "~/utils/motion";
+import { hasOpenTopLayerSurface, waitForTopLayerClose } from "~/utils/top-layer";
 import type CaIntroMark from "../components/CaIntroMark.vue";
 import {
   claimHomeIntro,
@@ -298,6 +299,11 @@ export function useIntroPresentation(getCommandCount: () => number) {
   }
   async function startIntro(options: { explicit?: boolean } = {}): Promise<void> {
     if (!import.meta.client || !anchor.value) return;
+    // A menu row starts the replay in the same tick it closes its popover; clear that panel
+    // from the shared edge canvas before the terminal switches to its CSS edge pass.
+    // 菜单行在关闭浮层的同一 tick 启动重播；先让共享边缘画布移除该面板，再切换 CSS 边缘通道。
+    if (hasOpenTopLayerSurface()) await waitForTopLayerClose();
+    $glassRenderer?.refresh();
     if (introAbort) finishIntro();
     expansion.reset();
     // A reload can restore scroll first; dock against the top anchor so the header never shifts.
@@ -344,6 +350,10 @@ export function useIntroPresentation(getCommandCount: () => number) {
   }
   async function enterHome(brief = false): Promise<void> {
     if (settling) return;
+    // A skip before the welcome text has printed must not jump straight to the finished screen.
+    // 欢迎文字尚未打印时跳过，不能直接跳到完成态终端。
+    const textPending =
+      phase.value === "logo" || phase.value === "handoff" || phase.value === "boot";
     const element = frame();
     if (!element || reducedMotion() || typeof element.animate !== "function") {
       finishIntro();
@@ -376,6 +386,13 @@ export function useIntroPresentation(getCommandCount: () => number) {
       if (brief) releaseIntroGate();
       else document.documentElement.dataset.xcaIntro = "running";
       await transition;
+      // Skipping the spatial scene keeps the terminal's own second screen: play the same
+      // brand stage so the artwork and welcome copy print row by row instead of appearing whole.
+      // 跳过空间场景时保留终端自身的第二屏：播放同一个 brand 阶段，让字符画与欢迎文案逐行打印而非整块显现。
+      if (!brief && textPending && !controller.signal.aborted) {
+        await playBrand(expressiveDuration(element), controller.signal);
+        phase.value = "reveal";
+      }
       if (!controller.signal.aborted) finishIntro();
     } catch {
       if (!controller.signal.aborted) finishIntro();

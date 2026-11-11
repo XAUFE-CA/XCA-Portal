@@ -262,6 +262,98 @@ test("footer and about regions keep their own rows", async ({ page }) => {
   await expect(panel(page).getByRole("menuitem", { name: "复制选中内容" })).toBeDisabled();
 });
 
+test("a failed paste reports a toast fixed in the lower viewport center", async ({ page }) => {
+  const status = page.locator(".xca-context-menu-status");
+  const geometry = () =>
+    status.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return {
+        centerX: (box.left + box.right) / 2,
+        centerY: (box.top + box.bottom) / 2,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        position: style.position,
+        border: style.borderTopWidth,
+        radius: Number.parseFloat(style.borderRadius),
+        filter: style.backdropFilter,
+      };
+    });
+
+  await openAt(page, page.locator(".xca-terminal-anchor"), { x: 8, y: 8 });
+  await panel(page).getByRole("menuitem", { name: "粘贴" }).click();
+  await expect(status).toHaveText("剪贴板为空或无权读取");
+  const first = await geometry();
+  await expect(status).toHaveCount(0, { timeout: 5000 });
+  await openAt(page, page.locator(".xca-terminal-anchor"), { x: 220, y: 140 });
+  await panel(page).getByRole("menuitem", { name: "粘贴" }).click();
+  const second = await geometry();
+
+  expect(first.position).toBe("fixed");
+  expect(Math.abs(first.centerX - first.width / 2)).toBeLessThan(1);
+  expect(first.centerY / first.height).toBeGreaterThan(0.8);
+  expect(first.centerY / first.height).toBeLessThan(0.95);
+  expect(first.border).not.toBe("0px");
+  expect(first.radius).toBeGreaterThan(0);
+  expect(first.filter).not.toBe("none");
+  expect(Math.abs(second.centerX - first.centerX)).toBeLessThan(1);
+  expect(Math.abs(second.centerY - first.centerY)).toBeLessThan(1);
+
+  // Both directions resolve a blur; the toast must not pop in or out.
+  // 两个方向都让模糊收敛，提示不能突现突消。
+  const motion = await page.evaluate(() => {
+    const rules: string[] = [];
+    const walk = (list: CSSRuleList, media = "") => {
+      for (const rule of list) {
+        if (rule instanceof CSSStyleRule && rule.selectorText.includes("xca-context-menu-status"))
+          rules.push(`${media} ${rule.cssText}`);
+        else if (rule instanceof CSSMediaRule) walk(rule.cssRules, rule.conditionText);
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try {
+        walk(sheet.cssRules);
+      } catch {
+        // Cross-origin sheets are not readable.
+      }
+    }
+    return rules.join("\n");
+  });
+  expect(motion).toContain("enter-active");
+  expect(motion).toContain("leave-active");
+  expect(motion).toContain("blur(");
+  expect(motion).toContain("prefers-reduced-motion");
+});
+
+test("replaying the intro clears the menu popover before the scene starts", async ({ page }) => {
+  // The panel closes in the same tick as the replay request; the shared edge canvas must not
+  // start the intro while that top-layer surface is still open.
+  // 面板与重播请求在同一 tick 关闭；共享边缘画布不能在顶层表面仍打开时启动入场。
+  await page.evaluate(() => {
+    const state: { topLayer: boolean }[] = [];
+    Object.assign(window, { xcaIntroTopLayer: state });
+    const read = () => {
+      if (document.documentElement.dataset.xcaIntro !== "running" || state.length) return;
+      state.push({
+        topLayer: document.querySelector(":popover-open, dialog[open]") !== null,
+      });
+    };
+    new MutationObserver(read).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-xca-intro"],
+    });
+    read();
+  });
+  await openAt(page, page.locator(".xca-terminal-anchor"));
+  await panel(page).getByRole("menuitem", { name: "重播入场动画" }).click();
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(1, { timeout: 10000 });
+  const state = await page.evaluate(
+    () => (window as unknown as { xcaIntroTopLayer: { topLayer: boolean }[] }).xcaIntroTopLayer,
+  );
+  expect(state.length).toBeGreaterThan(0);
+  expect(state[0]?.topLayer).toBe(false);
+});
+
 test("dark theme keeps the shared glass material and token colours", async ({ page }) => {
   await page.getByRole("radio", { name: "深色" }).click();
   await openAt(page, page.locator(".xca-terminal-anchor"));

@@ -32,14 +32,13 @@ export function useTitleCursor(
     const glyph = context.measureText(content);
     const reference = /\p{P}/u.test(content) ? (letter.previousElementSibling ?? letter) : letter;
     const ink = context.measureText(reference.textContent ?? content);
-    const baseline = document.createElement("span");
-    baseline.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
-    reference.append(baseline);
-    const baselineY = baseline.getBoundingClientRect().top;
-    baseline.remove();
     const stroke = Number.parseFloat(style.getPropertyValue("--neoverse-border-width-thin"));
     const textBox = text.getBoundingClientRect();
     const letterBox = letter.getBoundingClientRect();
+    // A zero-width baseline probe can be laid out at the previous line's end; the glyph's own
+    // inline box plus the font ascent always reports the baseline of the line it wrapped onto.
+    // 零宽基线探针可能被排到上一行行末；字符自身的内联盒加字体上伸部始终给出其所在行的基线。
+    const baselineY = letterBox.top + ink.fontBoundingBoxAscent;
     const centerY =
       baselineY + (ink.actualBoundingBoxDescent - ink.actualBoundingBoxAscent) / 2 - textBox.top;
     const x =
