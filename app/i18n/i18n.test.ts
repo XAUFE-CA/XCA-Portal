@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { registerVirtualFiles } from "../features/terminal/client-session";
 import { terminalCommands } from "../features/terminal/commands";
 import { TerminalSession } from "../features/terminal/core/session";
-import { createTranslator, isSiteLocale, type SiteLocale } from "./index";
+import { createTranslator, isSiteLocale, type SiteLocale, translate } from "./index";
 import en from "./locales/en.json";
 import zh from "./locales/zh-CN.json";
 
@@ -27,6 +27,10 @@ test("translation follows a changing locale and does not interpret interpolation
   );
   expect(isSiteLocale("en")).toBe(true);
   expect(isSiteLocale("unsupported")).toBe(false);
+  // A fixed-locale read ignores the visitor's changing choice, which the footer quote relies on.
+  // 固定语言的读取不受访客变化中的选择影响，页脚引语依赖这一点。
+  expect(translate("en", "nav.home")).toBe("Home");
+  expect(translate("zh-CN", "nav.home")).toBe("首页");
 });
 
 test("terminal localizes help, errors and virtual content without resetting the session", async () => {

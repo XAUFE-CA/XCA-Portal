@@ -113,7 +113,7 @@ test("the about footer carries the copyright, licenses, credits and the build co
   const footer = page.getByRole("contentinfo");
   await expect(footer).toHaveCount(1);
   await expect(footer).toBeVisible();
-  await expect(footer.locator(".site-footer__tagline")).toHaveText(TAGLINE_ZH);
+  await expect(footer.locator(".site-footer__tagline")).toHaveText(TAGLINE_EN);
   const copyright = footer.locator(".site-footer__copyright");
   await expect(copyright).toContainText(/© 2026( - \d{4})?/);
   await expect(copyright.getByRole("link", { name: "XAUFE-CA" })).toHaveAttribute(
@@ -208,7 +208,55 @@ test("the tagline flame paints embers above the quote without taking input", asy
   expect(tint.blue).toBeLessThan(120);
   // The embers are pixels only: the quote stays one plain text run for readers and search.
   // 余烬只是像素：引文对阅读器与检索仍是一段纯文本。
-  await expect(tagline).toHaveText(TAGLINE_ZH);
+  await expect(tagline).toHaveText(TAGLINE_EN);
+});
+
+test("the tagline opens in English and its own click hands it to Chinese", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/about", { waitUntil: "domcontentloaded" });
+  const tagline = page.locator(".site-footer__tagline");
+  const quote = tagline.locator(".xca-tagline-flame__quote");
+  // The site starts in Chinese, yet the quotation still opens in English.
+  // 站点默认为中文，引语仍先以英文出现。
+  await expect(quote).toHaveText(TAGLINE_EN);
+  await expect(quote).toHaveAttribute("lang", "en");
+  await tagline.getByRole("button").click();
+  // The leaving copy and the arriving copy run as one wind transition on a single text layer.
+  // 离场与抵达的文案在同一文字层上组成一次风动过渡。
+  await expect(quote).toHaveClass(/tagline-voice-/);
+  await expect(quote).toHaveText(TAGLINE_ZH);
+  await expect(quote).toHaveAttribute("lang", "zh-CN");
+  await tagline.getByRole("button").click();
+  await expect(quote).toHaveText(TAGLINE_EN);
+});
+
+test("the tagline frame keeps its height while the copy changes", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  // The narrow layout gives both copies different line heights, so any row jump would show.
+  // 窄屏让两份文案的行高差异明显，任何行高跳动都会显现。
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/about", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight }));
+  const measurement = await page.evaluate(async () => {
+    const host = document.querySelector<HTMLElement>(".site-footer__tagline");
+    const button = host?.querySelector("button");
+    const ghost = host?.querySelector<HTMLElement>("[data-tagline-ghost]");
+    if (!host || !button || !ghost) throw new Error("The tagline must expose its sizing copy");
+    const samples: number[] = [host.getBoundingClientRect().height];
+    const observer = new ResizeObserver(() => samples.push(host.getBoundingClientRect().height));
+    observer.observe(host);
+    button.click();
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 900);
+    await promise;
+    observer.disconnect();
+    return { samples, ghostVisibility: getComputedStyle(ghost).visibility };
+  });
+  await expect(page.locator(".site-footer__tagline")).toHaveText(TAGLINE_ZH);
+  // The frame never follows the line count, so the footer below stays put.
+  // 框体从不跟随行数变化，页脚下方因此保持原位。
+  expect(Math.max(...measurement.samples) - Math.min(...measurement.samples)).toBeLessThan(1);
+  expect(measurement.ghostVisibility).toBe("hidden");
 });
 
 test("the flame resumes with the theme palette after a theme switch", async ({ page }) => {
@@ -305,25 +353,36 @@ test("footer links press into the plate without fading it", async ({ page }) => 
   await page.mouse.up();
 });
 
-test("reduced motion keeps the tagline as plain text", async ({ page }) => {
+test("reduced motion keeps the tagline as plain text and swaps it without wind", async ({
+  page,
+}) => {
   await page.goto("/about", { waitUntil: "domcontentloaded" });
   await page.evaluate(() =>
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
   );
-  await expect(page.locator(".site-footer__tagline .xca-tagline-flame__canvas")).toHaveCount(0);
-  await expect(page.locator(".site-footer__tagline")).toHaveText(TAGLINE_ZH);
+  const tagline = page.locator(".site-footer__tagline");
+  await expect(tagline.locator(".xca-tagline-flame__canvas")).toHaveCount(0);
+  await expect(tagline).toHaveText(TAGLINE_EN);
+  await tagline.getByRole("button").click();
+  await expect(tagline).toHaveText(TAGLINE_ZH);
 });
 
 test("language switching swaps footer copy without changing the build link", async ({ page }) => {
   await page.goto("/about", { waitUntil: "domcontentloaded" });
   const footer = page.getByRole("contentinfo");
+  const tagline = footer.locator(".site-footer__tagline");
   const commit = footer.locator("a[href*='/commit/']");
   const href = await commit.getAttribute("href");
+  // The quote opens in English under the Chinese site and keeps its own language afterwards.
+  // 引语在中文站点下先显示英文，之后保持自己的语言。
+  await expect(tagline).toHaveText(TAGLINE_EN);
+  await tagline.getByRole("button").click();
+  await expect(tagline).toHaveText(TAGLINE_ZH);
   await page
     .getByRole("radiogroup", { name: "语言" })
     .getByRole("radio", { name: "English" })
     .click();
-  await expect(footer.locator(".site-footer__tagline")).toHaveText(TAGLINE_EN);
+  await expect(tagline).toHaveText(TAGLINE_ZH);
   await expect(footer.getByRole("link", { name: "Neoverse-UI", exact: true })).toBeVisible();
   await expect(footer.locator(".site-footer__shared-ui")).toContainText("Proudly powered by");
   await expect(footer.locator(".site-footer__licenses")).toContainText("Code is under the");
@@ -334,13 +393,16 @@ test("language switching swaps footer copy without changing the build link", asy
   await expect(commit).toHaveAttribute("href", href ?? "");
 });
 
-test("the quotation stays centred against the credits in both languages", async ({ page }) => {
+test("the quotation stays centred against the credits in both tagline languages", async ({
+  page,
+}) => {
   await page.goto("/about", { waitUntil: "domcontentloaded" });
   const footer = page.getByRole("contentinfo");
   const identity = footer.locator(".site-footer__identity");
   const tagline = footer.locator(".site-footer__tagline");
+  const quote = tagline.locator(".xca-tagline-flame__quote");
   const centres = async () => {
-    const [left, right] = await Promise.all([identity.boundingBox(), tagline.boundingBox()]);
+    const [left, right] = await Promise.all([identity.boundingBox(), quote.boundingBox()]);
     return {
       left: (left?.y ?? 0) + (left?.height ?? 0) / 2,
       right: (right?.y ?? 0) + (right?.height ?? 0) / 2,
@@ -348,15 +410,12 @@ test("the quotation stays centred against the credits in both languages", async 
   };
   // The two columns share one vertical centre on desktop, whatever the copy's line count.
   // 桌面下两列共用同一条竖直中线，与文案行数无关。
-  const zh = await centres();
-  expect(Math.abs(zh.left - zh.right)).toBeLessThan(1.5);
-  await page
-    .getByRole("radiogroup", { name: "语言" })
-    .getByRole("radio", { name: "English" })
-    .click();
-  await expect(tagline).toHaveText(TAGLINE_EN);
-  const en = await centres();
-  expect(Math.abs(en.left - en.right)).toBeLessThan(1.5);
+  const english = await centres();
+  expect(Math.abs(english.left - english.right)).toBeLessThan(1.5);
+  await tagline.getByRole("button").click();
+  await expect(tagline).toHaveText(TAGLINE_ZH);
+  const chinese = await centres();
+  expect(Math.abs(chinese.left - chinese.right)).toBeLessThan(1.5);
 });
 
 test("the home footer stays below the fold on desktop and mobile", async ({ page }) => {

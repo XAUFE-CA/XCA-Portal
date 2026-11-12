@@ -12,11 +12,18 @@ export function isSiteLocale(value: unknown): value is SiteLocale {
   return locales.some((locale) => locale === value);
 }
 
+/**
+ * Read one message in a fixed locale, independent of the visitor's current choice.
+ * 按指定语言读取一条消息，不受访客当前所选语言影响。
+ */
+export function translate(locale: SiteLocale, key: MessageKey, params: MessageParams = {}): string {
+  return messages[locale][key].replace(/\{(\w+)\}/g, (match, name: string) =>
+    params[name] === undefined ? match : String(params[name]),
+  );
+}
+
 export function createTranslator(getLocale: () => SiteLocale): Translator {
-  return (key, params = {}) =>
-    messages[getLocale()][key].replace(/\{(\w+)\}/g, (match, name: string) =>
-      params[name] === undefined ? match : String(params[name]),
-    );
+  return (key, params = {}) => translate(getLocale(), key, params);
 }
 
 export const defaultTranslator = createTranslator(() => "zh-CN");

@@ -16,6 +16,7 @@
   "locale.zh-CN": "中文",
   "locale.en": "English",
   "footer.tagline": "Twenty years from now you will be more disappointed by the things\nthat you didn't do than by the ones you did do.\nSo throw off the bowlines. Sail away from the safe harbor.\nCatch the trade winds in your sails. Explore. Dream. Discover.",
+  "footer.taglineHint": "Click to switch the quote language",
   "footer.sharedUiLead": "Proudly powered by",
   "footer.sharedUi": "Neoverse-UI",
   "footer.sharedUiTail": "components",

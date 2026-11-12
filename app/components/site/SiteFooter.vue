@@ -2,9 +2,16 @@
 import { SITE } from "~/config/site";
 import { ContextMenuHost, useLinkMenu } from "~/features/context-menu";
 import { TaglineFlame } from "~/features/tagline-flame";
+import { translate } from "~/i18n";
 import { copyrightYears } from "~/utils/copyright";
 
 const { t } = useSiteLocale();
+// The quotation is independent of the site language: both versions ship, and it opens in English.
+// 引语不跟随站点语言：两种文案随组件提供，始终从英文开始。
+const taglineTexts = {
+  en: translate("en", "footer.tagline"),
+  "zh-CN": translate("zh-CN", "footer.tagline"),
+} as const;
 const build = useRuntimeConfig().public.buildInfo;
 // Resolve the year once during SSR so the hydration payload carries the same value.
 // 年份在 SSR 解析一次，使水合数据携带同一个值。
@@ -62,7 +69,11 @@ const menu = useLinkMenu();
           </template>
         </p>
       </div>
-      <TaglineFlame class="site-footer__tagline" :text="t('footer.tagline')" />
+      <TaglineFlame
+        class="site-footer__tagline"
+        :texts="taglineTexts"
+        :hint="t('footer.taglineHint')"
+      />
     </div>
     <div class="site-footer__bottom">
       <p class="site-footer__copyright">

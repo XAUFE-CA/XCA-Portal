@@ -16,6 +16,7 @@
   "locale.zh-CN": "中文",
   "locale.en": "English",
   "footer.tagline": "也许二十年后会令你失望的，不是你曾做过的事，而是你不曾做过的。\n所以抛开绳结，驶离安全的港湾。\n乘风而行，去探索、去梦想、去发现！",
+  "footer.taglineHint": "点击切换标语语言",
   "footer.sharedUiLead": "由",
   "footer.sharedUi": "Neoverse-UI",
   "footer.sharedUiTail": "强力驱动",
