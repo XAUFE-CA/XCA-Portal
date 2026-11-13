@@ -348,10 +348,12 @@ a {
 .site-footer a::before {
   content: "";
   position: absolute;
-  /* Fill the row, which already covers the glyph ink with a little margin, and stop the plate
-     from inflating further; sideways it runs a little wider than the text.
-     底板填满行盒，行盒本身已比字形墨迹略大；不再向外膨胀；左右比文字略宽。 */
-  inset: 0 calc(var(--neoverse-space-1) * -1);
+  /* Fill the row and drop by a hair: the sans keeps more ascent above the capitals than it
+     paints, so a plate that fills the line box reads high around the ink, and the drop splits
+     the difference between capitals and descenders; sideways it runs a little wider than the text.
+     底板填满行盒并略微下移：这款无衬线字体在大写字母上方保留的 ascent 多于实际绘制，
+     填满行盒的底板相对墨迹偏上，下移量取大写与下伸部分的折中；左右比文字略宽。 */
+  inset: 0.11em calc(var(--neoverse-space-1) * -1) -0.11em;
   z-index: -1;
   border-radius: var(--neoverse-radius-sm);
   background: var(--neoverse-effect-hover-field);
