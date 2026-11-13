@@ -145,31 +145,42 @@ onBeforeUnmount(() => {
 .xca-tagline-flame__ghost::before {
   content: attr(data-text);
 }
-/* The departing copy drifts downwind and thins away; the arriving copy comes back from windward
-   on the same vector, so the change reads as one continuous gust through the same quote.
-   离场文案顺风漂开并变淡，抵达文案从同一风向上的上风侧回到原位，使变化读作一阵连续的风穿过引语。 */
+/* The departing copy loses focus and thins away while the arriving copy comes back from the same
+   blur, so the change reads as one focus pull instead of a plain fade.
+   离场文案失焦变淡，抵达文案从同一层模糊中回到清晰，使变化读作一次对焦拉动而不是单纯的淡出。 */
+/* The copy loses focus and thins away, then the arriving copy comes back from the same blur, so the
+   change reads as one focus pull instead of a plain fade.
+   旧文案先失焦散开，新文案从同一层模糊中回焦，使变化读作一次对焦拉动而不是单纯的淡出。 */
 @media (prefers-reduced-motion: no-preference) {
   .tagline-voice-leave-active {
-    animation: tagline-voice-away var(--neoverse-motion-duration-standard)
-      var(--neoverse-motion-easing-symmetric) both;
+    animation: tagline-voice-away var(--neoverse-motion-duration-fast)
+      var(--neoverse-motion-easing-linear) both;
   }
   .tagline-voice-enter-active {
-    animation: tagline-voice-arrive var(--neoverse-motion-duration-expressive)
-      var(--neoverse-motion-easing-standard) both;
+    animation: tagline-voice-arrive var(--neoverse-motion-duration-standard)
+      var(--neoverse-motion-easing-symmetric) both;
   }
 }
 @keyframes tagline-voice-away {
-  to {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
     opacity: 0;
-    transform: translate3d(0.35em, -0.2em, 0);
-    filter: blur(0.08em);
+    filter: blur(0.42em);
   }
 }
+/* The arriving copy enters already blurred and partly lit, so the frame never goes empty.
+   抵达文案带着模糊与部分亮度入场，框体因此不会出现空帧。 */
 @keyframes tagline-voice-arrive {
-  from {
-    opacity: 0;
-    transform: translate3d(-0.35em, 0.2em, 0);
-    filter: blur(0.08em);
+  0% {
+    opacity: 0.35;
+    filter: blur(0.42em);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
   }
 }
 /* Give the flame a little headroom so rising embers are not cut off mid-air.

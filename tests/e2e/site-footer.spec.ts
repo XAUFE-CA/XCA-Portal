@@ -221,8 +221,8 @@ test("the tagline opens in English and its own click hands it to Chinese", async
   await expect(quote).toHaveText(TAGLINE_EN);
   await expect(quote).toHaveAttribute("lang", "en");
   await tagline.getByRole("button").click();
-  // The leaving copy and the arriving copy run as one wind transition on a single text layer.
-  // 离场与抵达的文案在同一文字层上组成一次风动过渡。
+  // The copy defocuses and thins away, then the arriving copy comes back from the same blur.
+  // 旧文案失焦散开，抵达文案从同一层模糊中回焦。
   await expect(quote).toHaveClass(/tagline-voice-/);
   await expect(quote).toHaveText(TAGLINE_ZH);
   await expect(quote).toHaveAttribute("lang", "zh-CN");
@@ -353,7 +353,7 @@ test("footer links press into the plate without fading it", async ({ page }) => 
   await page.mouse.up();
 });
 
-test("reduced motion keeps the tagline as plain text and swaps it without wind", async ({
+test("reduced motion keeps the tagline as plain text and swaps it without a blur", async ({
   page,
 }) => {
   await page.goto("/about", { waitUntil: "domcontentloaded" });
