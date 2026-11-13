@@ -1,24 +1,16 @@
-/* The confirmation toast is anchored to the viewport like a mobile toast, not to the
-   pointer that opened the menu, so its lower-viewport position stays fixed for every region.
-   The surface reuses the shared overlay recipe that also paints the context-menu panel.
-   确认提示像手机 toast 一样锚定视口，而非打开菜单的指针，因此各区域的下部位置保持固定；
-   表面复用绘制上下文菜单面板的同一套共享浮层配方。 */
+/* The confirmation toast is a viewport surface, not a child of the region that opened the
+   menu, and the shared immersive glass material paints its backdrop and rim.
+   确认提示是视口表面，不属于打开菜单的区域；背景与边缘由共享沉浸式玻璃材质绘制。 */
 .xca-context-menu-status {
   position: fixed;
-  z-index: var(--neoverse-overlay-layer);
+  z-index: var(--neoverse-layout-layer-toast);
   bottom: max(var(--neoverse-space-4), 4svh);
   left: 50%;
   transform: translateX(-50%) scale(1);
   max-width: min(90vw, 28rem);
   margin: 0;
   padding: var(--neoverse-space-3) var(--neoverse-space-4);
-  border: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
   border-radius: var(--neoverse-overlay-radius);
-  background: var(--neoverse-overlay-background);
-  color: var(--neoverse-overlay-foreground);
-  box-shadow: var(--neoverse-overlay-shadow);
-  -webkit-backdrop-filter: var(--neoverse-overlay-filter);
-  backdrop-filter: var(--neoverse-overlay-filter);
   font-size: var(--neoverse-font-size-sm);
   line-height: var(--neoverse-line-height-snug);
   text-align: center;

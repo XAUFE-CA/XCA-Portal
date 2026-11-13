@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { UiContextMenu } from "@neoverse-ui/vue";
+import { UiContextMenu, UiSurface } from "@neoverse-ui/vue";
 import type { ContextMenuState } from "../presentation/useContextMenu";
 
 // The region owns the state; this shell only renders it, so two mounts cannot
@@ -20,9 +20,21 @@ const props = defineProps<{ menu: ContextMenuState }>();
     @update:open="props.menu.isOpen.value = $event"
     @select="props.menu.select($event.id)"
   />
-  <Transition name="xca-context-menu-status">
-    <p v-if="props.menu.status.value" class="xca-context-menu-status" role="status">
-      {{ props.menu.status.value }}
-    </p>
-  </Transition>
+  <!-- A viewport status must leave the region's glass stacking context, and a
+       pointer-transparent surface has to declare itself topmost for the shared edge canvas.
+       视口提示必须离开区域的玻璃层叠上下文；不吃指针事件的表面须向共享边缘画布声明最上层。 -->
+  <Teleport to="body">
+    <Transition name="xca-context-menu-status">
+      <UiSurface
+        v-if="props.menu.status.value"
+        as="p"
+        surface="glass-immersive"
+        class="xca-context-menu-status"
+        data-neoverse-glass-occluder="topmost"
+        role="status"
+      >
+        {{ props.menu.status.value }}
+      </UiSurface>
+    </Transition>
+  </Teleport>
 </template>

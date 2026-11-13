@@ -339,8 +339,30 @@ test("a failed paste reports a toast fixed in the lower viewport center", async 
     });
 
   await openAt(page, page.locator(".xca-terminal-anchor"), { x: 8, y: 8 });
+  const panelBackdrop = await panel(page).evaluate((node) => getComputedStyle(node).backdropFilter);
   await panel(page).getByRole("menuitem", { name: "粘贴" }).click();
   await expect(status).toHaveText("剪贴板为空或无权读取");
+
+  // The toast borrows the panel's shared glass surface instead of repainting an overlay recipe.
+  // 提示条复用面板的共享玻璃表面，不再另绘一套浮层配方。
+  const material = await status.evaluate((node) => ({
+    surface: node.getAttribute("data-surface"),
+    occluder: node.getAttribute("data-neoverse-glass-occluder"),
+    parentIsBody: node.parentElement === document.body,
+    zIndex: getComputedStyle(node).zIndex,
+    toastLayer: getComputedStyle(document.documentElement)
+      .getPropertyValue("--neoverse-layout-layer-toast")
+      .trim(),
+    backdrop: getComputedStyle(node).backdropFilter,
+    isolation: getComputedStyle(node).isolation,
+  }));
+  expect(material.surface).toBe("glass-immersive");
+  expect(material.backdrop).toBe(panelBackdrop);
+  expect(material.isolation).toBe("isolate");
+  expect(material.occluder).toBe("topmost");
+  expect(material.parentIsBody).toBe(true);
+  expect(material.zIndex).toBe(material.toastLayer);
+
   const first = await geometry();
   await expect(status).toHaveCount(0, { timeout: 5000 });
   await openAt(page, page.locator(".xca-terminal-anchor"), { x: 220, y: 140 });
@@ -381,6 +403,29 @@ test("a failed paste reports a toast fixed in the lower viewport center", async 
   expect(motion).toContain("leave-active");
   expect(motion).toContain("blur(");
   expect(motion).toContain("prefers-reduced-motion");
+});
+
+test("a header region toast stays above the header glass stacking context", async ({ page }) => {
+  const status = page.locator(".xca-context-menu-status");
+  await openAt(page, page.locator(".site-navigation a").first(), { x: 4, y: 4 });
+  await panel(page).getByRole("menuitem", { name: "复制链接地址" }).click();
+  await expect(status).toBeVisible();
+
+  // A pointer-transparent viewport surface must not inherit the region's glass rim or layer.
+  // 不吃指针事件的视口表面不能继承区域的玻璃边缘与层叠层级。
+  const layering = await status.evaluate((node) => ({
+    parentIsBody: node.parentElement === document.body,
+    insideHeaderGlass: node.closest(".site-header") !== null,
+    zIndex: getComputedStyle(node).zIndex,
+    toastLayer: getComputedStyle(document.documentElement)
+      .getPropertyValue("--neoverse-layout-layer-toast")
+      .trim(),
+    occluder: node.getAttribute("data-neoverse-glass-occluder"),
+  }));
+  expect(layering.parentIsBody).toBe(true);
+  expect(layering.insideHeaderGlass).toBe(false);
+  expect(layering.zIndex).toBe(layering.toastLayer);
+  expect(layering.occluder).toBe("topmost");
 });
 
 test("replaying the intro clears the menu popover before the scene starts", async ({ page }) => {
