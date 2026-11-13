@@ -384,16 +384,24 @@ test("a failed paste reports a toast fixed in the lower viewport center", async 
 });
 
 test("replaying the intro clears the menu popover before the scene starts", async ({ page }) => {
-  // The panel closes in the same tick as the replay request; the shared edge canvas must not
-  // start the intro while that top-layer surface is still open.
-  // 面板与重播请求在同一 tick 关闭；共享边缘画布不能在顶层表面仍打开时启动入场。
+  // Reduced motion collapses the panel's discrete exit to 1ms; stretch it so the painted
+  // window is observable while the replay stays on the readable text path.
+  // 减少动效把面板的离散退出压缩到 1ms；拉长它以观察绘制窗口，重播仍走可读文字路径。
+  await page.addStyleTag({ content: ".nv-presence { transition-duration: 400ms !important; }" });
+  // The panel closes in the same tick as the replay request. The shared edge canvas must not
+  // start the intro while that panel is still painted, even after it leaves the top layer.
+  // 面板与重播请求在同一 tick 关闭。即使浮层已离开顶层，共享边缘画布仍不能在其可见时启动入场。
   await page.evaluate(() => {
-    const state: { topLayer: boolean }[] = [];
+    const state: { topLayer: boolean; paintedPanels: number }[] = [];
     Object.assign(window, { xcaIntroTopLayer: state });
     const read = () => {
       if (document.documentElement.dataset.xcaIntro !== "running" || state.length) return;
       state.push({
         topLayer: document.querySelector(":popover-open, dialog[open]") !== null,
+        paintedPanels: Array.from(document.querySelectorAll<HTMLElement>("[popover]")).filter(
+          (element) =>
+            !element.matches(":popover-open") && getComputedStyle(element).display !== "none",
+        ).length,
       });
     };
     new MutationObserver(read).observe(document.documentElement, {
@@ -406,10 +414,13 @@ test("replaying the intro clears the menu popover before the scene starts", asyn
   await panel(page).getByRole("menuitem", { name: "重播入场动画" }).click();
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(1, { timeout: 10000 });
   const state = await page.evaluate(
-    () => (window as unknown as { xcaIntroTopLayer: { topLayer: boolean }[] }).xcaIntroTopLayer,
+    () =>
+      (window as unknown as { xcaIntroTopLayer: { topLayer: boolean; paintedPanels: number }[] })
+        .xcaIntroTopLayer,
   );
   expect(state.length).toBeGreaterThan(0);
   expect(state[0]?.topLayer).toBe(false);
+  expect(state[0]?.paintedPanels).toBe(0);
 });
 
 test("dark theme keeps the shared glass material and token colours", async ({ page }) => {

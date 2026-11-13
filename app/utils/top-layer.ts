@@ -47,3 +47,42 @@ export function waitForTopLayerClose(): Promise<boolean> {
     requestAnimationFrame(step);
   });
 }
+
+// A manual popover leaves the top layer as soon as hidePopover() runs, but the shared presence
+// transition keeps its panel painted until the discrete display step finishes. Refreshing the
+// edge canvas during that window draws an outline that outlives the panel itself.
+// manual 浮层在 hidePopover() 执行时立即离开顶层，但共享 presence 过渡会让面板一直绘制到
+// 离散 display 步骤结束。在这段窗口刷新边缘画布，会画出一段比面板本身残留更久的轮廓。
+const EXIT_SETTLE_MS = 1000;
+
+function hasDepartingPopover(): boolean {
+  if (typeof document === "undefined" || typeof CSS === "undefined") return false;
+  if (typeof CSS.supports !== "function" || !CSS.supports("selector(:popover-open)")) return false;
+  return Array.from(document.querySelectorAll<HTMLElement>("[popover]")).some((panel) => {
+    if (panel.matches(":popover-open")) return false;
+    if (getComputedStyle(panel).display === "none") return false;
+    return panel.getAnimations?.().some((animation) => animation.playState === "running") ?? false;
+  });
+}
+
+/**
+ * Wait until a closing top-layer panel finishes its exit transition. A CSS duration cannot be
+ * expressed in frames, so the cap is wall-clock bounded; a caller with no departing panel
+ * resolves immediately instead of spending a frame.
+ * 等待关闭中的顶层面板完成退出过渡。CSS 时长无法用帧数表达，因此上限按墙钟计时；
+ * 没有面板正在退出时立即返回，不额外占用一帧。
+ */
+export function waitForTopLayerDeparture(): Promise<void> {
+  if (!hasDepartingPopover()) return Promise.resolve();
+  const deadline = performance.now() + EXIT_SETTLE_MS;
+  return new Promise((resolve) => {
+    const step = () => {
+      if (!hasDepartingPopover() || performance.now() >= deadline) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}

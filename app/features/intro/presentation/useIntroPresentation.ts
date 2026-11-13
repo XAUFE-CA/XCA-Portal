@@ -7,7 +7,11 @@ import type TerminalHost from "~/features/terminal/components/TerminalHost.vue";
 import { useTerminalExpansion } from "~/features/terminal/presentation/useTerminalExpansion";
 import { refreshGlassDuring as trackGlassMotion } from "~/utils/glass-motion";
 import { expressiveDuration, INTRO_READING_UNIT_MS } from "~/utils/motion";
-import { hasOpenTopLayerSurface, waitForTopLayerClose } from "~/utils/top-layer";
+import {
+  hasOpenTopLayerSurface,
+  waitForTopLayerClose,
+  waitForTopLayerDeparture,
+} from "~/utils/top-layer";
 import type CaIntroMark from "../components/CaIntroMark.vue";
 import {
   claimHomeIntro,
@@ -299,10 +303,13 @@ export function useIntroPresentation(getCommandCount: () => number) {
   }
   async function startIntro(options: { explicit?: boolean } = {}): Promise<void> {
     if (!import.meta.client || !anchor.value) return;
-    // A menu row starts the replay in the same tick it closes its popover; clear that panel
-    // from the shared edge canvas before the terminal switches to its CSS edge pass.
-    // 菜单行在关闭浮层的同一 tick 启动重播；先让共享边缘画布移除该面板，再切换 CSS 边缘通道。
+    // A menu row starts the replay in the same tick it closes its popover. The panel leaves the
+    // top layer at once but keeps painting through its discrete exit transition, so clear it
+    // from the shared edge canvas only after that departure, before the CSS edge pass switches.
+    // 菜单行在关闭浮层的同一 tick 启动重播。面板立即离开顶层，但在离散退出过渡期间仍参与绘制；
+    // 必须等退出结束再让共享边缘画布移除该面板，随后才切换 CSS 边缘通道。
     if (hasOpenTopLayerSurface()) await waitForTopLayerClose();
+    await waitForTopLayerDeparture();
     $glassRenderer?.refresh();
     if (introAbort) finishIntro();
     expansion.reset();
