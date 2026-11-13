@@ -85,6 +85,64 @@ test("keyboard opens the menu at the focused element and restores focus on Escap
   await expect(link).toBeFocused();
 });
 
+test("native menu option passes the next right-click to the browser across regions", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    document.addEventListener("contextmenu", (event) => {
+      document.documentElement.dataset.contextMenuPrevented = String(event.defaultPrevented);
+    });
+  });
+  await openAt(page, page.locator(".xca-terminal-hero__heading"));
+  await expect(page.locator("html")).toHaveAttribute("data-context-menu-prevented", "true");
+  await panel(page).getByRole("menuitem", { name: "显示原生菜单" }).click();
+  await expect(panel(page)).toBeHidden();
+  await expect(page.locator(".xca-context-menu-status")).toHaveText(
+    "再次右键、长按或按 Shift+F10 打开浏览器菜单",
+  );
+
+  await page.locator("#xca-command-input").click({ button: "right" });
+  await expect(page.locator("html")).toHaveAttribute("data-context-menu-prevented", "false");
+  await expect(panel(page)).toBeHidden();
+  await expect(page.locator(".xca-context-menu-status")).toBeHidden();
+
+  await openAt(page, page.locator(".xca-terminal-anchor"));
+  await expect(page.locator("html")).toHaveAttribute("data-context-menu-prevented", "true");
+  await expect(panel(page)).toHaveAttribute("aria-label", "终端操作");
+});
+
+test("native menu option supports the keyboard and follows the selected language", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    document.addEventListener("contextmenu", (event) => {
+      document.documentElement.dataset.contextMenuPrevented = String(event.defaultPrevented);
+    });
+  });
+  await openAt(page, page.locator(".xca-terminal-hero__heading"));
+  await panel(page).getByRole("menuitem", { name: "切换语言" }).click();
+  await page
+    .locator(".ui-context-menu__submenu:visible")
+    .getByRole("menuitemradio", {
+      name: "English",
+    })
+    .click();
+
+  const link = page.locator(".site-navigation a").first();
+  await link.focus();
+  await page.keyboard.press("Shift+F10");
+  const nativeMenuOption = panel(page).getByRole("menuitem", { name: "Show native menu" });
+  await nativeMenuOption.focus();
+  await page.keyboard.press("Enter");
+  await expect(link).toBeFocused();
+  await expect(page.locator(".xca-context-menu-status")).toHaveText(
+    "Right-click, touch and hold, or press Shift+F10 to open the browser menu",
+  );
+  await page.keyboard.press("Shift+F10");
+  await expect(page.locator("html")).toHaveAttribute("data-context-menu-prevented", "false");
+  await expect(panel(page)).toBeHidden();
+});
+
 test("the command line opens the terminal menu and pastes at the caret", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() => navigator.clipboard.writeText("pasted"));

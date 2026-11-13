@@ -189,5 +189,7 @@
   "contextMenu.copyImageLink": "复制图片链接",
   "contextMenu.imageCopied": "图片已复制",
   "contextMenu.imageCopyFailed": "无法复制图片，已复制链接",
-  "contextMenu.reload": "刷新页面"
+  "contextMenu.reload": "刷新页面",
+  "contextMenu.showNativeMenu": "显示原生菜单",
+  "contextMenu.nativeMenuHint": "再次右键、长按或按 Shift+F10 打开浏览器菜单"
 }

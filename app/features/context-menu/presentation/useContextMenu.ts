@@ -1,6 +1,7 @@
 import type { ContextMenuEntry } from "@neoverse-ui/vue";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref, shallowRef } from "vue";
 import type { MenuPoint } from "../core/menu-model";
+import { requestNativeMenu } from "./native-menu";
 import { attachRegionListeners, keepsNativeMenuByDefault } from "./region-listeners";
 
 /** A row action reports a short status line, or nothing when it has no visible result. */
@@ -50,6 +51,7 @@ const STATUS_TIMEOUT = 2400;
  * UiContextMenu，因此各区域共用指针锚定、键盘打开、触屏长按与焦点恢复。
  */
 export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
+  const { t } = useSiteLocale();
   const isOpen = ref(false);
   const point = ref<MenuPoint>({ x: 0, y: 0 });
   // Keep the clicked element as the focus return target: a cursor open has no trigger.
@@ -63,20 +65,25 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
   const openRevision = ref(0);
   const entries = computed(() => {
     openRevision.value;
-    return config.entries(target.value);
+    const rows = config.entries(target.value);
+    return [
+      ...rows,
+      ...(rows.length ? [{ type: "separator" as const, id: "sep-native-menu" }] : []),
+      { id: "native-menu", label: t("contextMenu.showNativeMenu") },
+    ];
   });
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
   let detach: (() => void) | undefined;
+  let cancelNativeMenu: (() => void) | undefined;
 
   /**
-   * Show a short confirmation near the anchor. It clears on its own so a region never
-   * accumulates a second content channel.
-   * 在锚点附近显示短暂确认。它会自动清除，区域因此不会积累第二个内容通道。
+   * Show feedback until its timeout, or until a pending browser-menu gesture finishes.
+   * 显示反馈，直到提示超时或等待中的浏览器菜单操作结束。
    */
-  function announce(text: string) {
+  function announce(text: string, persistent = false) {
     status.value = text;
     clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => (status.value = ""), STATUS_TIMEOUT);
+    if (!persistent) statusTimer = setTimeout(() => (status.value = ""), STATUS_TIMEOUT);
   }
 
   function openAt(anchor: MenuPoint, element: Element | null, takeFocus = false) {
@@ -103,6 +110,16 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
 
   function select(id: string) {
     isOpen.value = false;
+    if (id === "native-menu") {
+      cancelNativeMenu?.();
+      const hint = t("contextMenu.nativeMenuHint");
+      announce(hint, true);
+      cancelNativeMenu = requestNativeMenu(document, () => {
+        if (status.value === hint) status.value = "";
+        cancelNativeMenu = undefined;
+      });
+      return;
+    }
     const result = config.select(id, target.value);
     // Copy actions resolve asynchronously; the status line follows the real outcome.
     // 复制操作异步返回，状态行跟随真实结果。
@@ -112,6 +129,7 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
 
   onBeforeUnmount(() => {
     clearTimeout(statusTimer);
+    cancelNativeMenu?.();
     detach?.();
     detach = undefined;
   });

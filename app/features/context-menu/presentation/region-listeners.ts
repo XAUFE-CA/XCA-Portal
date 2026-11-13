@@ -1,4 +1,5 @@
 import { type MenuPoint, resolveOpenPoint } from "../core/menu-model";
+import { isNativeMenuEvent, isNativeMenuPending } from "./native-menu";
 
 /** Viewport tolerance for a press that still counts as stationary. */
 const LONG_PRESS_TOLERANCE = 10;
@@ -45,6 +46,10 @@ export function attachRegionListeners(element: HTMLElement, options: RegionListe
   }
 
   function onContextMenu(event: MouseEvent) {
+    if (isNativeMenuEvent(event)) {
+      pointerInitiated = false;
+      return;
+    }
     const target = event.target instanceof Element ? event.target : null;
     if (options.keepNativeMenu(target)) return;
     const anchor = resolveOpenPoint(event, target);
@@ -60,6 +65,11 @@ export function attachRegionListeners(element: HTMLElement, options: RegionListe
   function onPointerDown(event: PointerEvent) {
     pointerInitiated = true;
     if (event.pointerType !== "touch") return;
+    if (isNativeMenuPending()) {
+      pointerInitiated = false;
+      cancelPress();
+      return;
+    }
     const target = event.target instanceof Element ? event.target : null;
     if (options.keepNativeMenu(target)) return;
     cancelPress();

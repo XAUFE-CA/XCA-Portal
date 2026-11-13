@@ -189,5 +189,7 @@
   "contextMenu.copyImageLink": "Copy image link",
   "contextMenu.imageCopied": "Image copied",
   "contextMenu.imageCopyFailed": "Image copy failed; link copied",
-  "contextMenu.reload": "Reload page"
+  "contextMenu.reload": "Reload page",
+  "contextMenu.showNativeMenu": "Show native menu",
+  "contextMenu.nativeMenuHint": "Right-click, touch and hold, or press Shift+F10 to open the browser menu"
 }
