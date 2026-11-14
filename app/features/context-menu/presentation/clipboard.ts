@@ -61,11 +61,12 @@ export async function readClipboard(): Promise<string> {
 }
 
 /**
- * Copy an image element to the clipboard as PNG bytes. The clipboard API accepts a
- * `ClipboardItem`, which only Chromium-family browsers expose; callers fall back to the
- * image address when this returns false.
- * 把图片元素以 PNG 字节写入剪贴板。剪贴板接口需要 ClipboardItem，仅 Chromium 系浏览器提供；
- * 返回 false 时调用方回退到图片地址。
+ * Copy an image element to the clipboard. The clipboard API accepts a `ClipboardItem`, which
+ * only Chromium-family browsers expose, and it takes PNG as its image type, so a WebP or JPEG
+ * source is re-encoded from the fetched bytes. Callers fall back to the address when this
+ * returns false.
+ * 把图片元素写入剪贴板。剪贴板接口需要 ClipboardItem，仅 Chromium 系浏览器提供，且图片类型只接受
+ * PNG，因此 WebP 或 JPEG 源会用取回的字节重新编码。返回 false 时调用方回退到图片地址。
  */
 export async function copyImage(element: HTMLImageElement): Promise<boolean> {
   if (typeof navigator === "undefined" || !navigator.clipboard?.write) return false;
@@ -77,8 +78,43 @@ export async function copyImage(element: HTMLImageElement): Promise<boolean> {
     const response = await fetch(element.currentSrc || element.src);
     if (!response.ok) return false;
     const blob = await response.blob();
-    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    // Keep the original bytes when the browser accepts the type, and re-encode otherwise:
+    // a source image can be WebP while the clipboard only takes PNG.
+    // 浏览器接受该类型时保留原始字节，否则重新编码：源图片可能是 WebP，而剪贴板只接受 PNG。
+    return (await writeImage(blob.type, blob)) || (await writePng(blob));
+  } catch {
+    return false;
+  }
+}
+
+/** Write one clipboard image; an unsupported type reports false instead of throwing. */
+async function writeImage(type: string, blob: Blob): Promise<boolean> {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Re-encode fetched bytes as PNG and write them. Decoding the fetched blob rather than the
+ * `<img>` element keeps the canvas untainted when the source is cross-origin.
+ * 把取回的字节重新编码为 PNG 并写入。解码取回的 Blob 而不是 <img> 元素，使跨域源不会污染画布。
+ */
+async function writePng(blob: Blob): Promise<boolean> {
+  if (typeof createImageBitmap !== "function" || typeof document === "undefined") return false;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    if (context === null) return false;
+    context.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    return png !== null && (await writeImage("image/png", png));
   } catch {
     return false;
   }

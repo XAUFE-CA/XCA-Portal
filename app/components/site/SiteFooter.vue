@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { SITE } from "~/config/site";
-import { ContextMenuHost, useLinkMenu } from "~/features/context-menu";
+import { ContextMenuHost, copyResult, useLinkMenu } from "~/features/context-menu";
 import { TaglineFlame } from "~/features/tagline-flame";
 import { translate } from "~/i18n";
 import { copyrightYears } from "~/utils/copyright";
@@ -27,7 +27,20 @@ const commitStamp = build
 // External destinations keep the current page, matching the about-page action links.
 // 外部目标保留当前页面，与关于学社的操作链接一致。
 const external = { target: "_blank", rel: "noopener noreferrer" } as const;
-const menu = useLinkMenu();
+const menu = useLinkMenu(() => t("contextMenu.footer"), {
+  // The commit row belongs to the build stamp: pressing any other footer link keeps the
+  // ordinary link rows, so the SHA copy never appears where there is no commit to copy.
+  // 提交行只属于构建时间戳：按到页脚其他链接时只保留普通链接行，没有提交可复制的
+  // 位置不会出现该行。
+  entries: (target) =>
+    build && target?.closest(".site-footer__build-commit")
+      ? [
+          { type: "separator", id: "sep-build" },
+          { id: "copy-commit", label: t("contextMenu.copyCommit") },
+        ]
+      : [],
+  select: (id) => (id === "copy-commit" && build ? copyResult(build.shortSha, t) : undefined),
+});
 </script>
 
 <template>
@@ -59,6 +72,7 @@ const menu = useLinkMenu();
               >
               <a
                 v-bind="external"
+                class="site-footer__build-commit"
                 :href="build.commitUrl"
                 :aria-label="t('footer.buildCommitLabel', { sha: build.shortSha })"
                 >{{

@@ -1,6 +1,7 @@
 import type { ContextMenuEntry } from "@neoverse-ui/vue";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref, shallowRef } from "vue";
 import type { MenuPoint } from "../core/menu-model";
+import { imageMenuEntries, imageWithin, runImageRow } from "./image-menu";
 import { requestNativeMenu } from "./native-menu";
 import { attachRegionListeners, keepsNativeMenuByDefault } from "./region-listeners";
 
@@ -65,7 +66,13 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
   const openRevision = ref(0);
   const entries = computed(() => {
     openRevision.value;
-    const rows = config.entries(target.value);
+    // Image rows come from the pressed element rather than from the region, so any image
+    // inside any registered region offers them without extra wiring.
+    // 图像行来自被按下的元素而不是区域，因此任何已注册区域内的图片都无需额外接线即可提供。
+    const rows = [
+      ...config.entries(target.value),
+      ...imageMenuEntries(imageWithin(target.value), t),
+    ];
     return [
       ...rows,
       ...(rows.length ? [{ type: "separator" as const, id: "sep-native-menu" }] : []),
@@ -120,7 +127,7 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
       });
       return;
     }
-    const result = config.select(id, target.value);
+    const result = runImageRow(id, imageWithin(target.value), t) ?? config.select(id, target.value);
     // Copy actions resolve asynchronously; the status line follows the real outcome.
     // 复制操作异步返回，状态行跟随真实结果。
     if (result instanceof Promise) void result.then((text) => text && announce(text));

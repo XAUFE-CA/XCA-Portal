@@ -1,10 +1,10 @@
+import type { ContextMenuEntry } from "@neoverse-ui/vue";
 import { SITE } from "~/config/site";
-import type { Translator } from "~/i18n";
 import { locales } from "~/i18n";
-import { copyImage, selectionWithin } from "./clipboard";
+import { selectionWithin } from "./clipboard";
 import { copyLinkResult, copyResult } from "./copy-result";
-import { anchorWithin, imageWithin, linkMenuEntries } from "./entries";
-import { type ContextMenuState, useContextMenu } from "./useContextMenu";
+import { anchorWithin, linkMenuEntries } from "./entries";
+import { type ContextMenuResult, type ContextMenuState, useContextMenu } from "./useContextMenu";
 
 /**
  * Open a destination in a new tab through a real anchor click. `window.open` is treated
@@ -22,35 +22,39 @@ function openInNewTab(href: string) {
 }
 
 /**
- * Copy an image element, falling back to its address when the browser cannot write image
- * data to the clipboard, so the row always leaves something usable behind.
- * 复制图片元素；浏览器无法写入图片数据时回退到图片地址，使该行总能留下可用内容。
+ * Rows a region adds after the shared link rows, computed from the pressed element so a
+ * row can belong to one anchor instead of the whole region. `select` handles only those
+ * ids and returns `undefined` for the rest, so the shared rows keep one implementation.
+ * 区域在共享链接行之后追加的行。行按被按下的元素计算，使某一行只属于单个链接而不是整个区域。
+ * `select` 只处理自己的标识，其余返回 `undefined`，使共享行保持单一实现。
  */
-async function copyImageResult(image: HTMLImageElement, t: Translator): Promise<string> {
-  if (await copyImage(image)) return t("contextMenu.imageCopied");
-  const copied = await copyLinkResult(image.currentSrc || image.src, t);
-  return copied === t("contextMenu.copied") ? t("contextMenu.imageCopyFailed") : copied;
+export interface LinkMenuExtras {
+  entries: (target: Element | null) => ContextMenuEntry[];
+  select: (id: string) => ContextMenuResult;
 }
 
 /**
- * Link regions (footer and navigation) share one menu shape: copy the anchor, open it
- * in a new tab, and — when the press lands on an image — copy the image or its address.
- * 链接区域（页脚与导航）共用一种菜单：复制链接、在新标签页打开；按到图片时还可复制图片或其地址。
+ * Link regions (footer and navigation) share one menu shape: copy the anchor and open it
+ * in a new tab. Each region passes its own label so the panel is named for where it opened,
+ * and an optional extras set for rows only that region can offer.
+ * 链接区域（页脚与导航）共用一种菜单：复制链接、在新标签页打开。
+ * 每个区域传入自己的名称，使面板按打开位置命名，并可传入仅该区域提供的附加行。
  */
-export function useLinkMenu() {
+export function useLinkMenu(label?: () => string, extras?: LinkMenuExtras) {
   const { t } = useSiteLocale();
 
   return useContextMenu({
-    label: () => t("contextMenu.label"),
-    entries: (target) => linkMenuEntries(anchorWithin(target), t, imageWithin(target)),
+    label: label ?? (() => t("contextMenu.label")),
+    entries: (target) => [
+      ...linkMenuEntries(anchorWithin(target), t),
+      ...(extras?.entries(target) ?? []),
+    ],
     select: (id, target) => {
+      const extra = extras?.select(id);
+      if (extra !== undefined) return extra;
       const anchor = anchorWithin(target);
-      const image = imageWithin(target);
       if (id === "copy-link" && anchor) return copyLinkResult(anchor.href, t);
       if (id === "open-link" && anchor) openInNewTab(anchor.href);
-      if (id === "copy-image" && image) return copyImageResult(image, t);
-      if (id === "copy-image-link" && image)
-        return copyLinkResult(image.currentSrc || image.src, t);
       return undefined;
     },
   });

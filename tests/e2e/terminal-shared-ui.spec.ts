@@ -52,17 +52,18 @@ test("focused command line draws the shared breathing caret and yields to the na
   await expect(glyph).toHaveCSS("animation-name", "ui-caret-breathe");
   await expect(glyph).toHaveCSS("animation-duration", "1s");
   await expect(glyph).toHaveCSS("border-radius", "9999px");
-  // The bar takes the theme accent rather than a terminal-specific tint.
-  // 竖条取主题强调色，而不是终端专属色调。
-  const accent = await page.evaluate(() => {
+  // The bar takes the shared terminal cursor token; the light theme maps it to the deeper
+  // accent step so the caret keeps 3:1 contrast over the pale canvas.
+  // 竖条取共享终端光标变量；浅色主题在该变量里使用更深一档的强调色，使光标在浅底上保持 3:1 对比度。
+  const cursor = await page.evaluate(() => {
     const probe = document.createElement("span");
-    probe.style.color = "var(--neoverse-color-accent-primary)";
+    probe.style.color = "var(--neoverse-terminal-cursor)";
     document.body.append(probe);
     const color = getComputedStyle(probe).color;
     probe.remove();
     return color;
   });
-  await expect(glyph).toHaveCSS("background-color", accent);
+  await expect(glyph).toHaveCSS("background-color", cursor);
   // The slide is real motion, so it waits for a motion-tolerant preference.
   // 位移属于真实运动，只在允许动态效果时才启用。
   await expect(glyph).toHaveCSS("transition-property", "none");

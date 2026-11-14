@@ -127,6 +127,9 @@ test("native menu option supports the keyboard and follows the selected language
       name: "English",
     })
     .click();
+  // A selection closes the panel; the next open must not race that exit transition.
+  // 选择后父面板关闭，下一次打开不能与它的退场过渡竞争。
+  await expect(panel(page)).toBeHidden();
 
   const link = page.locator(".site-navigation a").first();
   await link.focus();
@@ -222,11 +225,11 @@ test("theme and language open a submenu column inside the panel", async ({ page 
     "aria-checked",
     "true",
   );
-  // The submenu is its own top-layer popover flush with the panel edge and aligned to the
-  // row that opened it, the way a native submenu is; the panel never widens and both
-  // surfaces vanish together.
-  // 二级菜单是贴着面板边缘并与父项对齐的独立顶层浮层，与原生二级菜单一致；面板不会加宽，
-  // 两个表面同时消失。
+  // The column overlaps the panel edge by one rim width so its own glass rim covers the
+  // parent's, which is what the shared component's own browser check specifies; it stays
+  // aligned to the row that opened it, and the panel never widens.
+  // 二级菜单与面板边缘重叠一个边缘宽度，用自身玻璃边缘盖住父面板边缘，与共享组件自己的
+  // 浏览器用例口径一致；首行与父项对齐，面板不会加宽。
   const readGeometry = () =>
     page.evaluate(() => {
       const panelEl = [...document.querySelectorAll<HTMLElement>(".ui-context-menu")].find((el) =>
@@ -238,8 +241,10 @@ test("theme and language open a submenu column inside the panel", async ({ page 
       );
       const firstRow = column?.querySelector<HTMLElement>(".ui-context-menu__item") ?? null;
       if (!panelEl || !column || !opener || !firstRow) return null;
+      const panelRect = panelEl.getBoundingClientRect();
+      const columnRect = column.getBoundingClientRect();
       return {
-        gap: Math.abs(column.getBoundingClientRect().left - panelEl.getBoundingClientRect().right),
+        overlap: panelRect.right - columnRect.left,
         align: Math.abs(firstRow.getBoundingClientRect().top - opener.getBoundingClientRect().top),
         width: panelEl.offsetWidth,
         backdrop: getComputedStyle(column).backdropFilter,
@@ -251,7 +256,12 @@ test("theme and language open a submenu column inside the panel", async ({ page 
       await page.waitForTimeout(120);
       const second = await readGeometry();
       if (!first || !second) return null;
-      return Math.max(first.gap, second.gap) < 2 && Math.max(first.align, second.align) < 2;
+      // The overlap covers one rim width instead of leaving a seam, and stays inside that
+      // band once the entrance settles.
+      // 重叠恰好盖住一个边缘宽度而不是留出缝隙，入场稳定后仍在该范围内。
+      return [first, second].every(
+        (sample) => sample.overlap >= 3 && sample.overlap <= 6 && sample.align < 2,
+      );
     })
     .toBe(true);
   const settled = await readGeometry();
@@ -266,44 +276,59 @@ test("theme and language open a submenu column inside the panel", async ({ page 
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
+/**
+ * Open the menu on an element's centre through a synthetic contextmenu event, so a case can
+ * target an image or a link without depending on where the pointer can reach.
+ * 通过合成的 contextmenu 事件在元素中心打开菜单，使用例可以直接针对图片或链接，而不依赖指针可达位置。
+ */
+async function openAtElement(page: Page, element: Locator) {
+  await element.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    node.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      }),
+    );
+  });
+  await expect(panel(page)).toBeVisible();
+}
+
 test("image rows copy the address and the image itself", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const logo = page.locator(".site-footer__mark");
   await logo.scrollIntoViewIfNeeded();
 
-  const point = await logo.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    element.dispatchEvent(
-      new MouseEvent("contextmenu", {
-        bubbles: true,
-        cancelable: true,
-        clientX: rect.left + rect.width / 2,
-        clientY: rect.top + rect.height / 2,
-      }),
-    );
-    return { x: rect.left, y: rect.top };
-  });
-  expect(point.y).toBeGreaterThanOrEqual(0);
-
-  await expect(panel(page)).toBeVisible();
+  await openAtElement(page, logo);
   await panel(page).getByRole("menuitem", { name: "复制图片链接" }).click();
   await expect(panel(page)).toBeHidden();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("ca-mark.svg");
 
-  await logo.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    element.dispatchEvent(
-      new MouseEvent("contextmenu", {
-        bubbles: true,
-        cancelable: true,
-        clientX: rect.left + rect.width / 2,
-        clientY: rect.top + rect.height / 2,
-      }),
-    );
-  });
-  await expect(panel(page)).toBeVisible();
+  await openAtElement(page, logo);
   await panel(page).getByRole("menuitem", { name: "复制图片", exact: true }).click();
   await expect(page.locator(".xca-context-menu-status")).toHaveText("图片已复制");
+
+  // The about card's banner is the other region that shows an image.
+  // 关于学社卡片的横幅是另一个显示图片的区域。
+  await page.goto("/about", { waitUntil: "domcontentloaded" });
+  const banner = page.locator(".about-card__banner img:visible");
+  await expect(banner).toBeVisible();
+  await openAtElement(page, banner);
+  await expect(panel(page)).toHaveAttribute("aria-label", "关于学社操作");
+  await panel(page).getByRole("menuitem", { name: "复制图片链接" }).click();
+  await expect(page.locator(".xca-context-menu-status")).toHaveText("已复制到剪贴板");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("xca-banner");
+
+  // The banner is WebP, which the clipboard rejects, so the row re-encodes it as PNG.
+  // 横幅是 WebP，剪贴板不接受该格式，因此该行会重新编码为 PNG。
+  await openAtElement(page, banner);
+  await panel(page).getByRole("menuitem", { name: "复制图片", exact: true }).click();
+  await expect(page.locator(".xca-context-menu-status")).toHaveText("图片已复制");
+  expect(
+    await page.evaluate(async () => (await navigator.clipboard.read())[0]?.types ?? []),
+  ).toContain("image/png");
 });
 
 test("footer and about regions keep their own rows", async ({ page }) => {
@@ -483,4 +508,115 @@ test("dark theme keeps the shared glass material and token colours", async ({ pa
   expect(styles.display).toBe("grid");
   expect(styles.radius).not.toBe("0px");
   expect(styles.background).not.toBe("rgba(0, 0, 0, 0)");
+});
+
+test("light theme keeps the shared glass material", async ({ page }) => {
+  await page.getByRole("radio", { name: "浅色", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await openAt(page, page.locator(".xca-terminal-anchor"));
+
+  const styles = await panel(page).evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, radius: style.borderRadius };
+  });
+  expect(styles.radius).not.toBe("0px");
+  expect(styles.background).not.toBe("rgba(0, 0, 0, 0)");
+});
+
+test("reduced motion removes the row transitions", async ({ page }) => {
+  await openAt(page, page.locator(".xca-terminal-anchor"));
+
+  const durations = await panel(page).evaluate((element) =>
+    [...element.querySelectorAll(".ui-context-menu__item")].map(
+      (row) => getComputedStyle(row).transitionDuration,
+    ),
+  );
+  expect(durations.length).toBeGreaterThan(0);
+  expect(durations.every((value) => value === "0s")).toBe(true);
+});
+
+test("forced colors keeps the system separator and focus ring", async ({ page }) => {
+  await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  const link = page.locator(".site-navigation a").first();
+  await link.focus();
+  await page.keyboard.press("Shift+F10");
+  await expect(panel(page)).toBeVisible();
+  await expect(panel(page).getByRole("menuitem").first()).toBeFocused();
+
+  const styles = await panel(page).evaluate((element) => {
+    // System colors resolve to real values in every mode, so probing them proves the
+    // forced palette replaced the tokens instead of assuming a specific browser palette.
+    // 系统色在各模式下都会解析为实际值，用探针读出它们即可证明强制调色板替换了样式变量。
+    const probe = document.createElement("span");
+    probe.style.cssText = "position: absolute; visibility: hidden";
+    document.body.append(probe);
+    const systemColor = (value: string) => {
+      probe.style.color = value;
+      return getComputedStyle(probe).color;
+    };
+    const colors = {
+      canvas: systemColor("Canvas"),
+      canvasText: systemColor("CanvasText"),
+      highlight: systemColor("Highlight"),
+    };
+    probe.remove();
+
+    const focused = document.activeElement;
+    const separator = element.querySelector(".ui-context-menu__separator");
+    const row = element.querySelector(".ui-context-menu__item");
+    return {
+      colors,
+      outlineStyle: focused ? getComputedStyle(focused).outlineStyle : null,
+      outlineWidth: focused ? getComputedStyle(focused).outlineWidth : null,
+      outlineColor: focused ? getComputedStyle(focused).outlineColor : null,
+      separatorColor: separator ? getComputedStyle(separator).borderTopColor : null,
+      rowColor: row ? getComputedStyle(row).color : null,
+      background: getComputedStyle(element).backgroundColor,
+    };
+  });
+  expect(styles.outlineStyle).toBe("solid");
+  expect(Number.parseFloat(styles.outlineWidth ?? "0")).toBeGreaterThan(0);
+  expect(styles.outlineColor).toBe(styles.colors.highlight);
+  expect(styles.separatorColor).toBe(styles.colors.canvasText);
+  // The glass surface keeps its transparency under forced colors, so only the colour
+  // channels are comparable with the Canvas probe.
+  // 玻璃表面在强制配色下保留透明度，因此只能把颜色通道与 Canvas 探针比较。
+  const rgb = (value: string) =>
+    value
+      .replace(/^rgba?\(([^)]+)\)$/, "$1")
+      .split(",")
+      .slice(0, 3)
+      .join(",")
+      .trim();
+  expect(rgb(styles.background)).toBe(rgb(styles.colors.canvas));
+  expect(styles.rowColor).toBe(styles.colors.canvasText);
+});
+
+test("only the build commit offers its own copy row", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const commit = page.locator(".site-footer__build-commit");
+  // The stamp prints the short SHA first, so the displayed value is the expected clipboard.
+  // 时间戳先打印短 SHA，因此页脚显示的值就是剪贴板应有的内容。
+  const expected = (await commit.textContent())?.match(/\(([0-9a-f]+)/)?.[1];
+  expect(expected).toBeTruthy();
+
+  await openAt(page, page.locator(".site-navigation a").first());
+  await expect(panel(page).getByRole("menuitem", { name: "复制构建提交" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toBeHidden();
+
+  // The rest of the footer is ordinary links; the commit row must not follow them there.
+  // 页脚其余部分是普通链接，提交行不应跟到那里。
+  const credit = page.locator(".site-footer__shared-ui a").first();
+  await credit.scrollIntoViewIfNeeded();
+  await openAt(page, credit, { x: 2, y: 2 });
+  await expect(panel(page).getByRole("menuitem", { name: "复制构建提交" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toBeHidden();
+
+  await commit.scrollIntoViewIfNeeded();
+  await openAt(page, commit, { x: 2, y: 2 });
+  await panel(page).getByRole("menuitem", { name: "复制构建提交" }).click();
+  await expect(page.locator(".xca-context-menu-status")).toHaveText("已复制到剪贴板");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(expected);
 });

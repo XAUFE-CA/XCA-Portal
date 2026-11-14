@@ -7,7 +7,7 @@ import { ContextMenuHost, useLinkMenu } from "~/features/context-menu";
 const emit = defineEmits<{ navigate: [] }>();
 const { t } = useSiteLocale();
 const route = useRoute();
-const menu = useLinkMenu();
+const menu = useLinkMenu(() => t("contextMenu.navigation"));
 const navigation = computed(() =>
   SITE.navigation.map((item) => ({ to: SITE.routes[item.route], label: t(item.label) })),
 );
