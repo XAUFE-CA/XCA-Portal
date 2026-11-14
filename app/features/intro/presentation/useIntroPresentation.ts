@@ -313,9 +313,9 @@ export function useIntroPresentation(getCommandCount: () => number) {
     $glassRenderer?.refresh();
     if (introAbort) finishIntro();
     expansion.reset();
-    // A reload can restore scroll first; dock against the top anchor so the header never shifts.
-    // 重载可能在入场前恢复滚动位置。把终端固定到页面顶部锚点，避免页头与主视觉位移。
-    if (!options.explicit) window.scrollTo({ left: 0, top: 0, behavior: "instant" });
+    // Both a restored scroll and a replay dock from the top anchor, clear of the sticky header.
+    // 重载恢复的滚动与重播都从顶部锚点归位，不与吸顶页头重叠。
+    window.scrollTo({ left: 0, top: 0, behavior: "instant" });
     const reduce = reducedMotion() || typeof frame()?.animate !== "function";
     if (reduce && !options.explicit) {
       finishIntro();
