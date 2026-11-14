@@ -148,7 +148,7 @@ jobs:
         # 图片基线由独立的 images 工作流负责，功能计划不选择该范围。
         # Full-scene geometry runs in the cinematic workflow; a slow renderer cannot host it.
         # 完整场景几何由 cinematic 工作流承担；慢速渲染器跑不动它。
-        run: bun scripts/test-plan.ts run system --no-snapshot --shard=${{ matrix.shard }}/8
+        run: bun scripts/tests/test-plan.ts run system --no-snapshot --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

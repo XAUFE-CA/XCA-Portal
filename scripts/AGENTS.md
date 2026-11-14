@@ -17,6 +17,7 @@ scripts/
 | check-architecture.ts | 检查 app 静态导入、循环与终端 Core 宿主能力 |
 | check-budgets.ts | 行数、函数行数与文档内容量阈值 |
 | check-docs.ts | 内部链接与禁用表述 |
+| check-references.ts | 命令入口引用的脚本路径存在性 |
 | check-terminal-boundary.ts | 终端共享控件、公开样式变量、固定颜色与时长 |
 | check-test-registry.ts | 测试注册表与仓库双向核对 |
 | run-gates.ts | 按顺序聚合门禁，构建最后执行 |

@@ -3,8 +3,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ts from "typescript";
-import { budgetFailure, fileLimits, inBudgetScope } from "./check-budgets";
+import { budgetFailure, fileLimits, inBudgetScope, nearHardLimit } from "./check-budgets";
 import { bannedPhrases, extractLinks, isExternalLink, isWordingRuleFile } from "./check-docs";
+import { isEntryFile, scriptReferences } from "./check-references";
 import { GATES, tail } from "./run-gates";
 import {
   boundaryViolation,
@@ -28,6 +29,13 @@ test("hard limits require a reason and prevent baseline growth", () => {
   expect(budgetFailure(510, 500, { ceiling: 510, reason: "cohesive state machine" })).toBe(false);
   expect(budgetFailure(511, 500, { ceiling: 510, reason: "cohesive state machine" })).toBe(true);
   expect(budgetFailure(510, 500, { ceiling: 510, reason: "" })).toBe(true);
+});
+test("near hard limit warns before blocking and skips reviewed exceptions", () => {
+  expect(nearHardLimit(495, 300, 500)).toBe(true);
+  expect(nearHardLimit(489, 300, 500)).toBe(false);
+  expect(nearHardLimit(6000, 6000, 12000)).toBe(false);
+  expect(nearHardLimit(7448, 6000, Number.POSITIVE_INFINITY)).toBe(false);
+  expect(nearHardLimit(415, 60, 100, { ceiling: 415, reason: "reviewed lifecycle" })).toBe(false);
 });
 test("AST handles methods, arrow functions and Vue scripts without template noise", () => {
   expect(
@@ -110,6 +118,23 @@ test("banned wording catches vague phrasing and exempts rule files", () => {
   expect(bannedPhrases("CA 标识与样式变量")).toEqual([]);
   expect(isWordingRuleFile("docs/AGENTS.md")).toBe(true);
   expect(isWordingRuleFile("docs/architecture/site-shell/README.md")).toBe(false);
+});
+
+test("script reference scan covers command entries and skips sibling-workspace paths", () => {
+  const source = [
+    "run: bun scripts/tests/test-plan.ts run system",
+    "uses: Neoverse-UI/scripts/check.ts",
+    'cmd: ["bun", "scripts/gates/check-docs.ts"] and scripts/legacy.ts',
+  ].join("\n");
+  expect(scriptReferences(source)).toEqual([
+    { target: "scripts/tests/test-plan.ts", line: 1 },
+    { target: "scripts/gates/check-docs.ts", line: 3 },
+    { target: "scripts/legacy.ts", line: 3 },
+  ]);
+  expect(isEntryFile("package.json")).toBe(true);
+  expect(isEntryFile(".github/workflows/quality.yml")).toBe(true);
+  expect(isEntryFile("scripts/gates/run-gates.ts")).toBe(true);
+  expect(isEntryFile("docs/testing/README.md")).toBe(false);
 });
 
 test("gate runner covers every granular check script without gaps", () => {

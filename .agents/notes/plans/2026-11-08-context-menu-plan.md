@@ -42,8 +42,8 @@ Status: implemented
 | `UiPopover`、`UiDropdownMenu` 处于 `consumer-validation`，`UiPopover` 已有门户页头作为真实调用方 | `Neoverse-UI/contracts/component-matrix.json` |
 | `canonical-shared` 要求 Vue 与 React 适配层均稳定、运行时覆盖已验证 | `Neoverse-UI/scripts/check-component-contracts.ts` |
 | 新增公共组件须同步矩阵、文档行、Design Lab、浏览器用例与 Changeset | `Neoverse-UI/scripts/check.ts`、`Neoverse-UI/AGENTS.md` |
-| 门户 `check:terminal` 禁止终端特性内出现裸 `<button>`，并禁止固定颜色与时长 | `scripts/check-terminal-boundary.ts` |
-| 门户架构门禁禁止终端 core 与 commands 依赖共享 UI 与 Vue | `scripts/check-architecture.ts` |
+| 门户 `check:terminal` 禁止终端特性内出现裸 `<button>`，并禁止固定颜色与时长 | `scripts/gates/check-terminal-boundary.ts` |
+| 门户架构门禁禁止终端 core 与 commands 依赖共享 UI 与 Vue | `scripts/gates/check-architecture.ts` |
 | CI 在 `quality.yml`、`cinematic.yml`、`images.yml` 固定 Neoverse-UI 提交 | `.github/workflows/` |
 | 门户已通过 `hasOpenTopLayerSurface()` 在顶层表面打开时跳过主题视图过渡 | `app/utils/top-layer.ts`、`app/composables/useSiteTheme.ts` |
 

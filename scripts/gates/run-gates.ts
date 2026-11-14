@@ -12,6 +12,7 @@ export const GATES: Gate[] = [
   { name: "check:budgets", cmd: ["bun", "scripts/gates/check-budgets.ts"], streaming: true },
   { name: "check:docs", cmd: ["bun", "scripts/gates/check-docs.ts"] },
   { name: "check:architecture", cmd: ["bun", "scripts/gates/check-architecture.ts"] },
+  { name: "check:references", cmd: ["bun", "scripts/gates/check-references.ts"] },
   { name: "check:tests", cmd: ["bun", "scripts/gates/check-test-registry.ts"] },
   { name: "check:terminal", cmd: ["bun", "scripts/gates/check-terminal-boundary.ts"] },
   { name: "typecheck", cmd: ["bun", "run", "typecheck"] },

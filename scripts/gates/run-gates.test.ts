@@ -39,7 +39,7 @@ test("successful fast gates keep lint stderr and multiline budget review visible
   expect(result.code).toBe(0);
   expect(result.output).toContain("warning: review-this-diagnostic");
   expect(result.output).toContain("REVIEW: review-this-budget");
-  expect(result.output).toContain("10 通过, 0 失败, 0 跳过");
+  expect(result.output).toContain("11 通过, 0 失败, 0 跳过");
   expect(result.output).not.toContain("nuxt build");
 });
 
@@ -47,7 +47,7 @@ test("failed gates continue remaining checks, report every failure and skip the 
   const result = runFixture(true);
   expect(result.code).toBe(1);
   expect(result.output).toContain("remaining-gates-executed");
-  expect(result.output).toContain("8 通过, 2 失败, 1 跳过");
+  expect(result.output).toContain("9 通过, 2 失败, 1 跳过");
   expect(result.output).toContain("失败项: lint, typecheck");
   expect(result.output).toContain("nuxt build（跳过：前置门禁未通过）");
 });

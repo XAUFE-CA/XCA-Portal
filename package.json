@@ -24,6 +24,7 @@
     "check:budgets": "bun scripts/gates/check-budgets.ts",
     "check:docs": "bun scripts/gates/check-docs.ts",
     "check:architecture": "bun scripts/gates/check-architecture.ts",
+    "check:references": "bun scripts/gates/check-references.ts",
     "check:fast": "bun scripts/gates/run-gates.ts --fast"
   },
   "dependencies": {

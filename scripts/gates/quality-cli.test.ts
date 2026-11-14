@@ -127,3 +127,36 @@ test("terminal UI CLI validates every component style block", () => {
     expect(split.output.replaceAll("\\", "/")).toContain("terminal-intro.css");
   });
 });
+
+test("budget CLI rejects an exception that no longer matches a file or function", () => {
+  withFixture((root) => {
+    const config = {
+      limits: { source: [300, 500], css: [400, 600], test: [400, 700], function: [60, 100] },
+      exceptions: { "app/removed.ts": { ceiling: 501, reason: "stale fixture" } },
+    };
+    write(root, "scripts/gates/quality-budgets.json", JSON.stringify(config));
+    write(root, "app/example.ts", "export {};\n");
+    const failure = check(root, "budgets");
+    expect(failure.code).toBe(1);
+    expect(failure.output).toContain("app/removed.ts: 例外未对应现存的文件或函数");
+  });
+});
+
+test("reference CLI rejects a missing command entry and accepts the resolved path", () => {
+  withFixture((root) => {
+    const workflow = ".github/workflows/quality.yml";
+    const entry = "scripts/tests/test-plan.ts";
+    write(
+      root,
+      "package.json",
+      '{"scripts":{"test":"bun scripts/tests/test-plan.ts run unit,module"}}\n',
+    );
+    write(root, workflow, "run: bun scripts/test-plan.ts run system\n");
+    const failure = check(root, "references");
+    expect(failure.code).toBe(1);
+    expect(failure.output).toContain(`${workflow}:1: 脚本入口不存在 scripts/test-plan.ts`);
+    write(root, workflow, "run: bun scripts/tests/test-plan.ts run system\n");
+    write(root, entry, "export {};\n");
+    expect(check(root, "references").code).toBe(0);
+  });
+});

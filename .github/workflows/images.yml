@@ -59,10 +59,10 @@ jobs:
         run: bunx nuxt build
       - name: Compare baselines
         if: ${{ !inputs.update }}
-        run: bun scripts/test-plan.ts run system --snapshot
+        run: bun scripts/tests/test-plan.ts run system --snapshot
       - name: Rewrite baselines
         if: ${{ inputs.update }}
-        run: bun scripts/test-plan.ts run system --snapshot --update-snapshots
+        run: bun scripts/tests/test-plan.ts run system --snapshot --update-snapshots
       - uses: actions/upload-artifact@v7
         with:
           name: playwright-images

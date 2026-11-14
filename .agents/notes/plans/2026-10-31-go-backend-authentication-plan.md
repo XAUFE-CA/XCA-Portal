@@ -2,9 +2,9 @@
 
 Status: proposed
 
-更新日期：2026-11-13。核对本地 `main`（`44b6a9b`）的认证接入点、Nuxt 代理、CI 与文档约束，补充业务前置条件、接口校验、OTP 安全、部署与真实链路测试。仍未开始实施，本文只记录待执行方案。
+更新日期：2026-11-14。复核本地 `main`（`b077f1e`）的测试注册表、脚本分层、CI 与终端接口。原有认证方案不变，本次更新实施入口和测试登记要求，并记录现有 CI 脚本路径问题。后端尚未实施。
 
-本次复核依据：`app/features/terminal/core/session.ts`（统一计时与敏感命令的错误映射）、`app/features/terminal/client-session.ts` 与 `app/components/home/HeroSection.vue`（装配点）、`playwright.config.ts`（单一测试服务器）、`.github/workflows/quality.yml` 与 `scripts/run-gates.ts`（CI 与门禁范围）、`docs/AGENTS.md` 与 `docs/terminology/terms.md`（文档与术语登记）。
+本次复核依据：`app/features/terminal/core/session.ts`（统一计时与敏感命令的错误映射）、`app/features/terminal/client-session.ts` 与 `app/components/home/HeroSection.vue`（装配点）、`playwright.config.ts`（单一测试服务器）、`.github/workflows/quality.yml` 与 `scripts/gates/run-gates.ts`（CI 与门禁范围）、[测试注册表](../../../docs/testing/README.md)与 `scripts/tests/test-plan.ts`（测试执行）、`docs/AGENTS.md` 与 `docs/terminology/terms.md`（文档与术语登记）。
 
 ## 决策结果
 
@@ -61,9 +61,13 @@ Nuxt 继续负责页面、SSR、终端解释、主题、语言和动画。Go 负
 
 Go 服务放在当前仓库的 `backend/`，使用独立的 `go.mod`、构建和部署流程。门户与后端的接口、适配器和对应测试在同一变更中审查。只有确认多个客户端或独立维护团队需要后，再评估拆分仓库。
 
-CI 现状是一个提交触发的工作流 `quality.yml`：门禁与生产构建在同一个作业内完成并上传产物，浏览器作业按八个分片复用该产物；`cinematic.yml` 与 `images.yml` 按需运行，三者各自固定共享库提交，工作流没有路径筛选。加入 `backend/` 时新增独立作业运行 Go 检查，不把 Go 命令塞进 `scripts/run-gates.ts`，该入口只聚合门户门禁。Go 版本只在 `go.mod` 声明，CI 由 `setup-go` 读取。新增作业不会自动成为必需检查，需要在仓库设置中手动加入，并分别核验工作流结果与 required checks 配置。
+CI 现状是一个提交触发的工作流 `quality.yml`：门禁与生产构建在同一个作业内完成并上传产物，浏览器作业按八个分片复用该产物；`cinematic.yml` 与 `images.yml` 按需运行，三者各自固定共享库提交，工作流没有路径筛选。加入 `backend/` 时新增独立作业运行 Go 检查，不把 Go 命令塞进 `scripts/gates/run-gates.ts`，该入口只聚合门户门禁。Go 版本只在 `go.mod` 声明，CI 由 `setup-go` 读取。新增作业不会自动成为必需检查，需要在仓库设置中手动加入，并分别核验工作流结果与 required checks 配置。
 
-门户门禁的范围限于门户：`scripts/check-budgets.ts` 统计 ts、js、vue、css、md，`scripts/check-architecture.ts` 只扫描 `app/**`。实施时确定 Go 侧的对应检查（gofmt、go vet、staticcheck、`go test -race` 与生产构建），并决定是否把阈值或架构规则扩展到 `.go`；不扩展时在[工程质量规则](../../../docs/architecture/engineering-quality.md)写明理由，避免两端规则不一致。
+本次治理已修正 CI 命令入口：`quality.yml`、`cinematic.yml` 和 `images.yml` 现调用 `bun scripts/tests/test-plan.ts`，路径存在性由 `check:references` 校验。认证实施前仍须以实际 CI 运行结果验证，不以本地门禁通过代替远端工作流通过。
+
+门户门禁的范围限于门户：`scripts/gates/check-budgets.ts` 统计 ts、js、vue、css、md，`scripts/gates/check-architecture.ts` 只扫描 `app/**`。实施时确定 Go 侧的对应检查（gofmt、go vet、staticcheck、`go test -race` 与生产构建），并决定是否把阈值或架构规则扩展到 `.go`；不扩展时在[工程质量规则](../../../docs/architecture/engineering-quality.md)写明理由，避免两端规则不一致。
+
+门户门禁由 `scripts/gates/run-gates.ts` 聚合，已包含 `check:tests` 的注册表双向检查。`scripts/gates/check-test-registry.ts` 检查 TypeScript 测试与浏览器测试；Go 的 `*_test.go` 单独由 Go CI 检查，不强行登记为 Bun 或 Playwright 用例。
 
 接口定义或两端接入的改动同时运行门户检查、Go 检查与认证 E2E。共享工作流变更覆盖其影响的范围，路径筛选不得让必要检查缺席。
 
@@ -100,6 +104,7 @@ HTTP 层只处理请求、响应和身份上下文。认证规则放在应用用
 | 后端替身 | 认证 E2E 使用进程内替身网关还是真实 Go 服务；Go 集成测试的 PostgreSQL 获取方式；浏览器分片不承担数据库 |
 | 迁移执行 | 生产迁移由谁在何时执行（发布步骤或进程启动）、失败回滚与备份 |
 | Go 工具链 | Go 版本、CI 安装方式与静态检查工具；阈值和架构检查是否覆盖 `.go` |
+| 测试登记 | 门户认证替身用例归入 `system` 层级；真实服务用例必须能独立选择并默认不进入无 PostgreSQL 的八个浏览器分片 |
 | 产品准入 | 1A 内部试运行名单和验证责任人；对外开放前确认首个受保护业务、访问条件、个人数据用途与保留期限 |
 | API 定义 | OpenAPI 校验与 TypeScript 类型生成方式、Go 响应一致性测试、生成文件是否入库及版本兼容策略 |
 | 认证共享状态 | Terminal 独立保留草稿与历史，服务端会话作为身份依据；客户端查询状态及并发版本保护的放置位置 |
@@ -209,7 +214,7 @@ HTTP 层只处理请求、响应和身份上下文。认证规则放在应用用
 
 新增 HTTP 版 `AuthGateway` 适配器，复用[现有认证接口](../../../docs/architecture/terminal-extending.md#多步交互与登录)。Parser、命令注册与虚拟工作区的职责不变，`Session` 需要增加分步计时，见[登录超时与取消](#登录超时与取消)。
 
-适配器放在 `app/features/terminal/client-auth.ts`，与 `client-session.ts` 同为模块级客户端组装，经 `app/components/home/HeroSection.vue` 的 `TerminalServices` 注入 `auth`。主题、语言与路由切换都不重建它。适配器不进入首页入场模块，入场编排不发起认证请求；终端不得依赖 `app/features/intro/`，该依赖会被 `scripts/source-analysis.ts` 的层间规则拒绝。
+适配器放在 `app/features/terminal/client-auth.ts`，与 `client-session.ts` 同为模块级客户端组装，经 `app/components/home/HeroSection.vue` 的 `TerminalServices` 注入 `auth`。主题、语言与路由切换都不重建它。适配器不进入首页入场模块，入场编排不发起认证请求；终端不得依赖 `app/features/intro/`，该依赖会被 `scripts/gates/check-architecture.ts` 基于 `scripts/gates/source-analysis.ts` 的导入分析拒绝。
 
 会话恢复与注销核对需要的待核对状态保存在适配器模块内，不放在组件或 composable 的局部状态里。组件卸载会丢弃局部状态，而核对要在下次挂载时继续。
 
@@ -265,14 +270,14 @@ Terminal 的历史、虚拟路径、草稿与视觉身份仍归 `TerminalSession
 
 1. 确认内部试运行负责人、邮件与部署环境、安全参数、迁移负责人和对外推广门槛；尚未决定的首个业务不得由代码默认假设。开始实现时同步调整根工作规范的项目范围。
 2. 先写 `backend/api/openapi.yaml`、公开错误模型和响应示例，确定 TypeScript 类型生成、OpenAPI 语法验证和 Go 接口响应检查的统一方式；将接口变更纳入两端共同检查。
-3. 建立 Go API 进程、配置校验、数据库连接、迁移、存活与就绪探针、结构化日志；创建 Go 独立 CI 作业并核对 required checks。
+3. 先修正现有三个工作流的测试执行器路径并验证 CI；再建立 Go API 进程、配置校验、数据库连接、迁移、存活与就绪探针、结构化日志，创建 Go 独立 CI 作业并核对 required checks。
 4. 建立四类 1A 数据表及事务测试，完成邀请管理命令与必要的并发唯一性校验。
 5. 实现邮件投递、OTP 申请与验证、邀请激活、受控 HMAC 存储和数据库原子限流，验证真实与假流程响应一致。
 6. 实现会话 Cookie、查询、注销、绝对过期、撤销和账户停用检查，完成同源与 CSRF 防护。
 7. 先完成门户侧前置改造并有独立单元测试：`Session` 分步期限、敏感命令的预期失败映射、身份操作版本和取消后的待核对状态；再实现 HTTP `AuthGateway`、身份恢复和双语文案。
-8. 运行 Go 单元及 PostgreSQL 集成测试、接口定义一致性检查和门户替身 E2E；普通浏览器分片不启动数据库。
-9. 单独增加一组真实 Go + PostgreSQL + Nuxt `/api/v1/` 同源代理的浏览器冒烟测试，覆盖激活、刷新、注销、Cookie、安全响应头与失败路径；使用受控测试邮箱收件器。正式邮件投递通过单独的受控验收完成。
-10. 更新[终端扩展接口](../../../docs/architecture/terminal-extending.md)（`AuthGateway` 注入与 `login` 上下文）、[工程质量规则](../../../docs/architecture/engineering-quality.md)（Go 工具链、CI、阈值与架构检查范围）、README 的技术栈与命令表、根工作规范的范围与事实依据；新增专题文档前先在[`docs/AGENTS.md`](../../../docs/AGENTS.md)登记条目与职责。再核验部署、文档和完整门禁。
+8. 运行 Go 单元及 PostgreSQL 集成测试、接口定义一致性检查和门户替身 E2E。新增 `.test.ts` 与 `.spec.ts` 归入[测试注册表](../../../docs/testing/README.md)的已有范围，或增加范围并执行 `bun run check:tests`。普通浏览器分片不启动数据库。
+9. 单独增加一组真实 Go + PostgreSQL + Nuxt `/api/v1/` 同源代理的浏览器冒烟测试，覆盖激活、刷新、注销、Cookie、安全响应头与失败路径；使用受控测试邮箱收件器。这组用例必须在[测试注册表](../../../docs/testing/README.md)与 `scripts/tests/test-plan.ts` 中有独立选择和默认排除方式，不能直接混入普通 `system` 分片。若新增元数据或执行参数，同步更新解析器、检查器及其测试；不借用 `scene`、`snapshot` 标记规避执行。正式邮件投递通过单独的受控验收完成。
+10. 更新[终端扩展接口](../../../docs/architecture/terminal-extending.md)（`AuthGateway` 注入与 `login` 上下文）、[工程质量规则](../../../docs/architecture/engineering-quality.md)（Go 工具链、CI、阈值与架构检查范围）、[测试注册表](../../../docs/testing/README.md)的认证范围与执行方式、README 的技术栈与命令表、根工作规范的范围与事实依据；新增脚本遵守[脚本目录规范](../../../scripts/AGENTS.md)，新增专题文档前先在[`docs/AGENTS.md`](../../../docs/AGENTS.md)登记条目与职责。再核验部署、文档和完整门禁。
 
 实现与对应测试保持在同一变更范围。不得通过跳过认证失败测试、关闭限流或固定 OTP 让生产路径通过测试。
 
@@ -309,7 +314,7 @@ Terminal 的历史、虚拟路径、草稿与视觉身份仍归 `TerminalSession
 - 主题与语言切换保留会话；终端展开、路由返回和减少动画行为不回归。
 - 未登录访问现有公开页面不受影响，现有终端命令与虚拟工作区保持原行为。
 
-门户继续执行 `bun run check` 与相关 `bun run test:e2e`。Go 检查以 `backend/` 中的单一入口（Makefile 或等价脚本）为准，本地与 CI 调用同一组命令，不以门户构建成功代替 Go 测试。测试邮件投递使用专用测试实现，真实服务商至少进行一次受控验收，不发送自动化批量邮件。
+门户继续执行 `bun run check`、`bun run check:tests` 与相关 `bun run test:e2e`。测试层级与执行参数以[测试注册表](../../../docs/testing/README.md)为准，CI 的 `system` 分片经 `scripts/tests/test-plan.ts` 执行。Go 检查以 `backend/` 中跨 Windows 与 Linux 可运行的统一入口为准，本地与 CI 调用同一组命令，不以门户构建成功代替 Go 测试。测试邮件投递使用专用测试实现，真实服务商至少进行一次受控验收，不发送自动化批量邮件。
 
 ## 1B：Passkey
 
