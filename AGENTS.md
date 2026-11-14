@@ -41,17 +41,17 @@ public/                 静态资产
 .github/                CI 工作流与 PR 模板
 ```
 
-根目录配置、依赖与命令以清单和配置文件为准；环境准备、端口与共享依赖见 [工程质量规则](docs/architecture/engineering-quality.md)。
+根目录配置、依赖与命令以清单和配置文件为准。环境准备、端口与共享依赖见 [工程质量规则](docs/architecture/engineering-quality.md)。
 
 扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景进 `app/components/<场景>/`。新交互特性进 `app/features/<特性>/`，按职责分层。新检查脚本进 `scripts/gates/` 并接入门禁。静态资产进 `public/`，结构化正文进 `content/`。Agent 过程材料进 `.agents/notes/`。
 
-子文件职责不在本文件展开，按修改范围读取目录级说明：`scripts/` 先读 [scripts/AGENTS.md](scripts/AGENTS.md)；测试相关改动读 [测试注册表](docs/testing/README.md)；入场、终端与站点框架改动读对应架构文档。
+子文件职责不在本文件展开，按修改范围读取目录级说明。改 `scripts/` 先读 [scripts/AGENTS.md](scripts/AGENTS.md)。测试相关改动读 [测试注册表](docs/testing/README.md)。入场、终端与站点框架改动读对应架构文档。
 
 ## 运行入口
 
 运行、检查与构建命令以 `package.json` 为准，环境准备、本地共享库接入和完整检查说明见 [工程质量规则](docs/architecture/engineering-quality.md#本地开发与共享依赖)。
 
-启动前检查本项目的 dev 服务器与端口占用。检测到 dev 服务器已经开启时直接复用，不重复启动或另起实例；已有服务异常时先报告，未经用户授权不得接管或重启。不终止无关进程或自动换端口。保持 PowerShell 和 Linux/WSL 兼容，通用脚本不硬编码盘符、分隔符或 Unix 命令。
+启动前检查本项目的 dev 服务器与端口占用。检测到 dev 服务器已经开启时直接复用，不重复启动或另起实例。已有服务异常时先报告，未经用户授权不得接管或重启。不终止无关进程或自动换端口。保持 PowerShell 和 Linux/WSL 兼容，通用脚本不硬编码盘符、分隔符或 Unix 命令。
 
 ## 修改流程
 
@@ -64,10 +64,18 @@ public/                 静态资产
 
 ## 约定
 
-- **组织对齐**：遵守 [XCA 项目开发与协作规范](https://github.com/XAUFE-CA/.github/blob/main/COLLABORATION.md)：AI Agent 开发与 AI 辅助协作（第 1–2 点）、Git 提交与代码审查合并（第 3–5 点）、Issue/PR 协作与证据真实性（第 6 点）。贡献指南、行为准则、安全说明直接引用 [组织默认社区健康文件](https://github.com/XAUFE-CA/.github)，不在本仓库重复维护或改写。提交信息遵循 Conventional Commits，格式与类型以组织规范第 4 点为准，实质性 AI 参与按第 2 点在 PR 披露。本文件只维护门户项目级补充约束，与组织规范冲突时以其强制性要求为准。
+- **组织对齐**：遵守 [XCA 项目开发与协作规范](https://github.com/XAUFE-CA/.github/blob/main/COLLABORATION.md)。规范包含 AI Agent 开发与 AI 辅助协作（第 1–2 点）、Git 提交与代码审查合并（第 3–5 点）、Issue/PR 协作与证据真实性（第 6 点）。
+
+  贡献指南、行为准则、安全说明直接引用 [组织默认社区健康文件](https://github.com/XAUFE-CA/.github)，不在本仓库重复维护或改写。提交信息遵循 Conventional Commits，格式与类型以组织规范第 4 点为准，实质性 AI 参与按第 2 点在 PR 披露。本文件只维护门户项目级补充约束，与组织规范冲突时以其强制性要求为准。
+
 - **标识与范围**：官方门户使用既有 XCA 标识，不发明学社全称，不引入学校官方 Logo 或未经授权资产。当前只提供公开内容，不提前引入登录后端、数据库、管理后台或独立 API 服务，文案不伪造已开放能力。
 - **工具链**：Nuxt 4、Vue 3、严格 TypeScript、Nuxt Content 3。使用 Bun 和现有锁文件，不混入其他包管理器。早期开发使用 Neoverse-UI 本地 `file:` 接入与 `ui:sync`，不直接修补 node_modules、dist 或锁文件复制产物。正式发布改用 npm 精确版本，移除本地别名、同步与 CI 联合检出。不擅改 Nuxt 别名、SSR、PostCSS、端口和共享依赖版本，CI 联合检出决策见工程质量规则。
-- **分层职责**：页面负责组合，站点组件负责展示，composables/config 负责公共能力，首页轮播语句由独立数据文件维护。终端 Core 保持纯逻辑，不依赖 Vue、DOM、展示层或命令集合。命令通过上下文能力访问服务，不直接操作 DOM、路由或宿主 Shell。`client-session.ts` 是命令和 Session 的组装入口，components 负责终端适配，执行与展示生命周期分离。首页入场的展示编排位于 `app/features/intro/`，由该模块的 presentation 负责 Boot/Dock/Reveal，终端只保留展开、系统识别与字宽测量。入场模块可以依赖终端，终端不得反向依赖入场，两侧共用的能力下沉到 `app/utils/`。
+- **分层职责**：页面负责组合，站点组件负责展示，composables/config 负责公共能力，首页轮播语句由独立数据文件维护。终端 Core 保持纯逻辑，不依赖 Vue、DOM、展示层或命令集合。
+
+  命令通过上下文能力访问服务，不直接操作 DOM、路由或宿主 Shell。`client-session.ts` 是命令和 Session 的组装入口，components 负责终端适配，执行与展示生命周期分离。
+
+  首页入场的展示编排位于 `app/features/intro/`，由该模块的 presentation 负责 Boot/Dock/Reveal，终端只保留展开、系统识别与字宽测量。入场模块可以依赖终端，终端不得反向依赖入场，两侧共用的能力下沉到 `app/utils/`。
+
 - **共享 UI**：优先级为现有 Neoverse-UI 组件 → 公开 token/API → XCA 页面布局与标识表达。不复制共享 CSS、依赖私有 class/DOM/变量，不在门户建立第二套基础 UI、token、极光玻璃或光标系统。导航、分段控件、输入框及滚动条使用共享默认尺寸和材质，不在消费端放大。颜色、文字、间距、圆角、边框、阴影和动画沿用现有 token，页面几何、图片比例、ASCII 字形可用有依据的局部常量。极光玻璃边缘和毛玻璃由共享运行时负责，先查接入、层级、生命周期和公开 API。通用缺口登记到共享库 `contracts/component-requests/`，不擅改兄弟仓库。
 - **终端安全与会话**：浏览器白名单解释器，不执行用户系统命令、子进程、eval、动态脚本或读取主机文件，虚拟路径限制在虚拟工作区。单一 Host / Session，入场、展开、重播不得创建多个同步实例。刷新、路由返回、跳过、resize 都有确定终态，不重放副作用。认证必须来自未来真实服务端，前端可用性不是授权。敏感回答不进历史、草稿、输出或日志。
 - **终端交互**：点击终端后完成当前打字输出单元再暂停并隐藏光标，点击终端外部恢复，不能仅 mouseleave 恢复。使用共享 UiTerminalPrompt、Surface、Transcript、Line，输入支持 IME、历史、Tab、取消、焦点与键盘路径。取消或超时后不得追加旧输出、执行旧副作用。卸载清理异步任务、订阅、监听和动画。输出可选择复制，阅读历史不抢滚，输入和提交恢复合理跟随，滚动行为沿用共享接口。首页逐行启动日志和字符画使用等宽度量适配，不堆空格、固定像素或产生意外滚动条，首页动画只在首页运行。
@@ -93,7 +101,7 @@ public/                 静态资产
 ## 格式、预算与验证
 
 - 遵守 EditorConfig、Git attributes、Biome、Prettier。UTF-8/LF、两空格、双引号、分号、末尾换行。
-- 源码注释使用双语，英文在上、中文在下，每条一句话，不复述代码。注释随代码同步更新。
+- 源码注释使用双语，英文在上、中文在下，每条一句话，不复述代码，不写 `名称：含义；含义` 式说明。注释随代码同步更新。
 - Biome 负责代码、CSS、JSON、SVG 的格式与 import assist，Prettier 只管 Markdown/YAML。按修改范围格式化，不冲掉用户其他工作。
 - `lint` 与 `format:check` 独立，不得把格式通过说成 Lint 通过。Lint 无 error、预算上限与例外、软预算审查和重构的分级执行以 [工程质量规则](docs/architecture/engineering-quality.md) 为唯一规范。
 
@@ -104,7 +112,7 @@ public/                 静态资产
 | 终端命令/UI/样式 | check:terminal、核心单测、相关 E2E |
 | 新增/移动测试 | check:tests 注册表核对、对应层级测试 |
 | 主题/极光玻璃/滚动/动画 | 浅/深/system、尺寸变化、减少动画、跳过/恢复、焦点与滚动回归 |
-| 依赖/构建配置 | 本地开发用 ui:sync、类型、生产构建、开发/预览启动；发布版本确认无 file: 依赖 |
+| 依赖/构建配置 | 本地开发用 ui:sync、类型、生产构建、开发/预览启动。发布版本确认无 file: 依赖 |
 
 重要改动执行 `bun run check` 与 `bun run test:e2e`，或明确报告阻塞和未覆盖范围。桌面/窄屏、中英、鼠标/键盘 SHOULD 覆盖。截图问题依据实际渲染核实，自动化结果不等同用户最终视觉验收。
 
@@ -114,7 +122,7 @@ public/                 静态资产
 - 每个 AGENTS.md 都包含所在目录的结构介绍：注释目录树、根文件职责与扩展去向，便于 AI 定位。新增或移动文件时同步更新对应树。
 - 修改本文件时保持条目自包含，细节链接到专题文档。内容增长先压缩或迁移，仍超预算才按工程质量规则登记带原因的精确上限。
 - 公共接口和架构决策同步专题文档，历史文档标明状态。文档修改者负责核对事实与入口，审查者审核预算例外和职责。
-- `docs/AGENTS.md` 的空格标点与用词规则、[docs/terminology/](docs/terminology/README.md) 的术语对照与翻译规则适用于全仓库 Markdown 与产品文案，含根 AGENTS、README 与过程材料。其结构规则仅约束 `docs/` 子树，术语与缩写的全称只在对照表维护。
+- `docs/AGENTS.md` 的空格标点与行文规则、[docs/terminology/](docs/terminology/README.md) 的术语、用词与翻译规则适用于全仓库 Markdown 与产品文案，含根 AGENTS、README 与过程材料。其结构规则仅约束 `docs/` 子树，术语与缩写的全称只在对照表维护。
 - `docs/` 只放当前架构、现行接口、采用的 ADR 及写作规范。审计快照与实施计划归 `.agents/notes/`，命名、更新与归档规则见工程质量规则。`.agents/` 其余子目录预留给 skills、commands 等 Agent 资源，不放过程材料。
 - 完成前核对 Diff/status，交付修改原因、文件、实际验证结果、失败和遗留风险。
 - 只有明确请求才提交，提交信息按 [组织协作规范](https://github.com/XAUFE-CA/.github/blob/main/COLLABORATION.md#4-git-commit-message-规范) 使用 Conventional Commits。多 Agent 如被授权，先按模块协调文件所有权，不相互覆盖。

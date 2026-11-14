@@ -4,7 +4,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-dark.webp">
     <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-light.webp">
-    <img src="https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-light.webp" alt="XCA 计算机学社横幅：真诚、包容、和谐、热爱；技术交流、知识分享与项目实践。" width="100%">
+    <img src="https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-light.webp" alt="XCA 计算机学社横幅，真诚、包容、和谐、热爱。技术交流、知识分享与项目实践。" width="100%">
   </picture>
   XCA-Portal
 </h1>

@@ -124,11 +124,11 @@ for (const mode of [
     // 慢帧可能把整个入场并进就绪切换，入场侧快照并非总能观测到。
     // 此时连续性由"就绪沿用入场已存在的节点"承担，重新渲染或替换节点都无法满足。
     if (!printed) {
-      // Entry-side geometry is unobservable when a slow frame merges the whole stage; the
+      // Entry-side geometry is unobservable when a slow frame merges the whole stage. The
       // welcome must then still arrive complete, either printed during the entry or as a
       // whole banner by the time the terminal is ready.
-      // 慢帧把整个阶段并进一批时，入场侧几何不可观测；此时欢迎语仍须完整到达：
-      // 要么入场期间已打印，要么在终端就绪时已是完整的字符画。
+      // 慢帧把整个阶段并进一批时，入场侧几何不可观测。
+      // 此时欢迎语仍须完整到达，要么入场期间已打印，要么在终端就绪时已是完整的字符画。
       const { sequence } = await terminalRecords(page);
       const printedDuringEntry = sequence.some(
         (entry) => !entry.screen.includes("ready") && entry.banner > 0,

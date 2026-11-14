@@ -118,8 +118,8 @@ test("the about card swaps the copy in place and resizes when the language needs
   await page.getByRole("radio", { name: "English", exact: true }).click();
   // The copy is replaced outright — one layer, no glyph animation to catch in a faded state — while
   // a height animation carries the box to the size the English text needs.
-  // 文案直接替换：只有一个内容层、没有会停在半透明状态的文字动画；盒子同时由高度动画带到英文正文
-  // 所需的尺寸。
+  // 文案直接替换，只有一个内容层，没有会停在半透明状态的文字动画。
+  // 盒子同时由高度动画带到英文正文所需的尺寸。
   await expect(page.getByRole("heading", { level: 1, name: "About us" })).toBeVisible();
   await expect(card.locator(".about-card__layer")).toHaveCount(1);
   const duration = await page.evaluate(async () => {

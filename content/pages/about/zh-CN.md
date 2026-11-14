@@ -5,7 +5,7 @@ description: XCA 是西安财经大学的学术科技类学生社团，为不同
 banner:
   light: https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-light.webp
   dark: https://raw.githubusercontent.com/XAUFE-CA/.github/main/profile/assets/xca-banner-dark.webp
-  alt: XCA 计算机学社横幅：真诚、包容、和谐、热爱；技术交流、知识分享、项目实践。
+  alt: XCA 计算机学社横幅，真诚、包容、和谐、热爱。技术交流、知识分享、项目实践。
   width: 2172
   height: 724
 ---
