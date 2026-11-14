@@ -35,7 +35,7 @@ function recordIntroGlassMaterial() {
   }).observe(document, { subtree: true, attributes: true, childList: true });
 }
 
-test("glass edge and background stay continuous through docking and intro completion", async ({
+test("glass edge and background stay continuous through docking and intro completion @cinematic", async ({
   page,
 }) => {
   await page.addInitScript(recordIntroGlassMaterial);

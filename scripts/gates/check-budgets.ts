@@ -26,6 +26,13 @@ export function nearHardLimit(
 ): boolean {
   return value > soft && Number.isFinite(hard) && hard - value <= 10 && !exception?.reason.trim();
 }
+// Review keys identify a file, a function or a document content metric.
+// REVIEW 键标识文件、函数或文档内容量。
+export type ReviewCategory = "file" | "function" | "document";
+export function reviewCategory(key: string): ReviewCategory {
+  if (key.endsWith(":units")) return "document";
+  return /:[^/]+#\d+$/.test(key) ? "function" : "file";
+}
 // Process notes under .agents/ are dated archives; the quality rules keep them out of budgets.
 // .agents/ 下的过程记录是带日期的存档，质量规则不会将其计入阈值检查范围。
 export function inBudgetScope(path: string): boolean {
@@ -48,6 +55,7 @@ if (import.meta.main) {
   const failures: string[] = [];
   const near: string[] = [];
   const seen = new Set<string>();
+  const groups: Record<ReviewCategory, number> = { file: 0, function: 0, document: 0 };
   let reviews = 0;
   for (const path of new Set(tracked.stdout.toString().split("\0").filter(Boolean))) {
     if (!inBudgetScope(path)) continue;
@@ -79,6 +87,7 @@ if (import.meta.main) {
       if (value > soft) {
         console.log(`REVIEW ${key}: ${value} > ${soft}`);
         reviews++;
+        groups[reviewCategory(key)]++;
       }
       if (nearHardLimit(value, soft, hard, exception)) near.push(`${key}: ${value}/${hard}`);
       if (budgetFailure(value, hard, exception))
@@ -92,7 +101,7 @@ if (import.meta.main) {
       failures.push(`${key}: 例外未对应现存的文件或函数，请从 quality-budgets.json 删除`);
   for (const item of near) console.log(`NEAR ${item}`);
   console.log(
-    `Budget review: ${reviews} soft limits; ${near.length} near hard limits; ${failures.length} failures`,
+    `Budget review: ${reviews} soft limits (${groups.function} functions, ${groups.file} files, ${groups.document} documents); ${near.length} near hard limits; ${failures.length} failures`,
   );
   if (failures.length) {
     console.error(failures.join("\n"));

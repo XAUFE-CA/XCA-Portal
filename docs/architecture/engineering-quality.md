@@ -18,9 +18,9 @@ CI 联合检出共享库时固定到具体提交，同一 SHA 必须同步维护
 
 CI 只缓存 Bun 的下载目录与 Playwright 浏览器二进制（按锁文件哈希，供各分片复用），不缓存 node_modules 和构建输出。门禁与生产构建在一个作业内完成并上传产物，浏览器作业下载同一产物后只跑测试，避免每个分片重复构建。
 
-托管运行器没有 GPU，影院式入场在软件渲染下按帧推进，因此功能断言按 `--shard` 分为八片。分片只切分用例，不跳过断言，每个作业仍固定 1 个 worker。调整分片数后须同步更新 GitHub required checks，新增作业不会自动成为必需检查。
+完整入场依赖 WebGL 与 GPU。托管运行器没有 GPU，软件渲染下每个提示按帧推进，单个场景用例会耗满数分钟超时，因此依赖完整场景的用例不进入推送门禁。推送门禁只运行不依赖完整场景的功能断言，按 `--shard` 分为八片。分片只切分用例，不跳过断言，每个作业仍固定 1 个 worker。调整分片数后须同步更新 GitHub required checks，新增作业不会自动成为必需检查。
 
-需要完整场景的用例标注 `@cinematic`，由 `cinematic` 工作流按需运行。推送门禁与默认测试配置都排除该标签，`--scene` 执行计划设置 `XCA_CINEMATIC=1` 后才运行。图片基线只有 Windows 一份，由 `images` 工作流按需比对。
+需要完整场景的用例标注 `@cinematic`，推送门禁与默认测试配置都排除该标签。完整场景回归在有 GPU 的本地环境通过 `bun run test:scene` 执行；`--scene` 计划设置 `XCA_CINEMATIC=1` 后才运行。`cinematic` 工作流仍为按需触发，但托管运行器没有 GPU，其结果不作为验收依据，没有自托管 GPU 运行器时不应触发。图片基线只有 Windows 一份，由 `images` 工作流按需比对。
 
 共享运行器偶尔在单帧内跳过某个阶段，CI 允许一次重试，重试后仍失败照常阻断。早期开发阶段每个平台同步一次共享 UI，再构建一次门户并复用该产物运行测试。发布版本改用 npm 精确版本后只安装一次依赖。
 
@@ -39,7 +39,7 @@ bun run dev
 
 早期开发使用本地 `file:` 依赖与根级 overrides。同步脚本委托共享库的 `scripts/sync-consumer.ts`，按依赖顺序构建 Tokens、Motion、Overlay Runtime、Glass Runtime、Tailwind 与 Vue，再刷新安装目录中的产物并逐文件核对。包含嵌套副本，跳过内容相同的硬链接文件，使用冻结锁文件安装。
 
-[依赖来源检查](../../scripts/deps/ui-dependencies.ts) 同时读取 dependencies 与 overrides，同名 override 不能隐藏另一来源。只区分本地、发布和混合来源，不验证发布版本兼容性。实际本地路径由共享同步器核对。[来源回归测试](../../scripts/deps/ui-dependencies.test.ts) 和 [同步入口回归](../../scripts/deps/ui-sync.test.ts) 使用隔离夹具验证来源冲突、发布包跳过与缺失同步器，不执行安装或写入共享库。
+[依赖来源检查](../../scripts/deps/ui-dependencies.ts) 同时读取 dependencies 与 overrides，同名 override 不能隐藏另一来源。只区分本地、发布和混合来源，不验证发布版本兼容性。实际本地路径由共享同步器核对。[来源回归测试](../../scripts/deps/ui-dependencies.test.ts) 和 [同步入口回归](../../scripts/deps/ui-sync.test.ts) 使用独立临时目录验证来源冲突、发布包跳过与缺失同步器，不执行安装或写入共享库。
 
 存在 `file:` 依赖时，`nuxt.config.ts` 将共享模块解析到本地构建目录并排除相应依赖预打包，Vue 由门户统一解析。共享组件 JS 与生成 CSS 一起同步，不混用不同来源的产物。CI 固定版本与本地工作区的验证区别见 [CI 决策](#决策背景与取舍)。
 
@@ -67,6 +67,7 @@ bun run dev
 | `bun run check:tests` | 测试注册表与仓库双向核对 |
 | `bun run typecheck` | 应用与检查脚本的类型检查 |
 | `bun run test` / `test:e2e` / `test:scene` / `test:visual` | 测试层级与执行计划见 [测试注册表](../testing/README.md) |
+| `bun run test:ci` / `test:scene:ci` / `test:visual:ci` | CI 复用同一执行计划，不含构建 |
 | `bun run check` | 全部快速门禁与生产构建 |
 | `bun run build` / `bun run generate` | 生产构建与静态生成 |
 | `bun run format` | 按需格式化并整理 import |
@@ -139,7 +140,7 @@ Nuxt 以文件名推导路由与布局，单词文件名属于框架约定；[Bi
 
 范围由 `git ls-files` 的已跟踪和未忽略未跟踪文件决定，检查 ts/js/vue/css/md。生成文件、构建输出和依赖由 Git ignore 排除，`.agents/` 下的过程材料是带日期的归档，不计入阈值检查范围。新增生成资产应核实来源并配置精确排除，不得为手写业务文件添加忽略。字体覆盖 JSON 与二进制不属于代码长度阈值。
 
-存量超限登记在 `scripts/gates/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分；距硬限不足十个单位的项另输出 NEAR，已登记有效例外或硬限不设上限的项不计入。指向不存在文件或函数的例外会使检查失败。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。阈值检查脚本不判断代码设计质量。
+存量超限登记在 `scripts/gates/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。理由不记录逐次增长，数值变化由 Git 历史与提交信息承载。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分；汇总按文件、函数和文档内容量分组计数，距硬限不足十个单位的项另输出 NEAR，已登记有效例外或硬限不设上限的项不计入。指向不存在文件或函数的例外会使检查失败。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。阈值检查脚本不判断代码设计质量。
 
 ## 架构边界及局限
 
@@ -153,7 +154,7 @@ Core 仅允许 Core、branding、终端 config、i18n 与站点 config 的本地
 
 [文档链接检查](../../scripts/gates/check-docs.ts) 跳过围栏、行内代码、外部协议和片段，只核对文件目标存在，不检查片段有效性或外链连通性。片段和正文事实仍由人工核对。
 
-[命令入口检查](../../scripts/gates/check-references.ts) 核对 `package.json`、门禁聚合与工作流中的脚本路径是否存在，不检查参数、文档叙述性引用或跨仓库路径。参数与执行语义仍由对应测试和 CI 运行验证。
+[命令入口检查](../../scripts/gates/check-references.ts) 核对 `package.json`、门禁聚合与工作流中的脚本路径是否存在，并校验 `bun run` 引用的脚本名已在清单声明；不检查参数、文档叙述性引用或跨仓库路径。CI 通过 `test:ci`、`test:scene:ci` 与 `test:visual:ci` 复用同一执行计划，参数与执行语义仍由对应测试和 CI 运行验证。
 
 ## 修改与验证
 

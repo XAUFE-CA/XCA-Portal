@@ -129,7 +129,7 @@ export async function discoverTests(): Promise<string[]> {
 }
 
 // Evidence is read from calls and test titles, so fixture strings stay inert data.
-// 证据取自调用与测试标题，夹具中的字符串不会被当成证据。
+// 证据取自调用与测试标题，测试数据中的字符串不会被当成证据。
 function hasCall(file: string, source: string, name: string): boolean {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   let found = false;

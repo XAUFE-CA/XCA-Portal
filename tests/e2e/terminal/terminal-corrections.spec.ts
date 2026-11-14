@@ -128,7 +128,7 @@ test("shared header controls fit narrow and intermediate viewports", async ({ pa
   }
 });
 
-test("INTRO replaces edited output with welcome before replay and after docking", async ({
+test("INTRO replaces edited output with welcome before replay and after docking @cinematic", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });

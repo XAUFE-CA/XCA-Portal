@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import { advanceToScreen } from "../support/journey";
 import { SCENE_TIMEOUT, SETTLE_TIMEOUT } from "../support/timing";
 
-test("motion preference change and rotation settle a readable terminal", async ({ page }) => {
+test("motion preference change and rotation settle a readable terminal @cinematic", async ({
+  page,
+}) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "approach", {
     timeout: SCENE_TIMEOUT,
@@ -22,7 +24,7 @@ test("motion preference change and rotation settle a readable terminal", async (
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("repeated intro replay preserves host, directory, appearance and history", async ({
+test("repeated intro replay preserves host, directory, appearance and history @cinematic", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -56,7 +58,7 @@ test("repeated intro replay preserves host, directory, appearance and history", 
   await expect(terminal).toHaveCount(1);
 });
 
-test("journey timeline records frame timings and releases spatial animations", async ({
+test("journey timeline records frame timings and releases spatial animations @cinematic", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
@@ -146,7 +148,7 @@ test("journey timeline records frame timings and releases spatial animations", a
   });
 });
 
-test("a visualViewport-only resize settles the current projection", async ({ page }) => {
+test("a visualViewport-only resize settles the current projection @cinematic", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "cruise", {
     timeout: SCENE_TIMEOUT,

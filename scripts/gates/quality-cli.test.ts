@@ -84,6 +84,8 @@ test("architecture CLI rejects missing imports and indirect cycles and accepts a
   });
 });
 
+// Ten spawned CLI checks need more than the default five-second budget.
+// 十次 CLI 子进程检查需要超过默认五秒的预算。
 test("terminal UI CLI validates every component style block", () => {
   withFixture((root) => {
     write(root, "app/assets/css/terminal.css", "");
@@ -126,7 +128,7 @@ test("terminal UI CLI validates every component style block", () => {
     expect(split.code).toBe(1);
     expect(split.output.replaceAll("\\", "/")).toContain("terminal-intro.css");
   });
-});
+}, 15_000);
 
 test("budget CLI rejects an exception that no longer matches a file or function", () => {
   withFixture((root) => {
@@ -139,6 +141,20 @@ test("budget CLI rejects an exception that no longer matches a file or function"
     const failure = check(root, "budgets");
     expect(failure.code).toBe(1);
     expect(failure.output).toContain("app/removed.ts: 例外未对应现存的文件或函数");
+  });
+});
+
+test("budget CLI rejects an exception whose function key no longer matches", () => {
+  withFixture((root) => {
+    const config = {
+      limits: { source: [300, 500], css: [400, 600], test: [400, 700], function: [60, 100] },
+      exceptions: { "app/example.ts:renamed#1": { ceiling: 101, reason: "stale function key" } },
+    };
+    write(root, "scripts/gates/quality-budgets.json", JSON.stringify(config));
+    write(root, "app/example.ts", "export function current() { return 1; }\n");
+    const failure = check(root, "budgets");
+    expect(failure.code).toBe(1);
+    expect(failure.output).toContain("app/example.ts:renamed#1: 例外未对应现存的文件或函数");
   });
 });
 
@@ -157,6 +173,24 @@ test("reference CLI rejects a missing command entry and accepts the resolved pat
     expect(failure.output).toContain(`${workflow}:1: 脚本入口不存在 scripts/test-plan.ts`);
     write(root, workflow, "run: bun scripts/tests/test-plan.ts run system\n");
     write(root, entry, "export {};\n");
+    expect(check(root, "references").code).toBe(0);
+  });
+});
+
+test("reference CLI rejects a workflow command missing from the manifest", () => {
+  withFixture((root) => {
+    const workflow = ".github/workflows/quality.yml";
+    write(
+      root,
+      "package.json",
+      '{"scripts":{"test:ci":"bun scripts/tests/test-plan.ts run system --no-snapshot"}}\n',
+    );
+    write(root, workflow, "run: bun run test:missing -- --shard=1/8\n");
+    const failure = check(root, "references");
+    expect(failure.code).toBe(1);
+    expect(failure.output).toContain(`${workflow}:1: 命令脚本未声明 test:missing`);
+    write(root, workflow, "run: bun run test:ci -- --shard=1/8\n");
+    write(root, "scripts/tests/test-plan.ts", "export {};\n");
     expect(check(root, "references").code).toBe(0);
   });
 });

@@ -98,7 +98,7 @@ test("header smoothly morphs between the page top and floating state with a stab
   page,
 }) => {
   // Extend the document fixture to exercise scrolling without another production route.
-  // 延长文档测试夹具，以在不引入其他生产路由的情况下验证滚动。
+  // 在页面中追加占位元素，以在不引入其他生产路由的情况下验证滚动。
   await page.evaluate(() => {
     const spacer = document.createElement("div");
     spacer.style.height = "2000px";

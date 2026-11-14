@@ -26,7 +26,7 @@ declare global {
   }
 }
 
-test("skipping the journey releases its material textures and city framebuffer", async ({
+test("skipping the journey releases its material textures and city framebuffer @cinematic", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -188,7 +188,7 @@ async function roadPixel(page: Page, opacity: number, deck = 1) {
 }
 
 for (const theme of ["light", "dark"] as const) {
-  test(`the glass deck transmits the city while the auditorium floor stays opaque in ${theme}`, async ({
+  test(`the glass deck transmits the city while the auditorium floor stays opaque in ${theme} @cinematic`, async ({
     page,
   }) => {
     await setThemePreference(page, theme);
@@ -227,7 +227,7 @@ for (const theme of ["light", "dark"] as const) {
     await expect(page.locator(".xca-terminal-window")).toHaveCount(1);
   });
 
-  test(`intro background visually matches the initial home canvas in ${theme}`, async ({
+  test(`intro background visually matches the initial home canvas in ${theme} @cinematic`, async ({
     page,
   }) => {
     await setThemePreference(page, theme);
@@ -296,7 +296,7 @@ async function prepareRoomProbe(page: Page) {
   );
 }
 
-test("the portal reveals opaque room surfaces only inside its growing aperture", async ({
+test("the portal reveals opaque room surfaces only inside its growing aperture @cinematic", async ({
   page,
 }) => {
   await prepareRoomProbe(page);
@@ -320,7 +320,7 @@ test("the portal reveals opaque room surfaces only inside its growing aperture",
   expect(previous).toBeGreaterThan(100);
 });
 
-test("the portal crossing leaves the complete room independent of aperture progress", async ({
+test("the portal crossing leaves the complete room independent of aperture progress @cinematic", async ({
   page,
 }) => {
   await prepareRoomProbe(page);
@@ -341,7 +341,7 @@ test("the portal crossing leaves the complete room independent of aperture progr
   }
 });
 
-test("destination geometry in front of the portal cannot form an exterior shell", async ({
+test("destination geometry in front of the portal cannot form an exterior shell @cinematic", async ({
   page,
 }) => {
   await prepareRoomProbe(page);
@@ -362,7 +362,7 @@ test("destination geometry in front of the portal cannot form an exterior shell"
   expect(interior[0]?.outside).toBe(0);
 });
 
-test("road growth clips only the connection, never the auditorium floor or stage", async ({
+test("road growth clips only the connection, never the auditorium floor or stage @cinematic", async ({
   page,
 }) => {
   await prepareRoomProbe(page);

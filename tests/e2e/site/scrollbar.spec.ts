@@ -86,7 +86,7 @@ test("document scrollbar uses the viewport, not the clipped XCA layout", async (
     .poll(() => page.evaluate(() => document.documentElement.scrollHeight))
     .toBeGreaterThan(1800);
   // The page no longer overflows here; reveal the rail after injecting the fixture.
-  // 页面在此视口已不再溢出，注入夹具后唤出沉浸式滚动条。
+  // 页面在此视口已不再溢出，注入占位元素后唤出沉浸式滚动条。
   await page.evaluate(() => window.dispatchEvent(new Event("resize")));
   await expect(rail).toHaveAttribute("data-visible", "true");
   const beforeWidth = await page.locator(".site-main").evaluate((node) => node.clientWidth);

@@ -9,7 +9,7 @@ Status: adopted
 | 层级 | 范围 | 执行器 |
 | --- | --- | --- |
 | unit | 单个模块或少量纯函数，不启动浏览器，不读取仓库外状态 | `bun test` |
-| module | 跨模块、仓库数据、文件系统夹具或模块导出的接口 | `bun test` |
+| module | 跨模块、仓库数据、临时文件目录或模块导出的接口 | `bun test` |
 | system | 生产构建上的浏览器行为 | `playwright test` |
 
 图片基线与完整入场场景属于 system 层级，分别用 `snapshot` 与 `scene` 元数据标记。
@@ -55,7 +55,7 @@ Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定�
 | --- | --- | --- |
 | browser | 需要生产构建与无头 Chromium | Runner 必须为 `playwright` |
 | isolated | 每个用例写独立临时目录，不读写共享状态 | 范围内文件包含 `mkdtempSync(` |
-| scene | 包含 `@cinematic` 用例，只由 cinematic 工作流运行 | 范围内文件包含 `@cinematic` |
+| scene | 包含 `@cinematic` 用例；依赖 GPU 完整场景，推送门禁排除，由 `--scene` 计划在有 GPU 的本地环境运行 | 范围内文件包含 `@cinematic` |
 | snapshot | 与图片基线比对，基线属于渲染它的机器 | 文件包含 `toHaveScreenshot(`，且基线目录含 PNG |
 
 属性与文件内容双向核对：声明了属性却没有对应证据会失败，出现证据却没有登记属性同样失败。
@@ -71,6 +71,8 @@ Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定�
 | `bun run test:visual` | 生产构建后只运行 `snapshot` 范围 |
 
 `bun scripts/tests/test-plan.ts list <层级>` 只打印文件与命令，`run <层级>` 执行。`--shard=N/M` 传给 Playwright，用于 CI 分片；`--ignore-snapshots` 与 `--update-snapshots` 原样传给 Playwright。`--scene` 只选择带 `scene` 元数据的范围，`--snapshot` 只选择带 `snapshot` 元数据的范围，`--no-snapshot` 排除该范围。
+
+CI 工作流不单独书写计划路径，通过 `bun run test:ci`、`bun run test:scene:ci` 与 `bun run test:visual:ci` 调用同一入口，用 `--` 追加分片与基线参数。推送门禁只执行不依赖 GPU 的用例；`@cinematic` 用例由本地 `bun run test:scene` 在具备 GPU 的环境验收，托管运行器的结果不作为依据。
 
 ## 浏览器回归
 

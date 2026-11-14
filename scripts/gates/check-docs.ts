@@ -56,6 +56,7 @@ const BANNED_PHRASES = [
   "重栅格化",
   "呈现层",
   "钩子",
+  "夹具",
 ];
 
 // Rule files and this list quote banned phrases as counterexamples, so review covers them.

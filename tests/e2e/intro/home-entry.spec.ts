@@ -138,7 +138,7 @@ test("saved theme keeps its text and selection background aligned through reload
   }
 });
 
-test("three separate spaces smoothly skip the scene and retain the real terminal", async ({
+test("three separate spaces smoothly skip the scene and retain the real terminal @cinematic", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -270,7 +270,7 @@ test("entering on another route consumes the session entry and returning keeps s
   ).toEqual({ scene: false, boot: false });
 });
 
-test("explicit replay still works after refresh and can be skipped repeatedly", async ({
+test("explicit replay still works after refresh and can be skipped repeatedly @cinematic", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });

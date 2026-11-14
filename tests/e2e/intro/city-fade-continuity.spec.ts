@@ -85,7 +85,7 @@ async function observeCity(page: Page, theme: "light" | "dark") {
 }
 
 for (const theme of ["light", "dark"] as const) {
-  test(`city fade changes continuously at low opacity in ${theme}`, async ({ page }) => {
+  test(`city fade changes continuously at low opacity in ${theme} @cinematic`, async ({ page }) => {
     test.setTimeout(240000);
     await page.setViewportSize({ width: 960, height: 640 });
     await observeCity(page, theme);

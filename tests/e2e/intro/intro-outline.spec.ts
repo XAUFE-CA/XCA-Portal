@@ -8,7 +8,9 @@ declare global {
   }
 }
 
-test("CA outline advances without jumping while a cold renderer initializes", async ({ page }) => {
+test("CA outline advances without jumping while a cold renderer initializes @cinematic", async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     const samples: number[] = [];
     Object.assign(window, { outlineSamples: samples, outlineFinished: false });

@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: SSJ-ZYJ/Neoverse-UI
-          ref: e0d2005b6288900061f745020ef90fc0a5a3dac9
+          ref: 35a0b34b79e922c383b6a145fff1c0e7c1f393c7
           path: Neoverse-UI
           persist-credentials: false
       - uses: actions/setup-node@v7
@@ -65,11 +65,12 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # Hosted runners render the cinematic intro without a GPU, so functional coverage is
-  # split across shards. Image baselines depend on the rasterizer of the machine that owns
-  # them, so they run in the separate images workflow instead of gating every push.
-  # 托管运行器没有 GPU 渲染影院式入场，因此功能覆盖按分片切分。
-  # 图片基线取决于其所在机器的光栅器，因此改在独立的 images 工作流运行，不阻断每次推送。
+  # The push gate runs only GPU-independent functional assertions; @cinematic cases need
+  # WebGL and are verified locally on a GPU machine. Coverage is split across shards.
+  # Image baselines depend on the rasterizer of the machine that owns them, so they run
+  # in the separate images workflow instead of gating every push.
+  # 推送门禁只运行不依赖 GPU 的功能断言；@cinematic 用例需要 WebGL，由具备 GPU 的本地环境验收。
+  # 功能覆盖按分片切分。图片基线取决于其所在机器的光栅器，改在独立的 images 工作流运行。
   browser:
     needs: gates
     strategy:
@@ -107,7 +108,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: SSJ-ZYJ/Neoverse-UI
-          ref: e0d2005b6288900061f745020ef90fc0a5a3dac9
+          ref: 35a0b34b79e922c383b6a145fff1c0e7c1f393c7
           path: Neoverse-UI
           persist-credentials: false
       - uses: actions/setup-node@v7
@@ -148,7 +149,7 @@ jobs:
         # 图片基线由独立的 images 工作流负责，功能计划不选择该范围。
         # Full-scene geometry runs in the cinematic workflow; a slow renderer cannot host it.
         # 完整场景几何由 cinematic 工作流承担；慢速渲染器跑不动它。
-        run: bun scripts/tests/test-plan.ts run system --no-snapshot --shard=${{ matrix.shard }}/8
+        run: bun run test:ci -- --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

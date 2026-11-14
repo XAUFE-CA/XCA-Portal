@@ -17,15 +17,15 @@ scripts/
 | check-architecture.ts | 检查 app 静态导入、循环与终端 Core 宿主能力 |
 | check-budgets.ts | 行数、函数行数与文档内容量阈值 |
 | check-docs.ts | 内部链接与禁用表述 |
-| check-references.ts | 命令入口引用的脚本路径存在性 |
+| check-references.ts | 命令入口路径与清单脚本名的一致性 |
 | check-terminal-boundary.ts | 终端共享控件、公开样式变量、固定颜色与时长 |
 | check-test-registry.ts | 测试注册表与仓库双向核对 |
 | run-gates.ts | 按顺序聚合门禁，构建最后执行 |
 | source-analysis.ts | TypeScript/Vue 解析、导入图、循环与计量 |
 | quality-budgets.json | 阈值与已审查例外；上限变化须写明原因 |
 | quality.test.ts | 阈值、文档、源码分析与门禁聚合的单元测试 |
-| quality-cli.test.ts | 检查脚本 CLI 的隔离夹具测试 |
-| run-gates.test.ts | 门禁摘要、失败继续与构建跳过的夹具测试 |
+| quality-cli.test.ts | 检查脚本 CLI 在独立临时目录中的测试 |
+| run-gates.test.ts | 门禁摘要、失败继续与构建跳过的隔离测试 |
 
 ## tests/
 
@@ -42,7 +42,7 @@ scripts/
 | sync-neoverse-ui.ts | `ui:sync` 入口，委托共享库同步器并核对安装目录 |
 | ui-dependencies.ts | 本地、发布与混合依赖来源判定 |
 | ui-dependencies.test.ts | 来源判定单元测试 |
-| ui-sync.test.ts | 同步入口在隔离夹具中的行为 |
+| ui-sync.test.ts | 同步入口在独立临时目录中的行为 |
 
 ## build/
 

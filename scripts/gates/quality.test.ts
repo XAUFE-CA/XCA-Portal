@@ -3,9 +3,15 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ts from "typescript";
-import { budgetFailure, fileLimits, inBudgetScope, nearHardLimit } from "./check-budgets";
+import {
+  budgetFailure,
+  fileLimits,
+  inBudgetScope,
+  nearHardLimit,
+  reviewCategory,
+} from "./check-budgets";
 import { bannedPhrases, extractLinks, isExternalLink, isWordingRuleFile } from "./check-docs";
-import { isEntryFile, scriptReferences } from "./check-references";
+import { isEntryFile, scriptCommands, scriptReferences } from "./check-references";
 import { GATES, tail } from "./run-gates";
 import {
   boundaryViolation,
@@ -29,6 +35,11 @@ test("hard limits require a reason and prevent baseline growth", () => {
   expect(budgetFailure(510, 500, { ceiling: 510, reason: "cohesive state machine" })).toBe(false);
   expect(budgetFailure(511, 500, { ceiling: 510, reason: "cohesive state machine" })).toBe(true);
   expect(budgetFailure(510, 500, { ceiling: 510, reason: "" })).toBe(true);
+});
+test("review categories separate files, functions and document units", () => {
+  expect(reviewCategory("app/example.ts")).toBe("file");
+  expect(reviewCategory("app/example.ts:run#1")).toBe("function");
+  expect(reviewCategory("docs/example.md:units")).toBe("document");
 });
 test("near hard limit warns before blocking and skips reviewed exceptions", () => {
   expect(nearHardLimit(495, 300, 500)).toBe(true);
@@ -115,6 +126,7 @@ test("banned wording catches vague phrasing and exempts rule files", () => {
     { line: 3, phrase: "事实来源" },
     { line: 3, phrase: "共享令牌" },
   ]);
+  expect(bannedPhrases("使用隔离夹具验证")).toEqual([{ line: 1, phrase: "夹具" }]);
   expect(bannedPhrases("CA 标识与样式变量")).toEqual([]);
   expect(isWordingRuleFile("docs/AGENTS.md")).toBe(true);
   expect(isWordingRuleFile("docs/architecture/site-shell/README.md")).toBe(false);
@@ -135,6 +147,18 @@ test("script reference scan covers command entries and skips sibling-workspace p
   expect(isEntryFile(".github/workflows/quality.yml")).toBe(true);
   expect(isEntryFile("scripts/gates/run-gates.ts")).toBe(true);
   expect(isEntryFile("docs/testing/README.md")).toBe(false);
+});
+
+test("command scan reads manifest names from workflow and gate array forms", () => {
+  const source = [
+    "run: bun run test:ci -- --shard=1/8",
+    'cmd: ["bun", "run", "check:fast"],',
+    "run: bunx nuxt build",
+  ].join("\n");
+  expect(scriptCommands(source)).toEqual([
+    { name: "test:ci", line: 1 },
+    { name: "check:fast", line: 2 },
+  ]);
 });
 
 test("gate runner covers every granular check script without gaps", () => {
