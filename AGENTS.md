@@ -2,10 +2,10 @@
 
 XCA Portal 是 [XAUFE-CA](https://github.com/XAUFE-CA) 官方门户。改代码前先读以下文档：
 
-- [工程质量规则](docs/architecture/engineering-quality.md)：门禁、预算与分级。
+- [工程质量规则](docs/architecture/engineering-quality.md)：门禁、规模阈值与分级。
 - [测试注册表](docs/testing/README.md)：测试层级、执行计划与注册表核对。
 - [终端扩展接口](docs/architecture/terminal-extending.md)：修改 `app/features/terminal/` 前必读。
-- [首页入场](docs/architecture/home-intro.md) 与 [站点框架](docs/architecture/site-shell.md)：首页动画与站点框架。
+- [首页入场](docs/architecture/home-intro.md)、[入场场景](docs/architecture/intro-scene.md) 与 [站点框架](docs/architecture/site-shell/README.md)：首页动画、场景绘制与站点框架。
 - [docs/AGENTS.md](docs/AGENTS.md)：文档写法。
 
 除标注 SHOULD（需审查说明的建议）或 MAY（可选方案）的条目外，其余条文均为强制要求。
@@ -59,7 +59,7 @@ public/                 静态资产
 2. 定位真实调用链，区分门户消费层和共享 UI 问题，明确根因、范围、依赖和验证方式。
 3. 最小化修改并复用现有实现。禁止重复状态源、无意义抽象、为了行数拆文件、补丁式 CSS、强制重渲染及无依据的新依赖。
 4. 执行适用检查、审查 Diff、同步必要测试与文档。如实说明失败、跳过和未验证风险，不得未经验证宣称修复。
-5. 不得用 suppress、`any`、跳过测试或扩大忽略掩盖缺陷。预算例外与误报的审查流程见工程质量规则。
+5. 不得用 suppress、`any`、跳过测试或扩大忽略掩盖缺陷。阈值例外与误报的审查流程见工程质量规则。
 6. 不得自行清理工作区、重置、覆盖用户改动。未经明确要求，不执行 commit、push、rebase 或修改历史。
 
 ## 约定
@@ -91,24 +91,24 @@ public/                 静态资产
 | 命令、端口、依赖 | `package.json`、`nuxt.config.ts`、[工程质量规则](docs/architecture/engineering-quality.md) |
 | 标识与导航 | `app/config/site.ts`、`public/brand/`、布局及双语资源 |
 | 终端当前接口 | [终端扩展接口](docs/architecture/terminal-extending.md)、`app/features/terminal/` |
-| 首页入场与站点框架 | [首页入场](docs/architecture/home-intro.md)、[站点框架](docs/architecture/site-shell.md) 及各文档列出的源码 |
+| 首页入场、入场场景与站点框架 | [首页入场](docs/architecture/home-intro.md)、[入场场景](docs/architecture/intro-scene.md)、[站点框架](docs/architecture/site-shell/README.md) 及各文档列出的源码 |
 | 质量规则与决策 | [工程质量规则](docs/architecture/engineering-quality.md)、`scripts/gates/quality-budgets.json` |
 | 测试层级与执行计划 | [测试注册表](docs/testing/README.md)、`scripts/tests/test-registry.ts` |
 | 验证 | `scripts/gates/check-*.ts`、`app/**/*.test.ts`、`tests/e2e/` |
 
 源码、配置和最新用户决策优先于过期文档，查实矛盾后修正文档，不按旧描述改写正常代码。
 
-## 格式、预算与验证
+## 格式、规模阈值与验证
 
 - 遵守 EditorConfig、Git attributes、Biome、Prettier。UTF-8/LF、两空格、双引号、分号、末尾换行。
 - 源码注释使用双语，英文在上、中文在下，每条一句话，不复述代码，不写 `名称：含义；含义` 式说明。注释随代码同步更新。
 - Biome 负责代码、CSS、JSON、SVG 的格式与 import assist，Prettier 只管 Markdown/YAML。按修改范围格式化，不冲掉用户其他工作。
-- `lint` 与 `format:check` 独立，不得把格式通过说成 Lint 通过。Lint 无 error、预算上限与例外、软预算审查和重构的分级执行以 [工程质量规则](docs/architecture/engineering-quality.md) 为唯一规范。
+- `lint` 与 `format:check` 独立，不得把格式通过说成 Lint 通过。Lint 无 error、硬上限与例外、软阈值审查和重构的分级执行以 [工程质量规则](docs/architecture/engineering-quality.md) 为唯一规范。
 
 | 改动 | 验证 |
 | --- | --- |
-| Markdown/YAML/翻译 | 格式、文档预算、链接检查、双语一致与内容加载 |
-| TS/架构/检查脚本 | 类型、单测、架构及预算检查 |
+| Markdown/YAML/翻译 | 格式、文档阈值、链接检查、双语一致与内容加载 |
+| TS/架构/检查脚本 | 类型、单测、架构及阈值检查 |
 | 终端命令/UI/样式 | check:terminal、核心单测、相关 E2E |
 | 新增/移动测试 | check:tests 注册表核对、对应层级测试 |
 | 主题/极光玻璃/滚动/动画 | 浅/深/system、尺寸变化、减少动画、跳过/恢复、焦点与滚动回归 |
@@ -120,8 +120,8 @@ public/                 静态资产
 
 - 根 AGENTS 只放全局约束和入口，模块例外确有需要才下沉，不创建空模板或重复规范。
 - 每个 AGENTS.md 都包含所在目录的结构介绍：注释目录树、根文件职责与扩展去向，便于 AI 定位。新增或移动文件时同步更新对应树。
-- 修改本文件时保持条目自包含，细节链接到专题文档。内容增长先压缩或迁移，仍超预算才按工程质量规则登记带原因的精确上限。
-- 公共接口和架构决策同步专题文档，历史文档标明状态。文档修改者负责核对事实与入口，审查者审核预算例外和职责。
+- 修改本文件时保持条目自包含，细节链接到专题文档。内容增长先压缩或迁移，仍超出阈值才按工程质量规则登记带原因的精确上限。
+- 公共接口和架构决策同步专题文档，历史文档标明状态。文档修改者负责核对事实与入口，审查者审核阈值例外和职责。
 - `docs/AGENTS.md` 的空格标点与行文规则、[docs/terminology/](docs/terminology/README.md) 的术语、用词与翻译规则适用于全仓库 Markdown 与产品文案，含根 AGENTS、README 与过程材料。其结构规则仅约束 `docs/` 子树，术语与缩写的全称只在对照表维护。
 - `docs/` 只放当前架构、现行接口、采用的 ADR 及写作规范。审计快照与实施计划归 `.agents/notes/`，命名、更新与归档规则见工程质量规则。`.agents/` 其余子目录预留给 skills、commands 等 Agent 资源，不放过程材料。
 - 完成前核对 Diff/status，交付修改原因、文件、实际验证结果、失败和遗留风险。

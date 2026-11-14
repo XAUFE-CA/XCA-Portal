@@ -59,6 +59,18 @@
       "lineWidth": 100
     }
   },
+  "overrides": [
+    {
+      "includes": ["app/layouts/**", "app/pages/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useVueMultiWordComponentNames": "off"
+          }
+        }
+      }
+    }
+  ],
   "linter": {
     "enabled": true,
     "rules": {

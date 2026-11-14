@@ -154,7 +154,7 @@ test("Linux-style boot lines and Welcome to XCA ASCII rows print progressively @
 
   await expect(lines).toHaveCount(6, { timeout: SCENE_TIMEOUT });
   // The bar advances one tick per rendered frame; software renderers need the scene budget.
-  // 进度条每渲染一帧推进一格；软件渲染器需要场景预算。
+  // 进度条每渲染一帧推进一格；软件渲染器需要更长的场景超时上限。
   await expect(page.locator(".xca-terminal-boot-progress")).toHaveAttribute(
     "aria-valuenow",
     "100",

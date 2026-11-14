@@ -2,7 +2,7 @@
 
 Status: historical
 
-本文保留当时的修复与环境记录，不代表当前实现或当前环境。现行站点过渡与验证规则分别见 [站点框架](../../../docs/architecture/site-shell.md) 和 [工程质量规则](../../../docs/architecture/engineering-quality.md)。
+本文保留当时的修复与环境记录，不代表当前实现或当前环境。现行站点过渡与验证规则分别见 [站点框架](../../../docs/architecture/site-shell/README.md) 和 [工程质量规则](../../../docs/architecture/engineering-quality.md)。
 
 本次修复三个问题：组件切换缺少平滑过渡、导航栏层级低于终端卡片、紧凑菜单按钮沿用次要按钮样式。
 

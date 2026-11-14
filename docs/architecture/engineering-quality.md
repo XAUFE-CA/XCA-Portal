@@ -2,7 +2,7 @@
 
 Status: adopted
 
-变更作者负责随改动更新本文的事实和相关测试。审查者重点核对三项：改动是否越过架构边界、预算例外是否说明原因、规则条文是否变动。
+变更作者负责随改动更新本文的事实和相关测试。审查者重点核对三项：改动是否越过架构边界、阈值例外是否说明原因、规则条文是否变动。
 
 ## 决策背景与取舍
 
@@ -61,7 +61,7 @@ bun run dev
 | `bun run ui:sync` | 早期开发同步共享库产物 |
 | `bun run check:fast` | 快速门禁，不含构建 |
 | `bun run format:check` / `bun run lint` | 分别检查格式与 Lint |
-| `bun run check:docs` / `bun run check:budgets` | 文档链接与预算检查 |
+| `bun run check:docs` / `bun run check:budgets` | 文档链接与阈值检查 |
 | `bun run check:architecture` / `bun run check:terminal` | 导入依赖与终端 UI 约束 |
 | `bun run check:tests` | 测试注册表与仓库双向核对 |
 | `bun run typecheck` | 应用与检查脚本的类型检查 |
@@ -93,15 +93,15 @@ bun audit --registry https://registry.npmjs.org
 | MUST | Lint 无 error，保留历史 warning/info 可见 | `lint`，CI 阻断 error |
 | MUST | 类型、单测、终端 UI 与架构边界 | `check:fast`，CI 阻断 |
 | MUST | 测试文件与注册表一致，新增测试必须被登记 | `check:tests`，CI 阻断 |
-| MUST | 新增超硬预算或存量超限增长须说明 | `check:budgets`，未登记精确上限及原因则阻断 |
+| MUST | 新增超出硬上限的项或存量超限增长须说明 | `check:budgets`，未登记精确上限及原因则阻断 |
 | MUST | 生产构建、现有功能 E2E | CI 构建一次并在 Linux 分片执行功能断言；`@cinematic` 与图片基线按需运行 |
-| SHOULD | 软预算、认知复杂度 >25、深层嵌套、模块职责变化、重复实现与状态竞争 | Biome/预算输出 + 人工审查 |
-| MUST | 例外、提高预算、抑制误报、跨仓库公共接口 | 审查者核实依据，不以消除诊断为理由 |
+| SHOULD | 软阈值、认知复杂度 >25、深层嵌套、模块职责变化、重复实现与状态竞争 | Biome/阈值检查输出 + 人工审查 |
+| MUST | 例外、提高阈值、抑制误报、跨仓库公共接口 | 审查者核实依据，不以消除诊断为理由 |
 | MAY | 有证据的重构、额外平台或性能验证 | 按收益与风险选择，不为了指标制造工作 |
 
 `check:fast` 与 `check` 都使用已安装的依赖，不隐式同步共享 UI。早期开发修改共享库后，先按 [依赖准备](#本地开发与共享依赖) 执行同步。两者由 `scripts/gates/run-gates.ts` 聚合执行。检查脚本、Playwright 配置与 E2E 源码均由 [tsconfig.quality.json](../../tsconfig.quality.json) 严格检查。
 
-Lint 诊断与软预算提示实时输出，不以成功摘要代替审查信息。快速门禁单项失败不中断其余项，结束时汇总全部失败。`check` 只在快速门禁全部通过后继续生产构建。
+Lint 诊断与软阈值提示实时输出，不以成功摘要代替审查信息。快速门禁单项失败不中断其余项，结束时汇总全部失败。`check` 只在快速门禁全部通过后继续生产构建。
 
 `test:e2e` 先构建，再运行浏览器回归。CI 分别执行快速门禁、生产构建和浏览器回归，复用同一构建产物。命令定义见 [package.json](../../package.json)，CI 步骤见 [工作流](../../.github/workflows/quality.yml)。
 
@@ -115,9 +115,11 @@ Biome 负责代码、CSS、JSON、SVG 及 Vue 的实验性 HTML 格式化，Pret
 
 `format` 和 `format:check` 使用 `biome check` 的格式化与 import assist 能力，并关闭 Lint 修复。`biome format` 不执行 import assist。`lint` 单独运行，格式通过不能作为 Lint 通过的证据。Markdown 保留正文换行，表格格式和行文规则见 [文档写作规范](../AGENTS.md)。
 
-## 代码和文档预算
+Nuxt 以文件名推导路由与布局，单词文件名属于框架约定；[Biome 配置](../../biome.json) 仅对 `app/pages/` 与 `app/layouts/` 停用 `useVueMultiWordComponentNames`，其余 Vue 文件保留多词命名检查。
 
-阈值与例外维护在 [预算配置](../../scripts/gates/quality-budgets.json)，实现见 [预算检查](../../scripts/gates/check-budgets.ts)。
+## 代码与文档规模阈值
+
+阈值与例外维护在 [阈值配置](../../scripts/gates/quality-budgets.json)，实现见 [阈值检查](../../scripts/gates/check-budgets.ts)。
 
 | 类型 | SHOULD 审查 | MUST 超限说明 |
 | --- | --: | --: |
@@ -132,15 +134,15 @@ Biome 负责代码、CSS、JSON、SVG 及 Vue 的实验性 HTML 格式化，Pret
 
 算法：CRLF 归一为 LF，末尾换行不额外计空行，其余空行和注释均计入。函数由现有 TypeScript AST 识别，Vue 只解析 script 部分。工厂函数的行数包含其内部嵌套的函数，不自动扣减。函数标识由名称加同名遍历序号组成，重命名或顺序变化后需重新审核基线。
 
-中文没有英文式的空格分词，因此按字符计数：每个 Unicode Han 字符计一单位，连续的 Unicode 字母、数字、下划线整体计一单位，标点和空白不计。Markdown 中的代码、链接、表格都按原始文本统计，算法有意保守，不等同阅读时长。设置内容量预算是为了堵住超长单行绕过行数限制的漏洞。
+中文没有英文式的空格分词，因此按字符计数：每个 Unicode Han 字符计一单位，连续的 Unicode 字母、数字、下划线整体计一单位，标点和空白不计。Markdown 中的代码、链接、表格都按原始文本统计，算法有意保守，不等同阅读时长。设置内容量阈值是为了堵住超长单行绕过行数限制的漏洞。
 
-范围由 `git ls-files` 的已跟踪和未忽略未跟踪文件决定，检查 ts/js/vue/css/md。生成文件、构建输出和依赖由 Git ignore 排除，`.agents/` 下的过程材料是带日期的归档，不计入预算。新增生成资产应核实来源并配置精确排除，不得为手写业务文件添加忽略。字体覆盖 JSON 与二进制不属于代码长度预算。
+范围由 `git ls-files` 的已跟踪和未忽略未跟踪文件决定，检查 ts/js/vue/css/md。生成文件、构建输出和依赖由 Git ignore 排除，`.agents/` 下的过程材料是带日期的归档，不计入阈值检查范围。新增生成资产应核实来源并配置精确排除，不得为手写业务文件添加忽略。字体覆盖 JSON 与二进制不属于代码长度阈值。
 
-存量超限登记在 `scripts/gates/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。预算工具不判断代码设计质量。
+存量超限登记在 `scripts/gates/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。阈值检查脚本不判断代码设计质量。
 
 ## 架构边界及局限
 
-站点框架、终端和首页入场分别见 [站点框架](site-shell.md)、[终端扩展接口](terminal-extending.md) 和 [首页入场](home-intro.md)。`check:terminal` 检查终端控件复用、公开 token、固定颜色与时长及共享组件内部选择器覆盖，范围包含终端样式表与终端特性组件的样式块。
+站点框架、终端和首页入场分别见 [站点框架](site-shell/README.md)、[终端扩展接口](terminal-extending.md) 和 [首页入场](home-intro.md)。`check:terminal` 检查终端控件复用、公开 token、固定颜色与时长及共享组件内部选择器覆盖，范围包含终端样式表与终端特性组件的样式块。
 
 `check:architecture` 构建 app 生产模块的导入图，检查静态 import、export-from、字面量 import()/require()，支持相对路径与 `~/`、`@/`，检查循环和无法解析的本地导入（包括类型导入）。Vue 仅提取 script，资源查询参数被移除后验证文件。
 
@@ -160,7 +162,7 @@ Core 仅允许 Core、branding、终端 config、i18n 与站点 config 的本地
 
 文档职责见 [内容分工](../AGENTS.md#内容分工)。CI 的 SHA 和脚本命令定义各只维护一处，不多处复制。专题文档与对应能力一起提交，独立文档提交只描述该提交所包含的事实。
 
-部分暂存的独立验证以隔离目录为对象：用基准提交和候选索引内容建出该目录，再在目录内运行检查。当前预算和文档链接检查会包含未跟踪文件，架构检查直接扫描工作区。因此在完整工作区运行门禁，不能证明这个切片独立成立。验证记录写明隔离目录的基准提交、候选文件、检查方式和未覆盖项，不通过暂存后续功能补足当前切片。
+部分暂存的独立验证以隔离目录为对象：用基准提交和候选索引内容建出该目录，再在目录内运行检查。当前阈值检查和文档链接检查会包含未跟踪文件，架构检查直接扫描工作区。因此在完整工作区运行门禁，不能证明这个切片独立成立。验证记录写明隔离目录的基准提交、候选文件、检查方式和未覆盖项，不通过暂存后续功能补足当前切片。
 
 修改公共接口时必须同步对应依据。新的架构决策用简明 ADR 记录，包含背景、决策、取舍和后果。本文件建立之前的质量决策统一记录在本文件里，之后的独立决策才新增 ADR，不预先补空模板。失效的资料先标记历史、更新或确认价值，再归档，不机械删除有设计依据的历史文档。
 

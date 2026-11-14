@@ -126,7 +126,7 @@ export function useIntroPresentation(getCommandCount: () => number) {
     introShortcut = createIntroShortcut(() => void skipIntro());
     releaseIntroGate();
     if (wasPlaying)
-      void nextTick(() => {
+      void nextTick().then(() => {
         if (phase.value === "ready" && window.matchMedia("(pointer: fine)").matches)
           terminalRef.value?.focusInput();
       });

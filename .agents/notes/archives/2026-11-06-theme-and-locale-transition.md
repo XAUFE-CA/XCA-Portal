@@ -2,7 +2,7 @@
 
 Status: historical
 
-本文记录 2026-11-06 对主题切换、语言切换与移动端菜单三处闪烁的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell.md)、`app/composables/useSiteTheme.ts`、`app/composables/useSiteLocale.ts`、`app/components/about/AboutSection.vue`、`app/utils/top-layer.ts` 与 `app/assets/css/main.css` 为准。
+本文记录 2026-11-06 对主题切换、语言切换与移动端菜单三处闪烁的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell/README.md)、`app/composables/useSiteTheme.ts`、`app/composables/useSiteLocale.ts`、`app/components/about/AboutSection.vue`、`app/utils/top-layer.ts` 与 `app/assets/css/main.css` 为准。
 
 ## 结论
 
@@ -50,7 +50,7 @@ Chrome，1280×800，以点击为起点逐帧截取（CDP `Page.screencastFrame`
 ## 验证
 
 - 生产构建（独立工作树，避免占用使用者的开发服务器）下运行 `site-transitions`、`about-skeleton`、`theme-transition`、`mobile-header`、`locale`、`preferences-refresh`：**43 通过，0 失败**；加入内容层交叉淡化与可打断伸缩后复跑 `about-skeleton` 与 `site-transitions`：**19 通过，0 失败**。
-- `vue-tsc --noEmit -p tsconfig.json`：通过；预算、文档、架构、终端边界门禁：通过（0 个未批准硬上限、0 条禁用表述）。
+- `vue-tsc --noEmit -p tsconfig.json`：通过；阈值、文档、架构、终端边界门禁：通过（0 个未批准硬上限、0 条禁用表述）。
 - `bun test app scripts`：127 通过，0 失败。
 - 语言切换的画面以 125% 缩放的逐像素裁片对比确认（切换前与切换后 120ms 完全一致）。
 - 未验证：`prefers-reduced-transparency` 组合；路由过渡仍截取正文，导航淡化期间卡片边缘同样不参与快照，本次未改动。

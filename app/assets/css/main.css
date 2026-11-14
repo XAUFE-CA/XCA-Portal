@@ -211,12 +211,6 @@ a {
 [data-theme="dark"] .site-logo__icon {
   filter: invert(1);
 }
-/* The two footer marks read as pure white rather than the inverted ink.
-   页脚两张标识读作纯白，而不是反相后的墨色。 */
-[data-theme="dark"] .site-footer__mark,
-[data-theme="dark"] .site-footer__wordmark {
-  filter: brightness(0) invert(1);
-}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) .site-logo__icon {
     filter: invert(1);
@@ -426,6 +420,12 @@ a {
   height: var(--neoverse-space-6);
   object-fit: contain;
   flex: 0 0 auto;
+}
+/* The two footer marks read as pure white rather than the inverted ink.
+   页脚两张标识读作纯白，而不是反相后的墨色。 */
+[data-theme="dark"] .site-footer__mark,
+[data-theme="dark"] .site-footer__wordmark {
+  filter: brightness(0) invert(1);
 }
 .site-footer__tagline {
   justify-self: end;

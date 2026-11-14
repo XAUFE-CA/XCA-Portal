@@ -2,7 +2,7 @@
 
 Status: historical
 
-本文记录 2026-11-04 对“切换语言时左侧标识区域的玻璃背景闪白”的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell.md)、`app/composables/useSiteLocale.ts` 和 `app/assets/css/main.css` 为准；本文保留失败模式、取舍依据与验证结果。
+本文记录 2026-11-04 对“切换语言时左侧标识区域的玻璃背景闪白”的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell/README.md)、`app/composables/useSiteLocale.ts` 和 `app/assets/css/main.css` 为准；本文保留失败模式、取舍依据与验证结果。
 
 ## 结论
 
@@ -68,5 +68,5 @@ Status: historical
 | 语言切换入口与快照回调 | `app/composables/useSiteLocale.ts` |
 | 共享过渡标记与时长 | `@neoverse-ui/motion` 的 `startViewTransition` 与 `motion.css` |
 | 页头材质与边缘 | `app/assets/css/main.css`、共享 `material-glass-elevated` |
-| 现行过渡行为 | [站点框架](../../../docs/architecture/site-shell.md) |
+| 现行过渡行为 | [站点框架](../../../docs/architecture/site-shell/README.md) |
 | 回归 | `tests/e2e/site-transitions.spec.ts`、`tests/e2e/locale.spec.ts` |

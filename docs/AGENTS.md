@@ -12,11 +12,18 @@ docs/
     browser-regression.md       浏览器回归观测、运行要求与结果记录
   terminology/                  术语体系：术语、用词与翻译规则（入口 terminology/README.md）
   architecture/                 架构说明与现行接口，只描述当前真实情况
-    engineering-quality.md      环境与依赖维护、门禁分级、代码与文档预算、CI 决策
+    engineering-quality.md      环境与依赖维护、门禁分级、代码与文档规模阈值、CI 决策
     fonts.md                    字体角色、资源许可、加载与子集生成
     terminal-extending.md       终端命令、会话、外观与交互扩展接口
-    home-intro.md               首页入场、场景绘制、终端交接与中断
-    site-shell.md               站点导航、主题、语言控件与共享玻璃样式接入
+    home-intro.md               入场会话、短入场、标题、启动输出与中断
+    intro-scene.md              入场场景、空间渲染、报告厅与终端投影交接
+    site-shell/                  站点框架（入口 site-shell/README.md）
+      README.md                 页面来源、源码职责、专题索引与全站验证
+      navigation.md             顶栏导航、主题与语言控件、共享 UI 与图标
+      footer.md                 页脚内容、标语火焰、构建信息与资产
+      context-menu.md           区域菜单、面板动作与提示条
+      transitions.md            视图过渡、快照、页面层级、背景与玻璃
+      about.md                  关于学社正文、MDC 容器、横幅与加载骨架
   adr/                          采用的独立架构决策，现行实现细节仍归 architecture/
     0001-three-intro-rendering.md  首页使用 Three.js，保留 DOM、WAAPI 与唯一终端
 ```
@@ -29,12 +36,13 @@ docs/
 | --- | --- |
 | 全局约束与入口 | 根 `AGENTS.md` |
 | 项目定位、主要技术、常用命令与贡献入口 | `README.md` |
-| 环境准备、共享依赖、门禁分级、预算、CI 决策 | `docs/architecture/engineering-quality.md` |
+| 环境准备、共享依赖、门禁分级、规模阈值、CI 决策 | `docs/architecture/engineering-quality.md` |
 | 测试层级、注册表与执行计划 | `docs/testing/README.md` |
 | 浏览器回归观测、运行要求与结果记录 | `docs/testing/browser-regression.md` |
 | 终端现行接口 | `docs/architecture/terminal-extending.md` |
-| 首页入场、场景绘制与终端交接 | `docs/architecture/home-intro.md` |
-| 导航布局、主题与共享玻璃样式接入 | `docs/architecture/site-shell.md` |
+| 首页入场会话、短入场、标题与启动输出 | `docs/architecture/home-intro.md` |
+| 入场场景、报告厅与终端投影交接 | `docs/architecture/intro-scene.md` |
+| 站点框架（总览、导航、页脚、菜单、过渡与关于学社） | `docs/architecture/site-shell/` |
 | 字体角色、资产许可与子集生成 | `docs/architecture/fonts.md` |
 | 采用的独立架构决策与取舍 | `docs/adr/` |
 | 术语、缩写、用词与翻译规则 | `docs/terminology/` |

@@ -2,7 +2,7 @@
 
 Status: historical
 
-本文记录 2026-11-04 对“关于学社向下滚动后切回首页时闪一下”的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell.md) 和 `app/plugins/view-transition.client.ts`、`app/assets/css/main.css` 为准；本文保留失败模式、证据与验证方法。
+本文记录 2026-11-04 对“关于学社向下滚动后切回首页时闪一下”的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell/README.md) 和 `app/plugins/view-transition.client.ts`、`app/assets/css/main.css` 为准；本文保留失败模式、证据与验证方法。
 
 ## 结论
 
@@ -40,7 +40,7 @@ Status: historical
 - `bunx --bun playwright test --config=.agents/notes/playwright-dev.config.ts tests/e2e/site-transitions.spec.ts tests/e2e/route-interruptions.spec.ts`：16 例通过（开发服务器，非生产预览；首次失败后完成实现与用例重构，最终重跑通过）。
 - 新增 `site-transitions.spec.ts`“a scrolled source page keeps both route snapshots at their own viewport tops”：滚动 600px 后在 `transition.ready` 暂停，断言分组位于来源页顶、进入快照偏移到目标页顶，并把动画推进到终点断言旧快照不透明度为 0。
 - 手工逐帧录制覆盖滚动 200px 与 600px 两种来源位置，另验证首页到关于学社的反向导航，未再出现横幅或结束帧闪烁。
-- `bun run check:docs`、`bun run check:architecture` 通过。`bun run check:budgets` 中本次修改不再产生硬上限，剩余两条硬上限位于未提交的 `tests/e2e/terminal-journey-camera.spec.ts`；新增一个 80 行的软预算回调（暂停路由快照的浏览器侧编排）。
+- `bun run check:docs`、`bun run check:architecture` 通过。`bun run check:budgets` 中本次修改不再产生硬上限，剩余两条硬上限位于未提交的 `tests/e2e/terminal-journey-camera.spec.ts`；新增一个 80 行的软阈值回调（暂停路由快照的浏览器侧编排）。
 - `bun run test`：93 通过、2 失败；失败均在未提交的 `intro-mark.test.ts`，Bun 环境缺少 `DOMMatrixReadOnly`，不在本次改动范围。
 - 类型检查未通过：`vue-tsc` 在未提交的 `useTerminalPresentation.ts` 报 `CaIntroMark.vue` 与 `TerminalHost.vue` 无法解析；文件实际存在，判断为开发服务器占用 `.nuxt` 导致的陈旧声明，本次未接管或重建该目录。
 - 未执行生产构建和完整 E2E 套件；`nuxt build` 会与正在运行的开发服务器共用 `.nuxt`，按仓库既有约束未接管该服务。完整检查套件与其余浏览器回归仍需在干净环境补跑。

@@ -107,5 +107,5 @@ export interface CommandDefinition {
     args: string[],
     context: CommandContext,
     signal: AbortSignal,
-  ): Promise<EntryInput[] | void> | EntryInput[] | void;
+  ): Promise<EntryInput[] | undefined> | EntryInput[] | undefined;
 }

@@ -105,6 +105,7 @@ for (const stage of ["approach", "cruise"]) {
         times: document
           .getAnimations()
           .filter((animation) => animation.playState === "paused")
+          .filter(inScene)
           .filter((animation) => animation.constructor.name === "Animation")
           .map((animation) => animation.currentTime),
         lines: document.querySelectorAll(".xca-terminal-bootlog__line").length,

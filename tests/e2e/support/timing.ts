@@ -4,14 +4,14 @@ import type { Page } from "@playwright/test";
  * Wall-clock budget for intro stage arrivals.
  * The intro lasts about 24 s on a 60 fps machine but advances one cue per frame on
  * software renderers, so stage waits must not be derived from fast-machine timing.
- * 入场阶段到达的墙钟预算。60fps 机器上入场约 24 秒，软件渲染时每个提示都要等一帧，
+ * 入场阶段到达的墙钟上限。60fps 机器上入场约 24 秒，软件渲染时每个提示都要等一帧，
  * 因此阶段等待不能按快机器的时长推导。
  */
 export const SCENE_TIMEOUT = 180_000;
 
 /**
  * Budget for a single CSS/WAAPI settle after a state change.
- * 单次状态变更后 CSS/WAAPI 收敛的预算。
+ * 单次状态变更后 CSS/WAAPI 收敛的超时上限。
  */
 export const SETTLE_TIMEOUT = 60_000;
 

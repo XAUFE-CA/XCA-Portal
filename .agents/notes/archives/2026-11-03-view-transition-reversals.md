@@ -2,7 +2,7 @@
 
 Status: historical
 
-本文记录 2026-11-02 至 2026-11-03 两轮“首页与关于学社快速切换时旧页闪一下”的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell.md) 和 `app/plugins/view-transition.client.ts` 为准；本文只保留失败模式、验证方法与取舍依据。
+本文记录 2026-11-02 至 2026-11-03 两轮“首页与关于学社快速切换时旧页闪一下”的排查与修复。现行行为以 [站点框架](../../../docs/architecture/site-shell/README.md) 和 `app/plugins/view-transition.client.ts` 为准；本文只保留失败模式、验证方法与取舍依据。
 
 ## 结论
 
@@ -72,4 +72,4 @@ CDP `Page.screencastFrame` 的 `metadata.timestamp` 以秒为单位，页面时�
 | 门户协调与窗口 | `app/plugins/view-transition.client.ts` |
 | 共享时长与标记 | `node_modules/@neoverse-ui/motion/src/motion.css`、`src/index.ts` |
 | 回归 | `tests/e2e/route-interruptions.spec.ts`、`tests/e2e/site-transitions.spec.ts` |
-| 现行行为 | [站点框架](../../../docs/architecture/site-shell.md) |
+| 现行行为 | [站点框架](../../../docs/architecture/site-shell/README.md) |

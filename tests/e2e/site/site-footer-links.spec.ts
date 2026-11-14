@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { linkPlate, plateClearance, plateGeometry, useFooterPage } from "../support/footer";
+import { setThemePreference } from "../support/preferences";
 
 test.beforeEach(async ({ page }) => {
   await useFooterPage(page);
@@ -58,4 +59,24 @@ test("footer links press into the plate without fading it", async ({ page }) => 
   // 移开后再抬起鼠标，避免测试真的打开目标页面。
   await page.mouse.move(0, 0);
   await page.mouse.up();
+});
+
+test("footer hover plate keeps one weight in light and dark", async ({ page }) => {
+  // The accent follows the palette, so compare the resolved plate weight instead of the color.
+  // 强调色随配色变化，因此比较解析后的底板权重，而不是颜色本身。
+  const alpha = (color: string) => Number(color.match(/\/\s*([\d.]+)\s*\)/)?.[1] ?? 0);
+  const plateFor = async (theme: "light" | "dark") => {
+    await setThemePreference(page, theme);
+    await page.goto("/about", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    const link = page.getByRole("contentinfo").getByRole("link", { name: "MIT", exact: true });
+    await link.hover();
+    await expect.poll(async () => (await linkPlate(link)).opacity).toBe("1");
+    return (await linkPlate(link)).background;
+  };
+  const light = await plateFor("light");
+  const dark = await plateFor("dark");
+  expect(light).not.toBe(dark);
+  expect(alpha(light)).toBeGreaterThan(0);
+  expect(alpha(dark)).toBeCloseTo(alpha(light), 3);
 });

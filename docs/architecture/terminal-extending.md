@@ -30,7 +30,7 @@ Status: adopted
 
 输出、交互和当前命令行位于同一个滚动区，命令行紧随最后一条输出，不固定在窗口底部。滚动区上缘与标题栏相接，顶部留白由滚动区自身承担；滚动区两端各有 32px 渐隐遮罩，顶部贴近页头，底部提示下方仍有内容，到达底部时底部渐隐消失。滚动时不在页头与首行之间留下固定空带，也不硬切首尾行。Host 在提交命令、异步结果返回和补全候选插入后定位到终端末尾。阅读历史后再次输入会恢复跟随，定位只调整终端内部的 scrollTop。访客点击终端前，输出区不接管滚轮与触摸滚动，滚轮始终滚动页面；点击终端后由输出区滚动，点击终端外部后交还页面。判定依据是首页记录的“开始使用终端”状态，而不是输入框焦点，因为入场结束会自动聚焦输入框。
 
-首页入场和场景交接见 [首页入场](home-intro.md)，站点导航与共享玻璃样式接入见 [站点框架](site-shell.md)。
+首页入场见 [首页入场](home-intro.md)，场景交接见 [入场场景](intro-scene.md)，站点导航与共享玻璃样式接入见 [站点框架](site-shell/README.md)。
 
 ## 新命令及虚拟文件
 
@@ -40,11 +40,11 @@ Status: adopted
 
 站点相关操作注册于 `commands/site.ts` 的子命令集合，经单一 `xca` 入口执行。其子命令包括 open、theme、banner、intro、history、background、explore。站点专属操作不保留顶层别名，`history` 只作为 `xca` 子命令存在，不注册顶层拼写。
 
-`xca open` 接受站点配置中的路由名，页面清单见 [站点框架](site-shell.md#页面与内容来源)，`xca explore` 提供帮助与当前主题查询。`xca` 或 `xca help` 列出子命令。`xca help intro`、`man xca intro` 与 `xca intro --help` 查询用法。`subcommands` 元数据供帮助和参数补全复用，不引入另一套 Parser 或 Session。
+`xca open` 接受站点配置中的路由名，页面清单见 [站点框架](site-shell/README.md#页面与内容来源)，`xca explore` 提供帮助与当前主题查询。`xca` 或 `xca help` 列出子命令。`xca help intro`、`man xca intro` 与 `xca intro --help` 查询用法。`subcommands` 元数据供帮助和参数补全复用，不引入另一套 Parser 或 Session。
 
 站内命令的说明通过 `summaryKey` 引用双语资源，输出调用 `ctx.t(key, params)`。包含自然语言的用法可设置 `usageKey`。固定取值范围的占位符通过 `usageParams` 声明，用法行下方列出当前可接受值。函数形式用于读取运行时注册表。语言由 `TerminalServices.getLocale()` 提供，帮助与虚拟文件读取时使用当前语言。
 
-第三方扩展仍可传入已本地化的 `summary` 字符串。帮助和命令补全来自注册表，参数补全由 `complete(args, context)` 提供。`execute` 支持同步/异步结果，`ctx.write(...)` 支持渐进输出。异步能力须尊重 AbortSignal。取消和超时后 Session 拒绝旧命令的输出和受控副作用。
+第三方扩展仍可传入已本地化的 `summary` 字符串。帮助和命令补全来自注册表，参数补全由 `complete(args, context)` 提供。`execute` 支持同步/异步结果，返回待追加的 `EntryInput[]` 或 `undefined`，`ctx.write(...)` 支持渐进输出。异步能力须尊重 AbortSignal。取消和超时后 Session 拒绝旧命令的输出和受控副作用。
 
 顶层命令用 `group` 元数据标注 `session`、`files`、`system` 或 `site`，帮助按组输出，组间插入 `─` 分隔线。分隔线宽度取实际输出中最宽的一行（东亚宽字符按两列计算），最多为 `ctx.columns() - 2`。`xca` 子命令没有分组，列表保持扁平且不加分隔线。
 
@@ -130,4 +130,4 @@ interface AuthGateway {
 
 ## 验证
 
-`bun run check` 包含格式、Lint、代码/文档预算、架构与终端边界、类型、单元测试和生产构建。早期开发修改共享库后先运行 `bun run ui:sync`，发布版本无需同步。`bun run test:e2e` 覆盖命令、内容、TUI、外观、导航、动画边缘所属、中断及响应式布局。自动化验证不等同用户的最终视觉验收。
+`bun run check` 包含格式、Lint、代码与文档规模阈值、架构与终端边界、类型、单元测试和生产构建。早期开发修改共享库后先运行 `bun run ui:sync`，发布版本无需同步。`bun run test:e2e` 覆盖命令、内容、TUI、外观、导航、动画边缘所属、中断及响应式布局。自动化验证不等同用户的最终视觉验收。

@@ -206,7 +206,7 @@ function acceptSuggestion(event: KeyboardEvent): boolean {
   event.preventDefault();
   input.value = suggestion.value;
   resetCompletion();
-  void nextTick(() => editor.setSelectionRange(input.value.length, input.value.length));
+  void nextTick().then(() => editor.setSelectionRange(input.value.length, input.value.length));
   return true;
 }
 function completeInput() {
@@ -237,7 +237,7 @@ function completeInput() {
   // A unique match restarts argument or path completion on the next Tab.
   // 唯一匹配可在下次按 Tab 时重新开始参数或路径补全。
   if (completion.matches.length === 1) resetCompletion();
-  void nextTick(() => {
+  void nextTick().then(() => {
     scrollToLatest();
     const editor = screen.value?.querySelector<HTMLInputElement>("#xca-command-input");
     editor?.setSelectionRange(input.value.length, input.value.length);

@@ -80,4 +80,4 @@ Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定�
 
 新增测试文件放入已登记的范围即被登记；新增目录、层级或执行器时，先在本表增加一行，否则 `check:tests` 失败。删除测试文件后同步删除没有文件的表格行，或改由合法通配符覆盖。执行器与检查器共用 [注册表模块](../../scripts/tests/test-registry.ts) 的解析与核对逻辑，不维护第二份清单。
 
-门禁分级、预算与 CI 决策见 [工程质量规则](../architecture/engineering-quality.md)。
+门禁分级、规模阈值与 CI 决策见 [工程质量规则](../architecture/engineering-quality.md)。

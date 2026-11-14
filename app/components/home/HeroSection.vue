@@ -214,7 +214,7 @@ const services: TerminalServices = {
   getTheme: () => theme.value,
   setTheme: (value) => setTheme(value),
   replayIntro: () => {
-    void nextTick(() => startIntro({ explicit: true }));
+    void nextTick().then(() => startIntro({ explicit: true }));
   },
 };
 const session = markRaw(useTerminalSession(services));

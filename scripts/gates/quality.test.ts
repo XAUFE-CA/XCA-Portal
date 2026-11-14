@@ -109,7 +109,7 @@ test("banned wording catches vague phrasing and exempts rule files", () => {
   ]);
   expect(bannedPhrases("CA 标识与样式变量")).toEqual([]);
   expect(isWordingRuleFile("docs/AGENTS.md")).toBe(true);
-  expect(isWordingRuleFile("docs/architecture/site-shell.md")).toBe(false);
+  expect(isWordingRuleFile("docs/architecture/site-shell/README.md")).toBe(false);
 });
 
 test("gate runner covers every granular check script without gaps", () => {

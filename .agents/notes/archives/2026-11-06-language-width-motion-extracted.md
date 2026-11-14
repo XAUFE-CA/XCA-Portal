@@ -2,7 +2,7 @@
 
 Status: historical
 
-本文记录把页头「语言/主题切换时整组占宽区域平滑扩张与缩小」的实现从门户移入 Neoverse-UI，并改为复用共享能力的过程。现行行为以 [站点框架](../../../docs/architecture/site-shell.md) 与共享库文档为准。
+本文记录把页头「语言/主题切换时整组占宽区域平滑扩张与缩小」的实现从门户移入 Neoverse-UI，并改为复用共享能力的过程。现行行为以 [站点框架](../../../docs/architecture/site-shell/README.md) 与共享库文档为准。
 
 ## 结论
 
@@ -31,7 +31,7 @@ Status: historical
 - `site-transitions.spec.ts`：10 通过（含「language changes move the whole navigation shell without overshooting or rebounding」与玻璃采样暂停回归）。
 - `mobile-header.spec.ts`、`locale.spec.ts`、`preferences-refresh.spec.ts`：20 通过（含「rapid language reversals continue from the visible width and resize restores auto sizing」与减少动效下的偏好外壳伸缩）。
 - 库内：motion 19 项、vue 90 项单元测试通过；`typecheck:only`、`check:contracts`、`check:changesets`、`lint:text`、`biome check` 通过。
-- 门户：`check:fast` 9 项门禁通过（预算、文档、架构、终端边界、typecheck、tsc quality、单元测试）。
+- 门户：`check:fast` 9 项门禁通过（阈值、文档、架构、终端边界、typecheck、tsc quality、单元测试）。
 
 未验证：Safari/Firefox 的实际打断续接表现（仅在 Chromium 无头下回归）。
 

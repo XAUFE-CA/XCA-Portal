@@ -25,11 +25,11 @@ Maple Mono NF CN 上游使用 SIL OFL 1.1，许可证随站点发布在 [public/
 
 浏览器标签页图标以 [ca-mark.svg](../../public/brand/ca-mark.svg) 为唯一图稿来源，不维护图标副本。源文件的 `viewBox` 裁剪为 `169 171 940 940`，保持 1:1 并去掉左右透明留白，路径坐标不变。顶栏与页脚直接使用该文件。
 
-`nuxt.config.ts` 读取 SVG，仅将 favicon 内存副本的 `viewBox` 调整为 `176 178 928 928`，再编码为 Data URL，使 CA 主体占图标画布宽度约 96%。首页入场把导入的 SVG 还原为 `0 0 1254 1254` 并恢复 1254 的宽高，因为场景几何使用该坐标系，见 [首页入场](home-intro.md#场景绘制)。
+`nuxt.config.ts` 读取 SVG，仅将 favicon 内存副本的 `viewBox` 调整为 `176 178 928 928`，再编码为 Data URL，使 CA 主体占图标画布宽度约 96%。首页入场把导入的 SVG 还原为 `0 0 1254 1254` 并恢复 1254 的宽高，因为场景几何使用该坐标系，见 [入场场景](intro-scene.md#场景绘制)。
 
 入场 [日景全景](../../public/intro/sky-day.webp) 采用 Poly Haven 的 [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky)，原始摄影由 Greg Zaal 完成，纯天空编辑由 Jarod Guest 完成，使用 [CC0 许可](https://polyhaven.com/license)。源文件为上游 8192 × 4096 的色调映射 JPEG，本地保留原始云层细节并进行水平旋转、极点连续处理，输出 4096 × 2048 的 sRGB WebP，不把低分辨率图像放大为高分辨率资产。
 
-[夜景全景](../../public/intro/sky-night.webp) 保留项目内图像模型生成的 2048 × 1024 WebP，经过接缝、极点及线性曝光处理，星点由天空着色器生成，不烘焙为模糊光斑。运行时不加载原始 HDR 或 EXR。楼体 LED 图案由源码绘制像素字形、电路与环线，不使用外部字体、广告图或商标资产。加载和反射用途见 [首页入场](home-intro.md#场景绘制)。
+[夜景全景](../../public/intro/sky-night.webp) 保留项目内图像模型生成的 2048 × 1024 WebP，经过接缝、极点及线性曝光处理，星点由天空着色器生成，不烘焙为模糊光斑。运行时不加载原始 HDR 或 EXR。楼体 LED 图案由源码绘制像素字形、电路与环线，不使用外部字体、广告图或商标资产。加载和反射用途见 [入场场景](intro-scene.md#场景绘制)。
 
 ## 子集生成
 
