@@ -59,14 +59,14 @@ jobs:
         run: bunx nuxt build
       - name: Compare baselines
         if: ${{ !inputs.update }}
-        run: bunx playwright test tests/e2e/terminal-visual-acceptance.spec.ts
+        run: bun scripts/test-plan.ts run system --snapshot
       - name: Rewrite baselines
         if: ${{ inputs.update }}
-        run: bunx playwright test tests/e2e/terminal-visual-acceptance.spec.ts --update-snapshots
+        run: bun scripts/test-plan.ts run system --snapshot --update-snapshots
       - uses: actions/upload-artifact@v7
         with:
           name: playwright-images
           path: |
             XCA-Portal/test-results
-            XCA-Portal/tests/e2e/terminal-visual-acceptance.spec.ts-snapshots
+            XCA-Portal/tests/e2e/visual/terminal-visual-acceptance.spec.ts-snapshots
           if-no-files-found: ignore

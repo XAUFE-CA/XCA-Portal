@@ -27,7 +27,7 @@ bun run dev
 
 早期开发使用本地 `file:` 依赖与根级 overrides。同步脚本委托共享库的 `scripts/sync-consumer.ts`，按依赖顺序构建 Tokens、Motion、Overlay Runtime、Glass Runtime、Tailwind 与 Vue，再刷新安装目录中的产物并逐文件核对。包含嵌套副本，跳过内容相同的硬链接文件，使用冻结锁文件安装。
 
-[依赖来源检查](../../scripts/ui-dependencies.ts) 同时读取 dependencies 与 overrides，同名 override 不能隐藏另一来源。只区分本地、发布和混合来源，不验证发布版本兼容性。实际本地路径由共享同步器核对。[来源回归测试](../../scripts/ui-dependencies.test.ts) 和 [同步入口回归](../../scripts/ui-sync.test.ts) 使用隔离夹具验证来源冲突、发布包跳过与缺失同步器，不执行安装或写入共享库。
+[依赖来源检查](../../scripts/deps/ui-dependencies.ts) 同时读取 dependencies 与 overrides，同名 override 不能隐藏另一来源。只区分本地、发布和混合来源，不验证发布版本兼容性。实际本地路径由共享同步器核对。[来源回归测试](../../scripts/deps/ui-dependencies.test.ts) 和 [同步入口回归](../../scripts/deps/ui-sync.test.ts) 使用隔离夹具验证来源冲突、发布包跳过与缺失同步器，不执行安装或写入共享库。
 
 存在 `file:` 依赖时，`nuxt.config.ts` 将共享模块解析到本地构建目录并排除相应依赖预打包，Vue 由门户统一解析。共享组件 JS 与生成 CSS 一起同步，不混用不同来源的产物。CI 固定版本与本地工作区的验证区别见 [CI 决策](#决策背景与取舍)。
 
@@ -51,10 +51,11 @@ bun run dev
 | `bun run format:check` / `bun run lint` | 分别检查格式与 Lint |
 | `bun run check:docs` / `bun run check:budgets` | 文档链接与预算检查 |
 | `bun run check:architecture` / `bun run check:terminal` | 导入依赖与终端 UI 约束 |
-| `bun run typecheck` / `bun run test` | 应用类型与单元测试 |
+| `bun run check:tests` | 测试注册表与仓库双向核对 |
+| `bun run typecheck` | 应用与检查脚本的类型检查 |
+| `bun run test` / `test:e2e` / `test:scene` / `test:visual` | 测试层级与执行计划见 [测试注册表](../testing/README.md) |
 | `bun run check` | 全部快速门禁与生产构建 |
 | `bun run build` / `bun run generate` | 生产构建与静态生成 |
-| `bun run test:e2e` | 生产构建与功能浏览器回归（默认排除 `@cinematic`） |
 | `bun run format` | 按需格式化并整理 import |
 
 开发与预览使用 `4100` 端口和 `strictPort`，端口被占用时失败，不自动更换。E2E 预览默认使用 `4102`，可通过 `XCA_TEST_PORT` 指定。启动前确认占用，不终止无关进程。
@@ -79,31 +80,28 @@ bun audit --registry https://registry.npmjs.org
 | MUST | 格式和 import assist | `format:check`，CI 阻断 |
 | MUST | Lint 无 error，保留历史 warning/info 可见 | `lint`，CI 阻断 error |
 | MUST | 类型、单测、终端 UI 与架构边界 | `check:fast`，CI 阻断 |
+| MUST | 测试文件与注册表一致，新增测试必须被登记 | `check:tests`，CI 阻断 |
 | MUST | 新增超硬预算或存量超限增长须说明 | `check:budgets`，未登记精确上限及原因则阻断 |
 | MUST | 生产构建、现有功能 E2E | CI 构建一次并在 Linux 分片执行功能断言；`@cinematic` 与图片基线按需运行 |
 | SHOULD | 软预算、认知复杂度 >25、深层嵌套、模块职责变化、重复实现与状态竞争 | Biome/预算输出 + 人工审查 |
 | MUST | 例外、提高预算、抑制误报、跨仓库公共接口 | 审查者核实依据，不以消除诊断为理由 |
 | MAY | 有证据的重构、额外平台或性能验证 | 按收益与风险选择，不为了指标制造工作 |
 
-`check:fast` 与 `check` 都使用已安装的依赖，不隐式同步共享 UI。早期开发修改共享库后，先按 [依赖准备](#本地开发与共享依赖) 执行同步。两者由 `scripts/run-gates.ts` 聚合执行。检查脚本、Playwright 配置与 E2E 源码均由 [tsconfig.quality.json](../../tsconfig.quality.json) 严格检查。Lint 诊断与软预算提示实时输出，不以成功摘要代替审查信息。快速门禁单项失败不中断其余项，结束时汇总全部失败。`check` 只在快速门禁全部通过后继续生产构建。`test:e2e` 先构建，再运行浏览器回归。CI 分别执行快速门禁、生产构建和浏览器回归，复用同一构建产物。命令定义见 [package.json](../../package.json)，CI 步骤见 [工作流](../../.github/workflows/quality.yml)。
+`check:fast` 与 `check` 都使用已安装的依赖，不隐式同步共享 UI。早期开发修改共享库后，先按 [依赖准备](#本地开发与共享依赖) 执行同步。两者由 `scripts/gates/run-gates.ts` 聚合执行。检查脚本、Playwright 配置与 E2E 源码均由 [tsconfig.quality.json](../../tsconfig.quality.json) 严格检查。Lint 诊断与软预算提示实时输出，不以成功摘要代替审查信息。快速门禁单项失败不中断其余项，结束时汇总全部失败。`check` 只在快速门禁全部通过后继续生产构建。`test:e2e` 先构建，再运行浏览器回归。CI 分别执行快速门禁、生产构建和浏览器回归，复用同一构建产物。命令定义见 [package.json](../../package.json)，CI 步骤见 [工作流](../../.github/workflows/quality.yml)。
 
 ## 浏览器回归
 
-相关测试与对应实现同笔提交，保留已有检查及共享 UI 回归，不删除正反例或缩小检查范围来隐藏失败。`bun run test:e2e` 先构建再执行 Playwright，已有构建产物可直接用 `bunx playwright test` 复验；两者默认都排除 `@cinematic`，完整场景须设置 `XCA_CINEMATIC=1` 并配合 `--grep @cinematic`，由 `cinematic` 工作流按需运行。所有平台统一使用无头 Chromium，首次验证前先执行 `bunx playwright install chromium`。CI 的浏览器准备见 [工作流](../../.github/workflows/quality.yml)。
-
-预览使用 [测试配置](../../playwright.config.ts) 中的独立端口，启动前确认空闲，不复用未知服务。测试结束由 Playwright 清理自己启动的服务。入场阶段与过渡中间态的观测不复用动画帧采样：阶段性状态由 [共享观测模块](../../tests/e2e/timing.ts) 记录 DOM 变更批次，过渡中间态按动画时间推进到指定进度，墙钟预算取自同一模块的常量。软件渲染运行器的帧率不足以在固定时间窗内复现这些状态，按帧采样会把环境性能当成产品缺陷。只验证功能的用例通过 [入场入口开关](../../tests/e2e/entry.ts) 使用产品既有的会话内短入场，长场景只由入场专项用例覆盖，避免每个用例都承担一次完整编排。帧观测用例仍需要完整入场，改用共享观测模块的时间线步进到达就绪阶段，不按墙钟等完每个提示；帧样本仍由真实 requestAnimationFrame 采集，空间效果释放仍逐次断言。重播用例在每次跳过入场后等待宿主解除 inert，再继续下一轮与历史快捷键：快渲染器上收尾是异步的，inert 期间的按键会被丢弃，而 `toBeEnabled` 不检查 inert。全局时间线步进同样不适用于重播：它只检查当前阶段值，无法区分上一轮场景。每个分片固定 1 个 worker，避免多个软件渲染的 Chromium 争抢帧率；并行度由 `--shard` 在独立作业上提供。等宽字符画按一个字符格判定溢出：不同字体光栅器每字形存在亚像素差异，把零溢出当成唯一判据会让平台差异表现为回归。[共享 UI 用例](../../tests/e2e/shared-ui.spec.ts) 检查公开 CSS 变量、运行错误与 Hydration 警告。其余用例覆盖终端、主题、双语、菜单、入场和滚动。
-
-本地功能检查、图片回归、人工视觉验收、远端 CI 与发布包验收分别记录，不能相互代替。
+测试层级、注册表与执行计划见 [测试注册表](../testing/README.md)，浏览器回归的观测约定见 [浏览器回归](../testing/browser-regression.md)。图片基线、完整入场与功能回归的结果分别记录，不能相互代替。CI 作业与分片配置见 [工作流](../../.github/workflows/quality.yml)。
 
 ## 格式工具
 
-Biome 负责代码、CSS、JSON、SVG 及 Vue 的实验性 HTML 格式化，Prettier 负责 Markdown 与 YAML。工具配置分别维护在 `biome.json`、`.prettierrc.json` 和 `.prettierignore`，编辑器配置位于 `.vscode/`，编码与行尾由 `.editorconfig` 和 `.gitattributes` 约束。
+Biome 负责代码、CSS、JSON、SVG 及 Vue 的实验性 HTML 格式化，Prettier 负责 Markdown 与 YAML。工具配置分别维护在 `biome.json`、`.prettierrc.json` 和 `.prettierignore`，本地编辑器配置位于不入库的 `.vscode/`，编码与行尾由 `.editorconfig` 和 `.gitattributes` 约束。
 
 `format` 和 `format:check` 使用 `biome check` 的格式化与 import assist 能力，并关闭 Lint 修复。`biome format` 不执行 import assist。`lint` 单独运行，格式通过不能作为 Lint 通过的证据。Markdown 保留正文换行，表格格式和行文规则见 [文档写作规范](../AGENTS.md)。
 
 ## 代码和文档预算
 
-阈值与例外维护在 [预算配置](../../scripts/quality-budgets.json)，实现见 [预算检查](../../scripts/check-budgets.ts)。
+阈值与例外维护在 [预算配置](../../scripts/gates/quality-budgets.json)，实现见 [预算检查](../../scripts/gates/check-budgets.ts)。
 
 | 类型 | SHOULD 审查 | MUST 超限说明 |
 | --- | --: | --: |
@@ -122,7 +120,7 @@ Biome 负责代码、CSS、JSON、SVG 及 Vue 的实验性 HTML 格式化，Pret
 
 范围由 `git ls-files` 的已跟踪和未忽略未跟踪文件决定，检查 ts/js/vue/css/md。生成文件、构建输出和依赖由 Git ignore 排除，`.agents/` 下的过程材料是带日期的归档，不计入预算。新增生成资产应核实来源并配置精确排除，不得为手写业务文件添加忽略。字体覆盖 JSON 与二进制不属于代码长度预算。
 
-存量超限登记在 `scripts/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。预算工具不判断代码设计质量。
+存量超限登记在 `scripts/gates/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。预算工具不判断代码设计质量。
 
 ## 架构边界及局限
 
@@ -134,7 +132,7 @@ Core 仅允许 Core、branding、终端 config、i18n 与站点 config 的本地
 
 它不是安全沙箱，也不是完整的类型解析器：Nuxt 自动导入、运行时拼接的路径、间接全局访问都不在导入图里，检查不到。动态能力、共享 UI 私有接口、DOM 生命周期与重复状态仍须审查和运行时测试。浏览器终端的安全性继续依赖显式 Registry、Parser 和 Session 的能力边界。
 
-[文档链接检查](../../scripts/check-docs.ts) 跳过围栏、行内代码、外部协议和片段，只核对文件目标存在，不检查片段有效性或外链连通性。片段和正文事实仍由人工核对。
+[文档链接检查](../../scripts/gates/check-docs.ts) 跳过围栏、行内代码、外部协议和片段，只核对文件目标存在，不检查片段有效性或外链连通性。片段和正文事实仍由人工核对。
 
 ## 修改与验证
 

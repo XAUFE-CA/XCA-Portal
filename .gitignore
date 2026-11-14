@@ -16,7 +16,7 @@ test-results/
 playwright-report/
 
 # Upstream font binaries used to regenerate app/assets/fonts subsets
-# (SIL OFL 1.1; see scripts/fonts/build-font-subsets.py)
+# (SIL OFL 1.1; see scripts/build/fonts/build-font-subsets.py)
 fonts-source/
 
 # Misc
@@ -34,6 +34,7 @@ __pycache__/
 *.pyc
 
 # IDEs
+.vscode/
 .codebuddy/
 .workbuddy/
 .codeartsdoer/

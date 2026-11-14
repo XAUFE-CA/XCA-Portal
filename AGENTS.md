@@ -3,6 +3,7 @@
 XCA Portal 是 [XAUFE-CA](https://github.com/XAUFE-CA) 官方门户。改代码前先读以下文档：
 
 - [工程质量规则](docs/architecture/engineering-quality.md)：门禁、预算与分级。
+- [测试注册表](docs/testing/README.md)：测试层级、执行计划与注册表核对。
 - [终端扩展接口](docs/architecture/terminal-extending.md)：修改 `app/features/terminal/` 前必读。
 - [首页入场](docs/architecture/home-intro.md) 与 [站点框架](docs/architecture/site-shell.md)：首页动画与站点框架。
 - [docs/AGENTS.md](docs/AGENTS.md)：文档写法。
@@ -15,101 +16,36 @@ XCA Portal 是 [XAUFE-CA](https://github.com/XAUFE-CA) 官方门户。改代码�
 
 ```text
 app/                    门户应用（Nuxt 4 srcDir）
-  app.vue               根组件，挂载全局样式与默认布局
-  assets/               门户 CSS（含 intro-journey.css 场景几何）与自托管字体子集
+  assets/               门户 CSS 与自托管字体子集
   components/           跨页面展示组件，按场景分子目录
-    site/               站点框架：顶栏、导航、菜单、语言与主题控件、页脚与统一图标
-    home/               首页 Hero、标题轮播与终端视图组合
-    about/              关于学社：玻璃卡片、主题横幅与 Markdown 渲染
-  composables/          跨组件状态与能力：主题、语言、内容适配
-  config/               站点标识、路由与导航配置（site.ts）
-  data/                 结构化数据：首页轮播语句（hero-sentences.json）与终端虚拟文件
-    terminal/           虚拟工作区清单（manifest.ts）与按语言分文件的正文（files/）
+  composables/          跨组件状态与能力
+  config/               站点标识、路由与导航配置
+  data/                 结构化数据与终端虚拟文件
   features/             自包含交互特性，一个特性一个目录
-    intro/              首页入场：场景绘制、终端交接与标题打字
-      core/             纯逻辑：场景尺度、报告厅、轨迹、播放、入口与节奏
-        intro-geometry.ts      场景尺度、道路生长与入口显现时机
-        intro-auditorium.ts    报告厅物体、空间范围与家具形体
-        intro-journey.ts       摄像机插值、终端投影与归位轨迹
-        intro-entry.ts         会话入口、首屏判定与快捷键
-        intro-playback.ts      动画暂停、冻结与取消
-        timing.ts              入场节奏、交接进度与标题打字
-        *.test.ts              几何、报告厅与轨迹单元测试
-      rendering/        Three.js 场景、PBR 材质与静态网格
-        intro-mark-mesh.ts         道路与报告厅网格生成、CA 原始轮廓挤出
-        intro-mark-renderer.ts     异步预热、绘制与资源清理
-        intro-scene.ts             场景合批与 CSS 相机投影适配
-        intro-scene-{palette,materials,lighting,environment}.ts  配色、PBR、PMREM 与阴影
-        intro-sky.ts               日夜天空全景预载与世界方向采样
-        intro-city-mesh.ts         城市街区、高层地标与同侧连廊
-        intro-city-facade.ts       立面数据图集、镀膜玻璃与视差室内
-        intro-city-led.ts          楼体屏幕、实体边框与显示面网格
-        intro-city-led-surface.ts  LED 像素图案与日夜发光
-        intro-city-{layout,environment,primitives}.ts  地块坐标、地面设施与闭合网格
-        intro-city-life.ts         屋顶生活场景、街道车流与镜头驱动位移
-        intro-city-layer.ts        城市离屏绘制与整体合成
-        intro-auditorium-mesh.ts   报告厅静态网格与圆角、倒角生成
-        intro-auditorium-surfaces.ts  报告厅织物、穿孔板、金属与石材表面
-        *.test.ts                  网格、场景合批与投影单元测试
-      presentation/     入场编排与启动输出
-        useIntroPresentation.ts    入场阶段、启动输出、跳过与清理
-        intro-mark.ts              标识绘制与交接
-        boot-script.ts             启动日志顺序
-        intro-mark.test.ts         标识交接单元测试
-      components/       CaIntroMark.vue：CA 标识 SVG 与场景绘制的 Vue 适配
-      index.ts          特性唯一对外入口
-    tagline-flame/      页脚标语火焰：余烬粒子、画布绘制与 Vue 适配
-      core/             纯逻辑：粒子生成、推进与密度
-        flame-particles.ts       余烬生成、推进与密度规则
-        flame-particles.test.ts  粒子规则单元测试
-      rendering/        画布：字形测量、配色解析与绘制生命周期
-        flame-canvas.ts          字形测量、可见性与绘制
-        flame-palette.ts         token 配色与余烬精灵图
-        flame-palette.test.ts    配色工具单元测试
-      components/       TaglineFlame.vue：文案与装饰画布的 Vue 适配
-      index.ts          特性唯一对外入口
+    context-menu/       上下文菜单
+    intro/              首页入场
+    tagline-flame/      页脚标语火焰
     terminal/           浏览器终端
-      core/             纯逻辑：会话、解析、注册、虚拟工作区
-      commands/         命令集合，经命令上下文访问服务
-        index.ts        顶层命令注册顺序与分组
-        helpers.ts      用法、错误、补全、帮助与输出上限
-        files.ts        pwd、ls、cd、cat 目录浏览与读取
-        text.ts         basename、dirname、head、tail、wc、sort
-        search.ts       grep、tree、find
-        system.ts       echo、date、uname、hostname、env、printenv、id、seq、sleep
-        site.ts         xca 子命令入口
-        history.ts      xca history 的列出与清除
-        appearance.ts   终端背景子命令
-        interactive.ts  阅读器与登录子命令
-      presentation/     终端专属展示能力
-        useTerminalExpansion.ts    终端展开与聚焦遮罩
-        useTerminalMetrics.ts      字宽测量、字标缩放与尺寸同步
-        terminal-platform.ts       系统识别
-        terminal-platform.test.ts  系统识别单元测试
-      components/       终端 Vue 适配组件（Host、输入、Transcript、WindowHeader、StatusBar）
-        presentation-contract.ts   入场合用的展示阶段与启动日志类型
-      branding/         终端标识 ASCII 与字符画
-      client-session.ts 命令与 Session 的组装入口
-      config.ts         终端自身配置
-  i18n/                 翻译入口与双语资源（locales/zh-CN、en）
-  layouts/              默认布局：顶栏与页面容器
-  pages/                路由：首页与关于学社，只做组合
-  plugins/              客户端插件：极光玻璃运行时、会话入口记录与视图过渡标记
-  utils/                共享工具函数（token 读取、玻璃刷新、动效时长与版权年份）
+  i18n/                 翻译入口与双语资源
+  layouts/              默认布局
+  pages/                路由，只做组合
+  plugins/              客户端插件
+  utils/                共享工具函数
 content/                可直接编辑的 Markdown 正文与页面元信息
-  pages/about/          关于学社：zh-CN.md 与 en.md
-docs/                   架构说明、现行接口、ADR 与术语体系（写法见 docs/AGENTS.md）
-scripts/                门禁与检查脚本、构建信息、quality-budgets.json、字体工具
-tests/e2e/              随功能提交的 Playwright 用例与 Windows 图片基线
-public/                 静态资产：学社标识、共享库字标、字体许可证、intro-gate.js
-  intro/                入场日夜天空全景：写实云层与玻璃反射共用的纹理
-.agents/notes/          未解决事项与必要过程记录，其余子目录预留给 skills 等
-.github/                CI 工作流（quality.yml）与 PR 模板
+docs/                   架构说明、测试策略、ADR、术语与写作规范
+scripts/                门禁、测试计划、依赖同步与构建工具
+tests/e2e/              Playwright 用例、图片基线与测试辅助
+public/                 静态资产
+  intro/                入场日夜天空全景纹理
+.agents/notes/          未解决事项、计划与必要过程记录
+.github/                CI 工作流与 PR 模板
 ```
 
-根目录配置：`package.json` 与 `bun.lock`（依赖与脚本事实依据）、`nuxt.config.ts`（别名、端口、共享库解析）、`content.config.ts`（正文集合与 Schema）、`playwright.config.ts`（E2E）、`biome.json` 与 `.prettierrc.json`（格式分工）、`tsconfig.quality.json`（检查脚本类型检查）、EditorConfig 与 Git attributes。
+根目录配置、依赖与命令以清单和配置文件为准；环境准备、端口与共享依赖见 [工程质量规则](docs/architecture/engineering-quality.md)。
 
-扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景归入 `app/components/<场景>/`。新交互特性按 `app/features/<特性>/` 建模块，按实际职责选择逻辑、展示与适配分层。终端的 commands 层只用于命令集合，不为其他功能创建空目录。后续新增结构化正文时，在 `content/` 维护并同步定义内容集合 Schema。静态资产进 `public/`。检查脚本进 `scripts/` 并接入对应 check 门禁。Agent 过程材料进 `.agents/notes/`。
+扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景进 `app/components/<场景>/`。新交互特性进 `app/features/<特性>/`，按职责分层。新检查脚本进 `scripts/gates/` 并接入门禁。静态资产进 `public/`，结构化正文进 `content/`。Agent 过程材料进 `.agents/notes/`。
+
+子文件职责不在本文件展开，按修改范围读取目录级说明：`scripts/` 先读 [scripts/AGENTS.md](scripts/AGENTS.md)；测试相关改动读 [测试注册表](docs/testing/README.md)；入场、终端与站点框架改动读对应架构文档。
 
 ## 运行入口
 
@@ -148,8 +84,9 @@ public/                 静态资产：学社标识、共享库字标、字体�
 | 标识与导航 | `app/config/site.ts`、`public/brand/`、布局及双语资源 |
 | 终端当前接口 | [终端扩展接口](docs/architecture/terminal-extending.md)、`app/features/terminal/` |
 | 首页入场与站点框架 | [首页入场](docs/architecture/home-intro.md)、[站点框架](docs/architecture/site-shell.md) 及各文档列出的源码 |
-| 质量规则与决策 | [工程质量规则](docs/architecture/engineering-quality.md)、`scripts/quality-budgets.json` |
-| 验证 | `scripts/check-*.ts`、`app/**/*.test.ts`、`tests/e2e/` |
+| 质量规则与决策 | [工程质量规则](docs/architecture/engineering-quality.md)、`scripts/gates/quality-budgets.json` |
+| 测试层级与执行计划 | [测试注册表](docs/testing/README.md)、`scripts/tests/test-registry.ts` |
+| 验证 | `scripts/gates/check-*.ts`、`app/**/*.test.ts`、`tests/e2e/` |
 
 源码、配置和最新用户决策优先于过期文档，查实矛盾后修正文档，不按旧描述改写正常代码。
 
@@ -165,6 +102,7 @@ public/                 静态资产：学社标识、共享库字标、字体�
 | Markdown/YAML/翻译 | 格式、文档预算、链接检查、双语一致与内容加载 |
 | TS/架构/检查脚本 | 类型、单测、架构及预算检查 |
 | 终端命令/UI/样式 | check:terminal、核心单测、相关 E2E |
+| 新增/移动测试 | check:tests 注册表核对、对应层级测试 |
 | 主题/极光玻璃/滚动/动画 | 浅/深/system、尺寸变化、减少动画、跳过/恢复、焦点与滚动回归 |
 | 依赖/构建配置 | 本地开发用 ui:sync、类型、生产构建、开发/预览启动；发布版本确认无 file: 依赖 |
 

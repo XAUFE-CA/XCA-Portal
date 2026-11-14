@@ -29,7 +29,7 @@ Status: adopted
 | [view-transition.client.ts](../../app/plugins/view-transition.client.ts) | 路由视图过渡的共享节奏标记 |
 | [content.config.ts](../../content.config.ts) | `about` 内容集合与 frontmatter Schema |
 | [SiteFooter.vue](../../app/components/site/SiteFooter.vue) | 全站页脚：联合标识与标语、版权与作者署名、源码与文章许可、共享库署名与构建提交链接 |
-| [build-info.ts](../../scripts/build-info.ts) | 构建期读取 Git 提交并生成 commit 链接，无 Git 时按 CI 环境变量降级 |
+| [build-info.ts](../../scripts/build/build-info.ts) | 构建期读取 Git 提交并生成 commit 链接，无 Git 时按 CI 环境变量降级 |
 | [copyright.ts](../../app/utils/copyright.ts) | 版权年份区间规则 |
 | [context-menu/](../../app/features/context-menu/index.ts) | 上下文菜单：区域监听、菜单项内容与复制反馈；面板由共享 `UiContextMenu` 绘制 |
 
@@ -45,11 +45,11 @@ Status: adopted
 
 版权年份由 [copyright.ts](../../app/utils/copyright.ts) 按首次发布年份计算：当前年份不大于 `2026` 时写 `2026`，之后写 `2026 - yyyy`。年份在 SSR 通过 `useState` 解析一次并随水合数据传递，避免服务端与客户端在跨年边界得出不同结果；静态生成时年份固定在构建当次。
 
-构建信息由 [build-info.ts](../../scripts/build-info.ts) 在配置加载时读取 `git log -1`，经 `nuxt.config.ts` 写入 `runtimeConfig.public.buildInfo`，链接指向 `XAUFE-CA/XCA-Portal` 的 commit 页面，显示短 SHA 与提交时间。Git 不可用时回退到 CI 的 `GITHUB_SHA`；两者都不可用时 `buildInfo` 为 `null`，页脚隐藏构建行，不显示未核实的提交。时间戳保留提交者自身时区，只把 Git 严格 ISO 字符串的 `T` 换成空格，不按浏览器时区重新格式化；缺少时间戳时只显示短 SHA。
+构建信息由 [build-info.ts](../../scripts/build/build-info.ts) 在配置加载时读取 `git log -1`，经 `nuxt.config.ts` 写入 `runtimeConfig.public.buildInfo`，链接指向 `XAUFE-CA/XCA-Portal` 的 commit 页面，显示短 SHA 与提交时间。Git 不可用时回退到 CI 的 `GITHUB_SHA`；两者都不可用时 `buildInfo` 为 `null`，页脚隐藏构建行，不显示未核实的提交。时间戳保留提交者自身时区，只把 Git 严格 ISO 字符串的 `T` 换成空格，不按浏览器时区重新格式化；缺少时间戳时只显示短 SHA。
 
 联合标识的 CA 图稿沿用 [ca-mark.svg](../../public/brand/ca-mark.svg) 的紧凑方形 `viewBox`，入场场景仍还原为 1254 单位坐标系。Neoverse-UI 字标取自共享库 `apps/playground/src/assets/neoverse-wordmark.svg`，采用 MIT 许可，副本存于 [neoverse-wordmark.svg](../../public/brand/neoverse-wordmark.svg)，裁剪 `viewBox` 并把填充色统一为 CA 的 `#161616`，深色下两张标识用 `brightness(0) invert(1)` 呈纯白。深色与系统深色沿用顶栏标识的 `invert(1)` 规则，不新增颜色值。资产来源另见 [字体与资产维护](fonts.md#加载与许可)。
 
-首页完整入场期间，[intro-gate.js](../../public/intro-gate.js) 与 [terminal-intro.css](../../app/assets/css/terminal-intro.css) 继续隐藏页脚，`revealing` 阶段显现；减少动态效果时不设置首帧门禁，页脚直接可读。浏览器回归入口为 [site-footer.spec.ts](../../tests/e2e/site-footer.spec.ts)、[site-footer-links.spec.ts](../../tests/e2e/site-footer-links.spec.ts) 与 [mobile-header.spec.ts](../../tests/e2e/mobile-header.spec.ts)，覆盖版权行的组织与作者链接、源码与文章许可、共享库署名、构建行与括号时间戳、链接悬停底板的上下留白与按下反馈、双语切换、窄屏溢出，以及桌面与移动端页脚位于首屏之外、滚动后可见。
+首页完整入场期间，[intro-gate.js](../../public/intro-gate.js) 与 [terminal-intro.css](../../app/assets/css/terminal-intro.css) 继续隐藏页脚，`revealing` 阶段显现；减少动态效果时不设置首帧门禁，页脚直接可读。浏览器回归入口为 [site-footer.spec.ts](../../tests/e2e/site/site-footer.spec.ts)、[site-footer-links.spec.ts](../../tests/e2e/site/site-footer-links.spec.ts) 与 [mobile-header.spec.ts](../../tests/e2e/site/mobile-header.spec.ts)，覆盖版权行的组织与作者链接、源码与文章许可、共享库署名、构建行与括号时间戳、链接悬停底板的上下留白与按下反馈、双语切换、窄屏溢出，以及桌面与移动端页脚位于首屏之外、滚动后可见。
 
 ## 导航与响应式布局
 
@@ -130,4 +130,4 @@ Markdown 通过原生 MDC 容器标记页面布局：`about-intro` 使用共享�
 
 ## 验证
 
-浏览器回归入口为 `tests/e2e/site-footer.spec.ts`、`site-footer-links.spec.ts`、`mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts`、`header-edge-rim.spec.ts`、`about-skeleton.spec.ts`、`site-transitions.spec.ts` 与 `route-interruptions.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及顶栏底部圆角与描边归属、内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。过渡回归记录共享时长，确认路由切换保留正文交叉淡化且页头不混合旧快照、主题切换以整个文档为快照，语言切换不启动快照、保持全部玻璃表面采样实时页面并断言卡片高度过渡；三组选中背景和偏好外壳仍经过中间几何状态。路由中断回归检查反向导航的实际画面、未完成的正文查询和被取消的快照。路由过渡回归检查来源页滚动后的快照几何与淡出终点帧，确认两侧画面停在各自页顶且旧快照不会在结束帧恢复不透明；同时断言语言宽度动画期间只在进入快照的截取窗口暂停页头背景采样并保持底面不透明、快照就绪后恢复，退出快照与导航加载保持实时采样，普通路由不暂停。整组导航回归使用真实鼠标切换中英文，按同一进度推进全部宽度动画，检查标识外壳起点、单向伸缩、终点及恢复自动宽度后的几何，防止越界回弹，并确认主导航在每个进度都停在顶栏中线上。减少动态效果时不启动视图过渡。层级回归在短视口滚动到底，检查终端卡片与页头重叠处命中页头。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。
+浏览器回归入口为 `tests/e2e/site/` 下的 `site-footer.spec.ts`、`site-footer-links.spec.ts`、`mobile-header.spec.ts`、`locale.spec.ts`、`scrollbar.spec.ts`、`neoverse-integration.spec.ts`、`preferences-refresh.spec.ts`、`header-edge-rim.spec.ts`、`about-skeleton.spec.ts`、`site-transitions.spec.ts` 与 `route-interruptions.spec.ts`。覆盖导航及设置可达性、宽度变化、语言刷新、焦点恢复、主题与玻璃降级，以及顶栏底部圆角与描边归属、内容加载骨架的状态与几何。偏好刷新回归延迟水合脚本，逐帧检查 SSR 至水合完成期间的选中项及选中背景几何，不只核对最终状态。过渡回归记录共享时长，确认路由切换保留正文交叉淡化且页头不混合旧快照、主题切换以整个文档为快照，语言切换不启动快照、保持全部玻璃表面采样实时页面并断言卡片高度过渡；三组选中背景和偏好外壳仍经过中间几何状态。路由中断回归检查反向导航的实际画面、未完成的正文查询和被取消的快照。路由过渡回归检查来源页滚动后的快照几何与淡出终点帧，确认两侧画面停在各自页顶且旧快照不会在结束帧恢复不透明；同时断言语言宽度动画期间只在进入快照的截取窗口暂停页头背景采样并保持底面不透明、快照就绪后恢复，退出快照与导航加载保持实时采样，普通路由不暂停。整组导航回归使用真实鼠标切换中英文，按同一进度推进全部宽度动画，检查标识外壳起点、单向伸缩、终点及恢复自动宽度后的几何，防止越界回弹，并确认主导航在每个进度都停在顶栏中线上。减少动态效果时不启动视图过渡。层级回归在短视口滚动到底，检查终端卡片与页头重叠处命中页头。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，检查结果与图片验收分别记录。

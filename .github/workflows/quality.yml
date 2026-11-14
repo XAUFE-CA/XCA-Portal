@@ -144,11 +144,11 @@ jobs:
         run: bunx playwright install --with-deps chromium
       - name: Functional browser regression (Linux)
         if: runner.os == 'Linux'
-        # Existing image baselines are Windows-only. All functional assertions still run.
-        # 现有图片基线仅限 Windows；所有功能断言仍会运行。
+        # Snapshot baselines stay in the separate images workflow; the functional plan excludes that scope.
+        # 图片基线由独立的 images 工作流负责，功能计划不选择该范围。
         # Full-scene geometry runs in the cinematic workflow; a slow renderer cannot host it.
         # 完整场景几何由 cinematic 工作流承担；慢速渲染器跑不动它。
-        run: bunx playwright test --ignore-snapshots --grep-invert @cinematic --shard=${{ matrix.shard }}/8
+        run: bun scripts/test-plan.ts run system --no-snapshot --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

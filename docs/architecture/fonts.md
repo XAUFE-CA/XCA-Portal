@@ -2,7 +2,7 @@
 
 Status: adopted
 
-本文面向维护者，记录字体角色、资产许可、加载与子集生成。字体配置见 [fonts.css](../../app/assets/css/fonts.css)，生成规则见 [build-font-subsets.py](../../scripts/fonts/build-font-subsets.py)，不在项目技术栈或产品介绍中列出维护细节。
+本文面向维护者，记录字体角色、资产许可、加载与子集生成。字体配置见 [fonts.css](../../app/assets/css/fonts.css)，生成规则见 [build-font-subsets.py](../../scripts/build/fonts/build-font-subsets.py)，不在项目技术栈或产品介绍中列出维护细节。
 
 ## 字体角色
 
@@ -34,7 +34,7 @@ Maple Mono NF CN 上游使用 SIL OFL 1.1，许可证随站点发布在 [public/
 将上游 `maple-mono-nf-cn-{regular,italic}.woff` 放入被忽略的 `fonts-source/`，准备 Python 3.10+、`fonttools` 与 `brotli` 后运行：
 
 ```sh
-python scripts/fonts/build-font-subsets.py
+python scripts/build/fonts/build-font-subsets.py
 ```
 
-字体输出到 `app/assets/fonts/`，覆盖清单写入 `scripts/fonts/glyph-coverage.json`。新增可渲染中文时更新子集和清单，核对生成差异、字宽与 Italic 字形。工程文档不属于生成器的扫描范围，调整本文不触发字体重建。
+字体输出到 `app/assets/fonts/`，覆盖清单写入 `scripts/build/fonts/glyph-coverage.json`。新增可渲染中文时更新子集和清单，核对生成差异、字宽与 Italic 字形。工程文档不属于生成器的扫描范围，调整本文不触发字体重建。

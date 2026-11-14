@@ -59,9 +59,7 @@ jobs:
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
       - name: Full-scene regression
-        env:
-          XCA_CINEMATIC: "1"
-        run: bunx playwright test --ignore-snapshots --grep @cinematic --shard=${{ inputs.shard }}/3
+        run: bun scripts/test-plan.ts run system --scene --shard=${{ inputs.shard }}/3
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

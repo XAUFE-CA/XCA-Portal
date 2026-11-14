@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { readBuildInfo } from "./scripts/build-info";
-import { uiDependencyState } from "./scripts/ui-dependencies";
+import { readBuildInfo } from "./scripts/build/build-info";
+import { uiDependencyState } from "./scripts/deps/ui-dependencies";
 
 const manifest = JSON.parse(
   readFileSync(fileURLToPath(new URL("./package.json", import.meta.url)), "utf8"),

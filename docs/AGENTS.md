@@ -7,6 +7,9 @@
 ```text
 docs/
   AGENTS.md                     本文件：全仓库行文规则与 docs 结构规范
+  testing/                      测试层级、执行计划与浏览器回归（入口 testing/README.md）
+    README.md                   测试层级、执行计划与注册表一致性
+    browser-regression.md       浏览器回归观测、运行要求与结果记录
   terminology/                  术语体系：对照表与翻译规则（入口 terminology/README.md）
   architecture/                 架构说明与现行接口，只描述当前真实情况
     engineering-quality.md      环境与依赖维护、门禁分级、代码与文档预算、CI 决策
@@ -27,6 +30,8 @@ docs/
 | 全局约束与入口 | 根 `AGENTS.md` |
 | 项目定位、主要技术、常用命令与贡献入口 | `README.md` |
 | 环境准备、共享依赖、门禁分级、预算、CI 决策 | `docs/architecture/engineering-quality.md` |
+| 测试层级、注册表与执行计划 | `docs/testing/README.md` |
+| 浏览器回归观测、运行要求与结果记录 | `docs/testing/browser-regression.md` |
 | 终端现行接口 | `docs/architecture/terminal-extending.md` |
 | 首页入场、场景绘制与终端交接 | `docs/architecture/home-intro.md` |
 | 导航布局、主题与共享玻璃样式接入 | `docs/architecture/site-shell.md` |

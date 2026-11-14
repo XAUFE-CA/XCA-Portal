@@ -79,7 +79,7 @@ LED 屏幕分布在近路办公楼、四处地标及正前方远景楼群，分�
 
 城市不透明表面使用 Three.js 原生深度测试与深度写入，绘制到带深度缓冲的半浮点 HDR 离屏目标，不进行透明三角形排序。多重采样按 RGBA16F 实际支持的数量启用，不支持时使用单采样。彩色高亮从 HDR 城市提取，经半分辨率和八分之一分辨率的可分离模糊形成近光晕与宽扩散，保留原始城市像素。日间保留可见但弱于夜间的扩散，轮廓外的发光具有相应覆盖率，不被空白区域的透明度裁掉，也不铺设全屏色罩。色调映射与显示转换后，关联颜色与覆盖率只应用一次 `cityOpacity`。半透桥面随后覆盖城市及光晕，报告厅继续使用不透明表面遮挡，两者不消费城市后处理。尺寸变化同步调整全部目标，卸载释放模糊材质和离屏资源，分配失败时沿用 SVG 降级。
 
-`tests/e2e/city-fade-continuity.spec.ts` 固定摄像机，以小步长改变低区间透明度，隔离独立的不透明天空后读取城市合成像素并检查连续性。`tests/e2e/intro-fade.spec.ts` 检查玻璃桥面的可见性与城市透视、报告厅地面的不透明遮挡、首屏背景连续性及跳过时的资源释放。
+`tests/e2e/intro/city-fade-continuity.spec.ts` 固定摄像机，以小步长改变低区间透明度，隔离独立的不透明天空后读取城市合成像素并检查连续性。`tests/e2e/intro/intro-fade.spec.ts` 检查玻璃桥面的可见性与城市透视、报告厅地面的不透明遮挡、首屏背景连续性及跳过时的资源释放。
 
 道路终点后方的高层城市与近处街区形成深度差。高架桥面采用低粗糙度镀膜玻璃，清漆层反射天空和邻楼，透明混合保留桥下城市。掠射角提高覆盖率，分板接缝与路缘导光区分行进方向。支撑、玻璃桥面与栏板采用固定的绘制顺序，不按整座桥的合批中心重新排序。桥面继续写入深度，避免闭合截面的背面重复叠色，不启用依赖同场景背景捕获的屏幕空间折射。玻璃面不叠加高频颗粒法线，接缝与导光线按像素覆盖范围过滤，远处导光逐渐衰减。纹理固定在道路横向坐标与原始纵向距离，不随场景平移滑动。桥梁位置、厚度、生长及入口裁切保持不变，城市下层街道仍使用矿物饰面，报告厅地面仍不透明。
 
@@ -135,8 +135,8 @@ CA 绘制阶段被打断时，空间场景随归位过渡淡出，但终端不�
 
 视口尺寸改变时结束入场并恢复正常布局。偏好变化、跳过和卸载取消同一组动画、异步任务与绘制。暂停与恢复不创建第二条时间线。
 
-`tests/e2e/intro-outline.spec.ts` 人为延迟冷启动图形上下文，采样 SVG 描边进度并限制相邻采样跳变。[场景回归](../../app/features/intro/rendering/intro-scene.test.ts) 检查 Three.js 与 CSS 的投影一致性、Y 轴转换后的绕序、法线及道路坐标。测试不代替视觉验收或性能测量。
+`tests/e2e/intro/intro-outline.spec.ts` 人为延迟冷启动图形上下文，采样 SVG 描边进度并限制相邻采样跳变。[场景回归](../../app/features/intro/rendering/intro-scene.test.ts) 检查 Three.js 与 CSS 的投影一致性、Y 轴转换后的绕序、法线及道路坐标。测试不代替视觉验收或性能测量。
 
-几何与网格单元测试位于入场模块的 `core/` 与 `rendering/`。[配色回归](../../app/features/intro/rendering/intro-scene-palette.test.ts) 检查独立日夜天空、材料明度差异、中性主光、夜间照明衰减与建筑哑光材质。[报告厅回归](../../app/features/intro/core/intro-auditorium.test.ts) 检查入口、屏幕净空、阶梯高差、联排支撑及舞台和台阶落地。[场景回归](../../app/features/intro/rendering/intro-scene.test.ts) 检查主灯阴影视锥覆盖中央通道并排除屋顶。[网格回归](../../app/features/intro/rendering/intro-mark-mesh.test.ts) 检查桥面、入口及阶梯中央通道的连续承托。[轨迹回归](../../app/features/intro/core/intro-journey.test.ts) 检查道路前视、门洞净空、机位上升的单调性与速度、终点高度及屏幕中心投影，以及上升与缩屏的重叠。`tests/e2e/intro-fade.spec.ts` 使用实际着色器检查传送门裁切、道路生长仅作用于连接段及资源释放。终端轨迹回归同时检查本地玻璃边缘。其他浏览器回归入口为 `tests/e2e/terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`terminal-motion.spec.ts`、`home-entry.spec.ts` 与 `hero-typewriter.spec.ts`。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，自动化结果不等同最终视觉验收。
+几何与网格单元测试位于入场模块的 `core/` 与 `rendering/`。[配色回归](../../app/features/intro/rendering/intro-scene-palette.test.ts) 检查独立日夜天空、材料明度差异、中性主光、夜间照明衰减与建筑哑光材质。[报告厅回归](../../app/features/intro/core/intro-auditorium.test.ts) 检查入口、屏幕净空、阶梯高差、联排支撑及舞台和台阶落地。[场景回归](../../app/features/intro/rendering/intro-scene.test.ts) 检查主灯阴影视锥覆盖中央通道并排除屋顶。[网格回归](../../app/features/intro/rendering/intro-mark-mesh.test.ts) 检查桥面、入口及阶梯中央通道的连续承托。[轨迹回归](../../app/features/intro/core/intro-journey.test.ts) 检查道路前视、门洞净空、机位上升的单调性与速度、终点高度及屏幕中心投影，以及上升与缩屏的重叠。`tests/e2e/intro/intro-fade.spec.ts` 使用实际着色器检查传送门裁切、道路生长仅作用于连接段及资源释放。终端轨迹回归同时检查本地玻璃边缘。其他浏览器回归入口为 `tests/e2e/intro/` 下的 `terminal-journey.spec.ts`、`terminal-intro-continuity.spec.ts`、`home-entry.spec.ts`，`tests/e2e/terminal/terminal-motion.spec.ts` 与 `tests/e2e/home/hero-typewriter.spec.ts`。检查方式见 [工程质量规则](engineering-quality.md#分级与执行责任)，自动化结果不等同最终视觉验收。
 
-`tests/e2e/terminal-journey-camera.spec.ts` 通过 DOM 变更记录检查 Cruise 与 Retreat 的顺序、Brand 显现及逐行输出，并对最终就绪的真实终端执行命令。瞬时阶段不在跨浏览器调用后重复读取实时属性，避免窄屏已进入下一阶段时把正常推进判为失败。
+`tests/e2e/intro/terminal-journey-camera.spec.ts` 通过 DOM 变更记录检查 Cruise 与 Retreat 的顺序、Brand 显现及逐行输出，并对最终就绪的真实终端执行命令。瞬时阶段不在跨浏览器调用后重复读取实时属性，避免窄屏已进入下一阶段时把正常推进判为失败。

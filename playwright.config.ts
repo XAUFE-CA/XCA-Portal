@@ -6,9 +6,9 @@ const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: "./tests/e2e",
   // The cinematic intro advances one cue per frame, so a software-rendered runner needs
-  // several times the wall clock of a GPU machine; stage waits use SCENE_TIMEOUT from ./tests/e2e/timing.
+  // several times the wall clock of a GPU machine; stage waits use SCENE_TIMEOUT from the support module.
   // 影院式入场每个提示都要等一帧，软件渲染运行器需要数倍于 GPU 机器的墙钟时间；
-  // 阶段等待使用 ./tests/e2e/timing 中的 SCENE_TIMEOUT。
+  // 阶段等待使用 tests/e2e/support/timing 中的 SCENE_TIMEOUT。
   timeout: 300_000,
   expect: { timeout: 20_000 },
   // A shared runner occasionally skips a stage inside one frame; one retry separates that

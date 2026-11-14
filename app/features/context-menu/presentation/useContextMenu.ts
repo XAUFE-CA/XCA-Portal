@@ -1,7 +1,8 @@
 import type { ContextMenuEntry } from "@neoverse-ui/vue";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref, shallowRef } from "vue";
 import type { MenuPoint } from "../core/menu-model";
-import { imageMenuEntries, imageWithin, runImageRow } from "./image-menu";
+import { regionMenuEntries } from "./entries";
+import { imageWithin, runImageRow } from "./image-menu";
 import { requestNativeMenu } from "./native-menu";
 import { attachRegionListeners, keepsNativeMenuByDefault } from "./region-listeners";
 
@@ -66,18 +67,7 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
   const openRevision = ref(0);
   const entries = computed(() => {
     openRevision.value;
-    // Image rows come from the pressed element rather than from the region, so any image
-    // inside any registered region offers them without extra wiring.
-    // 图像行来自被按下的元素而不是区域，因此任何已注册区域内的图片都无需额外接线即可提供。
-    const rows = [
-      ...config.entries(target.value),
-      ...imageMenuEntries(imageWithin(target.value), t),
-    ];
-    return [
-      ...rows,
-      ...(rows.length ? [{ type: "separator" as const, id: "sep-native-menu" }] : []),
-      { id: "native-menu", label: t("contextMenu.showNativeMenu") },
-    ];
+    return regionMenuEntries(target.value, config.entries, t);
   });
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
   let detach: (() => void) | undefined;
