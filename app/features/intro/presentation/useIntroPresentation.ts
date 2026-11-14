@@ -393,6 +393,10 @@ export function useIntroPresentation(getCommandCount: () => number) {
       if (brief) releaseIntroGate();
       else document.documentElement.dataset.xcaIntro = "running";
       await transition;
+      // The scene fade is complete; unmount the renderer before the text stage so software
+      // renderers do not keep drawing a hidden WebGL scene while the welcome prints.
+      // 场景淡出已完成。在文字阶段前卸载渲染器，避免软件渲染器在欢迎文字打印时继续绘制已隐藏的场景。
+      spatialIntro.value = false;
       // Skipping the spatial scene keeps the terminal's own second screen: play the same
       // brand stage so the artwork and welcome copy print row by row instead of appearing whole.
       // 跳过空间场景时保留终端自身的第二屏：播放同一个 brand 阶段，让字符画与欢迎文案逐行打印而非整块显现。

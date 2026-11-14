@@ -7,8 +7,8 @@
   },
   "exceptions": {
     "app/features/intro/presentation/useIntroPresentation.ts:useIntroPresentation#1": {
-      "ceiling": 411,
-      "reason": "2026-11-08: One presentation lifecycle owns cancellation, docking and shared-renderer refresh; nested helper bodies count in the factory. Welcome copy now stages one line at a time on the same timeline, so the factory also owns the banner and caption reveal loops. 2026-11-11: skipping the spatial scene replays the existing brand stage, so a CA-drawing interruption still prints the welcome text row by row on the original timeline; replay also waits for the closing context-menu popover before the terminal switches its glass edge pass. 2026-11-13: replay additionally waits for the panel's discrete exit transition, so the menu outline cannot outlive the panel on the intro's first frame. Exact current function size is 411 lines, grown from 408."
+      "ceiling": 415,
+      "reason": "2026-11-08: One presentation lifecycle owns cancellation, docking and shared-renderer refresh; nested helper bodies count in the factory. Welcome copy now stages one line at a time on the same timeline, so the factory also owns the banner and caption reveal loops. 2026-11-11: skipping the spatial scene replays the existing brand stage, so a CA-drawing interruption still prints the welcome text row by row on the original timeline; replay also waits for the closing context-menu popover before the terminal switches its glass edge pass. 2026-11-13: replay additionally waits for the panel's discrete exit transition, so the menu outline cannot outlive the panel on the intro's first frame. 2026-11-14: the skip path releases the hidden WebGL scene after its fade and before the brand text stage, so software renderers do not keep drawing while the welcome prints. Exact current function size is 415 lines, grown from 411."
     },
     "tests/e2e/visual/terminal-visual-acceptance.spec.ts:verifyTerminalThemes#1": {
       "ceiling": 106,
