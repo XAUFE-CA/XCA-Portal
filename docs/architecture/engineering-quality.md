@@ -18,6 +18,8 @@ CI 联合检出共享库时固定到具体提交，同一 SHA 必须同步维护
 
 CI 只缓存 Bun 的下载目录与 Playwright 浏览器二进制（按锁文件哈希，供各分片复用），不缓存 node_modules 和构建输出。门禁与生产构建在一个作业内完成并上传产物，浏览器作业下载同一产物后只跑测试，避免每个分片重复构建。
 
+`quality.yml` 对 `push`（`main`）与 `pull_request` 都设置 `paths-ignore`，全部使用目录或通配模式而不逐文件列举：`.agents/**`、`docs/adr/**`、`docs/architecture/**`、`docs/terminology/**`、`docs/*.md`、`*.md` 与 `LICENSE*` 的单独改动不触发完整工作流，这些路径既不参与构建也不是门禁输入。`docs/testing/**` 保持触发，因为其中的 `README.md` 是测试注册表、属于门禁输入；同目录的叙述文档因此也会触发，属保留该目录的代价。`.github/**`、`content/**`、运行时源码和所有清单配置同样不受忽略。被排除文档的格式、链接与用词检查由本地 `check:fast` 承担。`cinematic.yml` 与 `images.yml` 只有手动触发；需要核验仅含文档的推送时用 `workflow_dispatch`，该入口不受路径过滤影响。若启用 required checks，须为被路径过滤跳过的提交配置对应的跳过规则，否则 PR 会一直等待必需检查。
+
 完整入场依赖 WebGL 与 GPU。托管运行器没有 GPU，软件渲染下每个提示按帧推进，单个场景用例会耗满数分钟超时；入场开始时还会把页面滚回顶部，使路由快照捕获与虚拟时钟基准失去确定性。因此依赖完整场景或首页入场稳定落定的用例不进入推送门禁，推送门禁只运行不依赖二者的功能断言，按 `--shard` 分为八片。分片只切分用例，不跳过断言，每个作业仍固定 1 个 worker。调整分片数后须同步更新 GitHub required checks，新增作业不会自动成为必需检查。
 
 需要完整场景或依赖首页入场时序的用例标注 `@cinematic`，推送门禁与默认测试配置都排除该标签。完整场景回归在有 GPU 的本地环境通过 `bun run test:scene` 执行；`--scene` 计划设置 `XCA_CINEMATIC=1` 后才运行。`cinematic` 工作流仍为按需触发，但托管运行器没有 GPU，其结果不作为验收依据，没有自托管 GPU 运行器时不应触发。图片基线只有 Windows 一份，由 `images` 工作流按需比对。

@@ -1,8 +1,31 @@
 name: Quality
 on:
+  # Directory-level patterns only: process notes and prose docs change neither the built site
+  # nor gate inputs. docs/testing/** stays in scope because its README is the test registry;
+  # .github/, content/ and every runtime path are never ignored.
+  # 仅用目录级模式：过程记录与叙述文档不改变构建产物，也不是门禁输入。docs/testing/ 下的
+  # README 是测试注册表，故该目录保持触发；.github/、content/ 与所有运行时路径均不忽略。
   pull_request:
+    paths-ignore:
+      - ".agents/**"
+      - "docs/adr/**"
+      - "docs/architecture/**"
+      - "docs/terminology/**"
+      - "docs/*.md"
+      - "*.md"
+      - "LICENSE*"
   push:
     branches: [main]
+    paths-ignore:
+      - ".agents/**"
+      - "docs/adr/**"
+      - "docs/architecture/**"
+      - "docs/terminology/**"
+      - "docs/*.md"
+      - "*.md"
+      - "LICENSE*"
+  # Manual runs ignore path filters and can verify documentation-only pushes on demand.
+  # 手动触发不受路径过滤限制，可按需验证仅含文档的推送。
   workflow_dispatch:
 
 permissions:
