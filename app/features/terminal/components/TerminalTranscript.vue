@@ -3,7 +3,7 @@ const { t } = useSiteLocale();
 
 import { UiAction, UiTerminalEcho, UiTerminalLine } from "@neoverse-ui/vue";
 import { computed } from "vue";
-import { selectBanner } from "../branding/banners";
+import { BANNERS, NARROW_LEAD, selectBanner } from "../branding/banners";
 import type { TerminalEntry } from "../core/types";
 
 const props = defineProps<{
@@ -12,15 +12,31 @@ const props = defineProps<{
   bannerRowsVisible?: number;
   captionLinesVisible?: number;
 }>();
-const bannerRows = computed(() => selectBanner(props.columns).split("\n"));
+const banner = computed(() => selectBanner(props.columns));
+const bannerRows = computed(() => banner.value.split("\n"));
+// The narrow banner splits its caption from the mark so both can be set at their own scale.
+// 窄屏字标把标题与字标拆开，使两者各自按合适的字号呈现。
+const narrowWelcome = computed(() => banner.value === BANNERS.narrow);
+// The lead prints as one stage before the mark; the mark keeps the row mask.
+// 标题在字标前作为一个阶段整体出现；字标保留逐行遮罩。
+const bannerLeadVisible = computed(
+  () =>
+    narrowWelcome.value && (props.bannerRowsVisible === undefined || props.bannerRowsVisible > 0),
+);
+const visibleArtRows = computed(() =>
+  props.bannerRowsVisible === undefined
+    ? bannerRows.value.length
+    : Math.max(
+        0,
+        Math.min(props.bannerRowsVisible - (narrowWelcome.value ? 1 : 0), bannerRows.value.length),
+      ),
+);
 // Rows still print in order; the mask feathers the newest row so it fades in.
 // 字符画仍按顺序打印，遮罩柔化最新一行，使其淡入。
 const bannerStyle = computed(() => ({
-  "--xca-banner-rows": props.bannerRowsVisible ?? bannerRows.value.length,
+  "--xca-banner-rows": visibleArtRows.value,
 }));
-const bannerText = computed(() =>
-  bannerRows.value.slice(0, props.bannerRowsVisible ?? bannerRows.value.length).join("\n"),
-);
+const bannerText = computed(() => bannerRows.value.slice(0, visibleArtRows.value).join("\n"));
 // A staged count reveals welcome copy in order; an absent count leaves normal output untouched.
 // 分阶段计数让欢迎文案依次显现；未提供计数时，普通输出保持不变。
 const stagedCaptions = computed(() => {
@@ -38,8 +54,27 @@ function captionVisible(entry: TerminalEntry): boolean {
 </script>
 <template>
   <template v-for="entry in entries" :key="entry.id">
+    <div v-if="entry.type === 'banner' && narrowWelcome" class="xca-terminal-welcome">
+      <div v-if="bannerLeadVisible" class="xca-terminal-welcome__lead-frame">
+        <UiTerminalLine
+          class="xca-terminal-welcome__lead"
+          preformatted
+          :text="NARROW_LEAD"
+          aria-hidden="true"
+        />
+      </div>
+      <div class="xca-terminal-welcome__mark-frame">
+        <UiTerminalLine
+          class="xca-terminal-banner xca-terminal-banner--narrow"
+          preformatted
+          :style="bannerStyle"
+          :text="bannerText"
+          :aria-label="t('terminal.welcomeLabel')"
+        />
+      </div>
+    </div>
     <UiTerminalLine
-      v-if="entry.type === 'banner'"
+      v-else-if="entry.type === 'banner'"
       class="xca-terminal-banner"
       preformatted
       :style="bannerStyle"

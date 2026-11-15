@@ -15,6 +15,11 @@
   .xca-terminal-anchor {
     height: calc(var(--neoverse-space-32) * 4);
   }
+  /* The banner keeps its natural cell grid; centring the block leaves the glyph columns intact.
+     字符画保持自身字符网格；整块居中可以保留字形列对齐。 */
+  .xca-terminal-banner {
+    margin-inline: auto;
+  }
 }
 @media (max-width: 38rem) {
   .xca-terminal-hero {
@@ -23,6 +28,15 @@
   }
   .xca-terminal-hero__subtitle {
     font-size: var(--neoverse-font-size-sm);
+  }
+  /* Phones keep the longest sentence on one line: Han copy scales with the viewport, while the
+     wider Latin copy starts smaller so it fits the same width.
+     手机让最长语句保持单行：中文随视口缩放，较宽的英文改用更小字号以适配同一宽度。 */
+  .xca-terminal-hero__heading h1 {
+    font-size: clamp(1.25rem, 7.2vw, 2rem);
+  }
+  :lang(en) .xca-terminal-hero__heading h1 {
+    font-size: clamp(0.9375rem, 4.9vw, 2rem);
   }
   .xca-terminal-anchor {
     margin-top: var(--neoverse-space-9);
@@ -34,6 +48,13 @@
   .xca-terminal-banner,
   .xca-terminal-brand-probe {
     font-size: var(--neoverse-font-size-2xs);
+  }
+  /* A phone screen cannot spare the desktop gap; the tighter margin keeps the welcome and the
+     prompt in one viewport.
+     手机屏幕容不下桌面端间距；收紧下方留白，让欢迎内容与输入提示同屏可见。 */
+  .xca-terminal-welcome {
+    gap: var(--neoverse-space-2);
+    margin-bottom: var(--neoverse-space-2);
   }
 }
 @media (prefers-reduced-motion: reduce) {

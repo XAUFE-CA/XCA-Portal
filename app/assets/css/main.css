@@ -530,11 +530,16 @@ a {
     grid-column: 2;
   }
 
-  /* A phone is too narrow for the authored lines, so the quotation flows as one paragraph.
-     手机宽度容不下自带断行，引语改为整段自然排列。 */
+  /* A phone is too narrow for the authored lines, so the quotation flows as one paragraph;
+     only the closing lines are rebalanced, which keeps the copy at the footer's full width.
+     手机宽度容不下自带断行，引语改为整段自然排列；仅对末行做平衡，使文案保持页脚整宽。 */
   .site-footer__tagline {
     white-space: normal;
-    text-wrap: balance;
+    text-wrap: pretty;
+    /* The quotation steps down to the footer's own scale on a phone, so it no longer towers
+       over the credits.
+       手机上的引语降到与页脚同级的字号，不再压过署名。 */
+    font-size: var(--neoverse-font-size-sm);
   }
 }
 @media (prefers-reduced-motion: reduce) {

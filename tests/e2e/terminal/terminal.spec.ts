@@ -422,6 +422,8 @@ test("ASCII wordmark remains aligned and unclipped on desktop, mobile and narrow
       });
     expect(brandStyle.color).toBe(brandStyle.expectedAccent);
     expect(brandStyle.lineRatio).toBeCloseTo(brandStyle.expectedLineRatio, 2);
+    // The narrow welcome keeps the desktop cell size and scales the whole line down.
+    // 窄屏欢迎保留桌面单元格尺寸，再整体缩小这一行。
     if (width < 608) expect(brandStyle.size).toBeCloseTo(brandStyle.mobileSize, 2);
     expect(brandStyle.whitespace).toBe("pre");
     expect(brandStyle.ligatures).toBe("none");

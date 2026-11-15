@@ -8,7 +8,7 @@ import {
   UiTerminalTranscript,
 } from "@neoverse-ui/vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { selectBanner } from "../branding/banners";
+import { bannerRowCount } from "../branding/banners";
 import type { TerminalSession } from "../core/session";
 import type {
   TerminalInteraction as Interaction,
@@ -316,7 +316,7 @@ function insertText(text: string) {
 defineExpose({
   focusInput,
   insertText,
-  getBannerRowCount: () => selectBanner(bannerColumns.value).split("\n").length,
+  getBannerRowCount: () => bannerRowCount(bannerColumns.value),
   getWelcomeLineCount: () => entries.value.filter((entry) => entry.type === "line").length,
 });
 </script>

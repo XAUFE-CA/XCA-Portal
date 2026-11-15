@@ -81,6 +81,11 @@ for (const width of [1440, 390]) {
 test("the caret follows the current glyph onto a wrapped line", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await openHero(page);
+  // The phone heading fits one line by default; widen it to exercise the wrapped path.
+  // 手机端标题现在默认单行；放大字号以覆盖折行路径。
+  await page.locator("#xca-terminal-title").evaluate((node) => {
+    node.style.fontSize = "2.5rem";
+  });
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator(".xca-terminal-title__letter--visible")).toHaveCount(
     firstSentenceLength,
