@@ -63,7 +63,7 @@ Go 服务放在当前仓库的 `backend/`，使用独立的 `go.mod`、构建和
 
 CI 现状是一个提交触发的工作流 `quality.yml`：门禁与生产构建在同一个作业内完成并上传产物，浏览器作业按八个分片复用该产物；`cinematic.yml` 与 `images.yml` 按需运行，三者各自固定共享库提交，工作流没有路径筛选。加入 `backend/` 时新增独立作业运行 Go 检查，不把 Go 命令塞进 `scripts/gates/run-gates.ts`，该入口只聚合门户门禁。Go 版本只在 `go.mod` 声明，CI 由 `setup-go` 读取。新增作业不会自动成为必需检查，需要在仓库设置中手动加入，并分别核验工作流结果与 required checks 配置。
 
-本次治理已修正 CI 命令入口：`quality.yml`、`cinematic.yml` 和 `images.yml` 现调用 `bun scripts/tests/test-plan.ts`，路径存在性由 `check:references` 校验。认证实施前仍须以实际 CI 运行结果验证，不以本地门禁通过代替远端工作流通过。
+CI 命令入口已统一到清单脚本：`quality.yml`、`cinematic.yml` 和 `images.yml` 分别调用 `bun run test:ci`、`bun run test:scene:ci` 与 `bun run test:visual:ci`，脚本路径与命令名由 `check:references` 校验。认证实施前仍须以实际 CI 运行结果验证，不以本地门禁通过代替远端工作流通过。
 
 门户门禁的范围限于门户：`scripts/gates/check-budgets.ts` 统计 ts、js、vue、css、md，`scripts/gates/check-architecture.ts` 只扫描 `app/**`。实施时确定 Go 侧的对应检查（gofmt、go vet、staticcheck、`go test -race` 与生产构建），并决定是否把阈值或架构规则扩展到 `.go`；不扩展时在[工程质量规则](../../../docs/architecture/engineering-quality.md)写明理由，避免两端规则不一致。
 
