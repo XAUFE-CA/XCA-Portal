@@ -1,28 +1,12 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { useBriefEntry } from "../support/entry";
-
-// Four regions mount a panel; only the open one is visible.
-// 四个区域各挂载一个面板，只有打开的那个可见。
-const panel = (page: Page): Locator => page.locator(".ui-context-menu:visible");
-
-/**
- * Open the menu for a region at a viewport point, so the assertion is about the panel
- * rather than about how the pointer reached it.
- * 在视口坐标打开区域菜单，使断言针对面板本身，而不是指针如何到达那里。
- */
-async function openAt(page: Page, region: Locator, offset = { x: 8, y: 8 }) {
-  const box = await region.boundingBox();
-  if (!box) throw new Error("Region must be laid out before opening its menu");
-  await page.mouse.click(box.x + offset.x, box.y + offset.y, { button: "right" });
-  await expect(panel(page)).toBeVisible();
-}
+import {
+  openContextMenuAt as openAt,
+  contextMenuPanel as panel,
+  useContextMenuPage,
+} from "../support/context-menu";
 
 test.beforeEach(async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await useBriefEntry(page);
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.keyboard.press("Escape");
-  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
+  await useContextMenuPage(page);
 });
 
 test("terminal menu runs the registered commands instead of a second state path", async ({
@@ -41,19 +25,6 @@ test("terminal menu runs the registered commands instead of a second state path"
   await panel(page).getByRole("menuitem", { name: "清屏" }).click();
   await expect(panel(page)).toBeHidden();
   await expect(page.locator(".xca-terminal-history")).not.toContainText("context menu");
-});
-
-test("terminal menu switches the background through the appearance command", async ({ page }) => {
-  await openAt(page, page.locator(".xca-terminal-anchor"));
-  const radio = panel(page).getByRole("menuitemradio", { name: "纯净" });
-  await expect(radio).toHaveAttribute("aria-checked", "false");
-  await radio.click();
-
-  await openAt(page, page.locator(".xca-terminal-anchor"));
-  await expect(panel(page).getByRole("menuitemradio", { name: "纯净" })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
 });
 
 test("title menu copies the heading and reports the clipboard result", async ({ page }) => {
@@ -317,6 +288,13 @@ test("image rows copy the address and the image itself", async ({ page }) => {
   await expect(banner).toBeVisible();
   await openAtElement(page, banner);
   await expect(panel(page)).toHaveAttribute("aria-label", "关于学社操作");
+  // Image actions stay with the pressed image, above the shared preferences.
+  // 图像操作与被按下的图片放在一起，排在共用偏好之前。
+  const bannerRows = await panel(page).locator(".ui-context-menu__item").allTextContents();
+  const imageRow = bannerRows.findIndex((label) => label.startsWith("复制图片"));
+  const preferenceRow = bannerRows.findIndex((label) => label.startsWith("切换主题"));
+  expect(imageRow).toBeGreaterThan(-1);
+  expect(imageRow).toBeLessThan(preferenceRow);
   await panel(page).getByRole("menuitem", { name: "复制图片链接" }).click();
   await expect(page.locator(".xca-context-menu-status")).toHaveText("已复制到剪贴板");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("xca-banner");
@@ -601,7 +579,7 @@ test("only the build commit offers its own copy row", async ({ page }) => {
   expect(expected).toBeTruthy();
 
   await openAt(page, page.locator(".site-navigation a").first());
-  await expect(panel(page).getByRole("menuitem", { name: "复制构建提交" })).toHaveCount(0);
+  await expect(panel(page).getByRole("menuitem", { name: "复制提交哈希" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(panel(page)).toBeHidden();
 
@@ -610,13 +588,13 @@ test("only the build commit offers its own copy row", async ({ page }) => {
   const credit = page.locator(".site-footer__shared-ui a").first();
   await credit.scrollIntoViewIfNeeded();
   await openAt(page, credit, { x: 2, y: 2 });
-  await expect(panel(page).getByRole("menuitem", { name: "复制构建提交" })).toHaveCount(0);
+  await expect(panel(page).getByRole("menuitem", { name: "复制提交哈希" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(panel(page)).toBeHidden();
 
   await commit.scrollIntoViewIfNeeded();
   await openAt(page, commit, { x: 2, y: 2 });
-  await panel(page).getByRole("menuitem", { name: "复制构建提交" }).click();
+  await panel(page).getByRole("menuitem", { name: "复制提交哈希" }).click();
   await expect(page.locator(".xca-context-menu-status")).toHaveText("已复制到剪贴板");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(expected);
 });

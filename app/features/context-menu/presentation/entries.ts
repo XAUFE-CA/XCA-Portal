@@ -24,18 +24,29 @@ export function linkMenuEntries(
 }
 
 /**
- * Rows every region shares: its own entries, image rows from the pressed element, then
- * the browser-menu row. The inputs fully determine the result, so the menu state only
- * supplies the open-time target.
- * 各区域共享的菜单行：区域自有条目、按被按下元素生成的图像行，最后是浏览器菜单行。
- * 输入完全决定结果，菜单状态只负责提供打开时的目标。
+ * Rows every region shares, assembled in one order: the pressed element's own actions, then
+ * the image rows it owns, then the rows shared by every menu of this kind, then the browser
+ * menu. Keeping the order here stops a region from splitting its own actions across groups.
+ * 各区域共享的菜单行，按同一顺序装配：按下元素自己的操作、它自带的图像行、同类菜单共用的行，
+ * 最后是浏览器菜单。顺序集中在此，区域不会把自己的操作拆到不同分组。
  */
 export function regionMenuEntries(
   target: Element | null,
   regionEntries: (target: Element | null) => ContextMenuEntry[],
+  sharedEntries: ((target: Element | null) => ContextMenuEntry[]) | undefined,
   t: Translator,
 ): ContextMenuEntry[] {
-  const rows = [...regionEntries(target), ...imageMenuEntries(imageWithin(target), t)];
+  const rows = [...regionEntries(target)];
+  const images = imageMenuEntries(imageWithin(target), t);
+  if (images.length) {
+    if (rows.length) rows.push({ type: "separator", id: "sep-image" });
+    rows.push(...images);
+  }
+  const shared = sharedEntries?.(target) ?? [];
+  if (shared.length) {
+    if (rows.length) rows.push({ type: "separator", id: "sep-shared" });
+    rows.push(...shared);
+  }
   return [
     ...rows,
     ...(rows.length ? [{ type: "separator" as const, id: "sep-native-menu" }] : []),

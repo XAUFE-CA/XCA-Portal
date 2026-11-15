@@ -28,6 +28,8 @@ Status: adopted
 
 导航复用 `UiNavigationItem`，主题与语言复用 `UiSegmentedControl`。三组控件分别由共享 `UiControlSurface` 提供默认的 `glass-subtle` 外观，并通过 `edge-mode="local"` 使用相同的边缘绘制方式。内层导航项和分段控件使用 `surface="none"`，避免叠加独立背景与阴影，保留各自的选中样式与键盘操作。语言与主题外壳通过公开的 `--neoverse-control-surface-padding-inline` 复用纵向内边距，使四周留白一致。控件内部采用共享默认尺寸，门户不覆盖字号、点击区域、材质、滑块或焦点样式。
 
+静默控件的悬浮底色统一取共享的中性浅色，与导航项的幽灵反馈一致；分段选项不再使用强调色底板。门户只在偏好控件容器改写 `--neoverse-control-hover-background` 这一个公开 token，不覆盖组件内部样式；导航项、菜单按钮与终端里的幽灵按钮继续使用共享默认，按下时在同一中性色相上加深，分段选项保留共享的按压阴影与缩放。
+
 主题控件与 `xca theme` 共用 `useSiteTheme`，语言控件与终端服务共用 `useSiteLocale`。切换不重建会话。
 
 顶栏的宽度过渡由共享 `useLayoutWidthMotion` 承担。门户只提供容器、目标选择器与触发值，采样、终点解析、`spatial` 时长与缓动、打断续接和终止条件都在共享库内。底层原语 `captureLayoutWidths` 与 `animateLayoutWidths` 位于 `@neoverse-ui/motion`，Vue 适配位于 `@neoverse-ui/vue`，门户不维护第二套测量与动画状态。

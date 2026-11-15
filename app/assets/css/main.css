@@ -276,6 +276,10 @@ a {
   border-bottom: var(--neoverse-border-width-thin) solid var(--neoverse-color-border-subtle);
 }
 .site-controls {
+  /* Preference controls hover on the same neutral wash as the navigation; the segmented
+     accent plate read as a second control language inside the glass header.
+     偏好控件与导航共用中性悬浮底色：分段控件的强调底板在玻璃页头里像是另一套控件语言。 */
+  --neoverse-control-hover-background: var(--neoverse-effect-quiet-command-hover-wash);
   grid-column: 3;
   grid-row: 1;
   justify-self: end;

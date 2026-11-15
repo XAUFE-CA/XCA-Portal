@@ -3,8 +3,10 @@ import type { VNodeRef } from "vue";
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import heroSentences from "~/data/hero-sentences.json";
 import {
+  applyPreferenceRow,
   ContextMenuHost,
   copyText,
+  preferenceMenuEntries,
   type RegionRef,
   readClipboard,
   runTerminalMenuAction,
@@ -25,7 +27,7 @@ import type { TerminalServices } from "~/features/terminal/core/types";
 import { parseHeroTitle } from "./hero-title";
 import { useTitleCursor } from "./useTitleCursor";
 
-const { locale, t } = useSiteLocale();
+const { locale, setLocale, t } = useSiteLocale();
 const sentences = computed(() =>
   heroSentences[locale.value].map((sentence) => sentence.trim()).filter(Boolean),
 );
@@ -174,8 +176,10 @@ const terminalActions = {
 const terminalMenu = useContextMenu({
   label: () => t("contextMenu.terminal"),
   entries: () => terminalMenuEntries(session, terminalActions, t, anchor.value),
+  sharedEntries: () => preferenceMenuEntries(t, theme.value, locale.value),
   keepNativeMenu: () => false,
   select: (id) => {
+    if (applyPreferenceRow(id, { setTheme, setLocale })) return undefined;
     if (id === "paste") {
       return readClipboard().then((text) => {
         if (!text) return t("contextMenu.pasteFailed");

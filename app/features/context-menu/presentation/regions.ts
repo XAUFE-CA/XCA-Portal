@@ -1,9 +1,9 @@
 import type { ContextMenuEntry } from "@neoverse-ui/vue";
 import { SITE } from "~/config/site";
-import { locales } from "~/i18n";
 import { selectionWithin } from "./clipboard";
 import { copyLinkResult, copyResult } from "./copy-result";
 import { anchorWithin, linkMenuEntries } from "./entries";
+import { applyPreferenceRow, preferenceMenuEntries } from "./preferences";
 import { type ContextMenuResult, type ContextMenuState, useContextMenu } from "./useContextMenu";
 
 /**
@@ -61,12 +61,15 @@ export function useLinkMenu(label?: () => string, extras?: LinkMenuExtras) {
 }
 
 /**
- * About-page rows: copy the current selection, the page title or the canonical address.
- * 关于学社的行：复制当前选区、页面标题或规范地址。
+ * About-page rows: copy the current selection, the page title or the canonical address, then
+ * the site preferences shared with the other menus.
+ * 关于学社的行：复制当前选区、页面标题或规范地址，随后是与其他菜单共用的站点偏好。
  */
 export function useAboutMenu(title: () => string | undefined, root: () => Element | null) {
-  const { t } = useSiteLocale();
+  const { t, locale, setLocale } = useSiteLocale();
+  const { theme, setTheme } = useSiteTheme();
   const pageUrl = () => (typeof window === "undefined" ? SITE.routes.about : window.location.href);
+  const preferences = { setTheme, setLocale };
 
   return useContextMenu({
     label: () => t("contextMenu.about"),
@@ -82,7 +85,9 @@ export function useAboutMenu(title: () => string | undefined, root: () => Elemen
         { id: "copy-page-url", label: t("contextMenu.copyPageUrl") },
       ];
     },
+    sharedEntries: () => preferenceMenuEntries(t, theme.value, locale.value),
     select: (id) => {
+      if (applyPreferenceRow(id, preferences)) return undefined;
       if (id === "copy-selection") return copyResult(selectionWithin(root()), t);
       if (id === "copy-page-title") return copyResult(title() ?? "", t);
       if (id === "copy-page-url") return copyResult(pageUrl(), t);
@@ -97,9 +102,9 @@ export function useAboutMenu(title: () => string | undefined, root: () => Elemen
  * 首页标题行：复制两行文案，然后提供共用页面操作。主题与语言展开二级菜单，当前值以勾选行显示。
  */
 export function useTitleMenu(title: () => string, subtitle: () => string) {
-  const { t } = useSiteLocale();
+  const { t, locale, setLocale } = useSiteLocale();
   const { theme, setTheme } = useSiteTheme();
-  const { locale, setLocale } = useSiteLocale();
+  const preferences = { setTheme, setLocale };
 
   return useContextMenu({
     label: () => t("contextMenu.title"),
@@ -109,41 +114,16 @@ export function useTitleMenu(title: () => string, subtitle: () => string) {
       { type: "separator", id: "sep-page" },
       { id: "replay-intro", label: t("contextMenu.replayIntro") },
       { id: "reload", label: t("contextMenu.reload") },
-      { type: "separator", id: "sep-preferences" },
-      {
-        id: "theme",
-        label: t("contextMenu.theme"),
-        children: SITE.themes.map((value) => ({
-          id: `theme:${value}`,
-          label: t(`theme.${value}`),
-          group: "theme",
-          selection: "single" as const,
-          checked: theme.value === value,
-        })),
-      },
-      {
-        id: "locale",
-        label: t("contextMenu.locale"),
-        children: locales.map((value) => ({
-          id: `locale:${value}`,
-          label: t(`locale.${value}`),
-          group: "locale",
-          selection: "single" as const,
-          checked: locale.value === value,
-        })),
-      },
     ],
+    sharedEntries: () => preferenceMenuEntries(t, theme.value, locale.value),
     select: (id) => {
+      if (applyPreferenceRow(id, preferences)) return undefined;
       if (id === "reload") {
         if (typeof window !== "undefined") window.location.reload();
         return undefined;
       }
       if (id === "copy-title") return copyResult(title(), t);
       if (id === "copy-subtitle") return copyResult(subtitle(), t);
-      if (id.startsWith("theme:")) {
-        const value = id.slice(6);
-        if (value === "light" || value === "dark" || value === "system") setTheme(value);
-      } else if (id.startsWith("locale:")) setLocale(id.slice(7));
       return undefined;
     },
   });

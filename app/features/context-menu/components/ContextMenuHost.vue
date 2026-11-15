@@ -1,11 +1,25 @@
 <script setup lang="ts">
 import { UiContextMenu, UiSurface } from "@neoverse-ui/vue";
+import { onBeforeUnmount, onMounted } from "vue";
+import { guardMenuSurface } from "../presentation/menu-surface";
 import type { ContextMenuState } from "../presentation/useContextMenu";
 
 // The region owns the state; this shell only renders it, so two mounts cannot
 // diverge into separate open flags for the same panel.
 // 状态由区域持有，此壳只负责渲染，因此两处挂载不会各自维护同一面板的打开标志。
 const props = defineProps<{ menu: ContextMenuState }>();
+
+// The panel leaves its region for the top layer, so only a document-level guard watches
+// right-clicks that land on its rows.
+// 面板离开所属区域进入顶层，因此只有文档级守卫能监视落在其行上的右键。
+let releaseSurface: (() => void) | undefined;
+onMounted(() => {
+  releaseSurface = guardMenuSurface(document);
+});
+onBeforeUnmount(() => {
+  releaseSurface?.();
+  releaseSurface = undefined;
+});
 </script>
 
 <template>

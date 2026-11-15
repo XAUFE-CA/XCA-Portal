@@ -34,10 +34,7 @@ const menu = useLinkMenu(() => t("contextMenu.footer"), {
   // 位置不会出现该行。
   entries: (target) =>
     build && target?.closest(".site-footer__build-commit")
-      ? [
-          { type: "separator", id: "sep-build" },
-          { id: "copy-commit", label: t("contextMenu.copyCommit") },
-        ]
+      ? [{ id: "copy-commit", label: t("contextMenu.copyCommitHash") }]
       : [],
   select: (id) => (id === "copy-commit" && build ? copyResult(build.shortSha, t) : undefined),
 });

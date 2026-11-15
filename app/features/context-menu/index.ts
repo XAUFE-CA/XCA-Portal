@@ -4,6 +4,11 @@ export { copyImage, copyText, readClipboard, selectionWithin } from "./presentat
 export { copyLinkResult, copyResult } from "./presentation/copy-result";
 export { anchorWithin, linkMenuEntries } from "./presentation/entries";
 export {
+  applyPreferenceRow,
+  type PreferenceActions,
+  preferenceMenuEntries,
+} from "./presentation/preferences";
+export {
   type ContextMenuState,
   useAboutMenu,
   useLinkMenu,

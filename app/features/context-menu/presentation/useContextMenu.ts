@@ -14,6 +14,12 @@ export interface ContextMenuConfig {
   label: () => string;
   /** Entries for the element the visitor right-clicked; `null` when the event has no element. */
   entries: (target: Element | null) => ContextMenuEntry[];
+  /**
+   * Rows every menu of this kind shares, placed after the pressed element's own rows so
+   * control-specific actions stay together at the top.
+   * 同类菜单共享的行，排在按下元素自有行之后，使控件专属操作集中在顶部。
+   */
+  sharedEntries?: (target: Element | null) => ContextMenuEntry[];
   /** Runs the chosen row; the original target lets a region act on the clicked link. */
   select: (id: string, target: Element | null) => ContextMenuResult;
   /** Text fields inside this region keep the browser menu unless they opt in here. */
@@ -67,7 +73,7 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuState {
   const openRevision = ref(0);
   const entries = computed(() => {
     openRevision.value;
-    return regionMenuEntries(target.value, config.entries, t);
+    return regionMenuEntries(target.value, config.entries, config.sharedEntries, t);
   });
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
   let detach: (() => void) | undefined;

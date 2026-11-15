@@ -24,7 +24,6 @@ export function imageMenuEntries(
 ): ContextMenuEntry[] {
   if (!image) return [];
   return [
-    { type: "separator", id: "sep-image" },
     { id: "copy-image", label: t("contextMenu.copyImage") },
     { id: "copy-image-link", label: t("contextMenu.copyImageLink") },
   ];

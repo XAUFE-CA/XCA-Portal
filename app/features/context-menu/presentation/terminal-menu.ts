@@ -46,22 +46,27 @@ export function terminalMenuEntries(
       label: t("contextMenu.copyLastCommand"),
       disabled: !hasCommand,
     },
-    { type: "separator", id: "sep-history" },
     { id: "clear-screen", label: t("contextMenu.clearScreen"), shortcut: "Ctrl+L" },
     { id: "clear-history", label: t("contextMenu.clearHistory") },
-    { type: "separator", id: "sep-appearance" },
-    ...[...background.values()].map((profile) => ({
-      id: `background:${profile.id}`,
-      label: profile.labelKey ? t(profile.labelKey) : profile.label,
-      group: "background",
-      selection: "single" as const,
-      checked: profile.id === selected,
-    })),
-    { type: "separator", id: "sep-window" },
+    {
+      id: "background",
+      label: t("contextMenu.terminalBackground"),
+      // Background choices live in a submenu so the top level stays short and the current
+      // profile is still visible as one checked row.
+      // 背景选项放进二级菜单，顶层因此保持简短，当前方案仍以一个勾选行显示。
+      children: [...background.values()].map((profile) => ({
+        id: `background:${profile.id}`,
+        label: profile.labelKey ? t(profile.labelKey) : profile.label,
+        group: "background",
+        selection: "single" as const,
+        checked: profile.id === selected,
+      })),
+    },
     {
       id: "toggle-expanded",
       label: actions.expanded() ? t("contextMenu.restore") : t("contextMenu.expand"),
     },
+    { type: "separator", id: "sep-site" },
     { id: "replay-intro", label: t("contextMenu.replayIntro") },
   ];
 }
