@@ -56,6 +56,29 @@ test("budget CLI includes untracked source and rejects growth beyond a reviewed 
   });
 });
 
+test("budget CLI ranks at-limit items before other near warnings", () => {
+  withFixture((root) => {
+    write(
+      root,
+      "scripts/gates/quality-budgets.json",
+      JSON.stringify({
+        limits: { source: [300, 500], css: [400, 600], test: [400, 700], function: [60, 100] },
+        exceptions: {},
+      }),
+    );
+    write(root, "app/at-limit.ts", "// line\n".repeat(499));
+    write(root, "app/near.ts", "// line\n".repeat(480));
+    const result = check(root, "budgets");
+    expect(result.code).toBe(0);
+    expect(result.output).toContain("AT LIMIT app/at-limit.ts: 499/500");
+    expect(result.output).toContain("NEAR app/near.ts: 480/500");
+    expect(result.output.indexOf("AT LIMIT app/at-limit.ts")).toBeLessThan(
+      result.output.indexOf("NEAR app/near.ts"),
+    );
+    expect(result.output).toContain("2 near hard limits (1 at limit)");
+  });
+});
+
 test("documentation CLI fails missing targets and succeeds after the target exists", () => {
   withFixture((root) => {
     write(root, "README.md", "# Example\n\n[Local](docs/example.md)\n");

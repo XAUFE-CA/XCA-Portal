@@ -9,6 +9,12 @@ interface IntroGlassContinuity {
   brand: GlassFinish | null;
   ready: GlassFinish | null;
 }
+interface DockingSample {
+  edgeError: number;
+  edgeFound: boolean;
+  top: number;
+  ready: boolean;
+}
 
 declare global {
   interface Window {
@@ -33,6 +39,38 @@ function recordIntroGlassMaterial() {
     )
       material.ready = finish;
   }).observe(document, { subtree: true, attributes: true, childList: true });
+}
+
+// The probe runs in the page, so it stays a standalone function without outer references.
+// 探针在页面内执行，因此保持独立函数，不引用外部变量。
+async function sampleDockingFrames(): Promise<DockingSample[]> {
+  const result: DockingSample[] = [];
+  const terminal = document.querySelector(".xca-terminal-window");
+  if (!terminal) throw new Error("The terminal is required to measure docking motion");
+  for (let i = 0; i < 100; i++) {
+    await new Promise(requestAnimationFrame);
+    const box = terminal.getBoundingClientRect();
+    // The init script records every u_rect call as a four-coordinate tuple.
+    // 初始化脚本将每次 u_rect 调用记录为四坐标元组。
+    const monitoredWindow = window as unknown as {
+      terminalDrawnRects: [number, number, number, number][];
+    };
+    const rectangles = monitoredWindow.terminalDrawnRects;
+    const edge = rectangles.find((rect) => Math.abs(rect[2] - box.width) < 200 && rect[3] > 300);
+    result.push({
+      edgeFound: !!edge,
+      edgeError: edge
+        ? Math.max(
+            Math.abs(edge[0] - box.x),
+            Math.abs(edge[1] - box.y),
+            Math.abs(edge[2] - box.width),
+          )
+        : 0,
+      top: box.top,
+      ready: !document.querySelector(".xca-terminal-hero--intro"),
+    });
+  }
+  return result;
 }
 
 test("glass edge and background stay continuous through docking and intro completion @cinematic", async ({
@@ -71,35 +109,7 @@ test("glass edge and background stay continuous through docking and intro comple
     timeout: SCENE_TIMEOUT,
   });
   await expect(page.locator("html")).toHaveAttribute("data-neoverse-glass-renderer", "webgl");
-  const samples = await page.evaluate(async () => {
-    const result: { edgeError: number; edgeFound: boolean; top: number; ready: boolean }[] = [];
-    const terminal = document.querySelector(".xca-terminal-window");
-    if (!terminal) throw new Error("The terminal is required to measure docking motion");
-    for (let i = 0; i < 100; i++) {
-      await new Promise(requestAnimationFrame);
-      const box = terminal.getBoundingClientRect();
-      // The init script records every u_rect call as a four-coordinate tuple.
-      // 初始化脚本将每次 u_rect 调用记录为四坐标元组。
-      const monitoredWindow = window as unknown as {
-        terminalDrawnRects: [number, number, number, number][];
-      };
-      const rectangles = monitoredWindow.terminalDrawnRects;
-      const edge = rectangles.find((rect) => Math.abs(rect[2] - box.width) < 200 && rect[3] > 300);
-      result.push({
-        edgeFound: !!edge,
-        edgeError: edge
-          ? Math.max(
-              Math.abs(edge[0] - box.x),
-              Math.abs(edge[1] - box.y),
-              Math.abs(edge[2] - box.width),
-            )
-          : 0,
-        top: box.top,
-        ready: !document.querySelector(".xca-terminal-hero--intro"),
-      });
-    }
-    return result;
-  });
+  const samples = await page.evaluate(sampleDockingFrames);
   expect(samples.some((sample) => sample.edgeFound)).toBe(true);
   expect(
     Math.max(...samples.map((sample) => sample.edgeError)),

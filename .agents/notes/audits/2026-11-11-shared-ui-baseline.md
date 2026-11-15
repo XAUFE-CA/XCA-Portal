@@ -46,16 +46,16 @@ Updated: 2026-11-15
 | `app/features/intro/rendering/intro-auditorium-mesh.ts:158` | 44 |
 | `tests/e2e/intro/intro-fade.spec.ts:106` | 44 |
 | `app/features/intro/rendering/intro-scene-materials.ts:297` | 42 |
-| `tests/e2e/support/journey.ts:317` | 39 |
+| `tests/e2e/support/room-portal.ts:177` | 39 |
 | `app/features/intro/rendering/intro-scene-materials.ts:353` | 38 |
 | `app/features/intro/rendering/intro-city-mesh.ts:407` | 36 |
 | `tests/e2e/intro/city-fade-continuity.spec.ts:27` | 28 |
-| `tests/e2e/support/journey.ts:239` | 28 |
+| `tests/e2e/support/room-portal.ts:99` | 28 |
 | `app/features/intro/rendering/intro-auditorium-mesh.ts:128` | 27 |
 | `app/features/intro/rendering/intro-city-mesh.ts:194` | 27 |
-| `tests/e2e/support/timing.ts:281` | 27 |
+| `tests/e2e/support/timing.ts:293` | 27 |
 
-按工程质量规则，认知复杂度 >25 属 SHOULD 人工审查，历史诊断保留可见，不通过关闭规则或拆分文件清零。入场展示编排拆为模块级函数后，`useIntroPresentation.ts:217` 的复杂度 27 不再出现，诊断由 14 条降至 13 条；本次治理未新增诊断。
+按工程质量规则，认知复杂度 >25 属 SHOULD 人工审查，历史诊断保留可见，不通过关闭规则或拆分文件清零。入场展示编排拆为模块级函数后，`useIntroPresentation.ts:217` 的复杂度 27 不再出现，诊断由 14 条降至 13 条。房间传送门链与相机几何拆为独立模块后，上表位置随之更新，诊断仍为 13 条，未新增诊断。
 
 ## 2026-11-15 CI 失败修复
 

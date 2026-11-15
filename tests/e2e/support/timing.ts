@@ -94,21 +94,51 @@ function installLineCapture() {
   });
 }
 
+interface Entry {
+  stage: string | null;
+  screen: string[];
+  lines: number;
+  bootLines: number;
+  progress: number | null;
+  fill: number | null;
+  track: string | null;
+  banner: number;
+}
+interface Capture {
+  xcaCaptureTerminalLines: () => unknown[];
+  xcaReadEntry: () => Entry;
+}
+
+/** Publish the DOM reader so the injected recorder stays self-contained in the page. */
+// 把 DOM 读取器发布到页面，使注入的记录器在页面内保持自包含。
+function installEntryReader() {
+  const historySelector =
+    ".xca-terminal-history .xca-terminal-banner, .xca-terminal-history .xca-terminal-line";
+  Object.assign(window, {
+    xcaReadEntry: () => {
+      const screen = document.querySelector<HTMLElement>(".xca-terminal-screen");
+      const progress = screen
+        ?.querySelector(".xca-terminal-boot-progress")
+        ?.getAttribute("aria-valuenow");
+      const fill = screen?.querySelector(".xca-terminal-boot-progress__fill")?.textContent;
+      return {
+        stage: document.querySelector<HTMLElement>(".xca-ca-intro")?.dataset.journey ?? null,
+        screen: [...(screen?.classList ?? [])]
+          .filter((name) => name.startsWith("xca-terminal-screen--"))
+          .map((name) => name.slice("xca-terminal-screen--".length)),
+        lines: screen?.querySelectorAll(historySelector).length ?? 0,
+        bootLines: document.querySelectorAll(".xca-terminal-bootlog__line").length,
+        progress: progress === undefined || progress === null ? null : Number(progress),
+        fill: fill === undefined || fill === null ? null : fill.length,
+        track: screen?.querySelector(".xca-terminal-boot-progress__track")?.textContent ?? null,
+        banner: screen?.querySelector(historySelector)?.textContent?.length ?? 0,
+      };
+    },
+  });
+}
+
 /** Record every terminal state change per DOM batch. */
 function installRecorder() {
-  type Entry = {
-    stage: string | null;
-    screen: string[];
-    lines: number;
-    bootLines: number;
-    progress: number | null;
-    fill: number | null;
-    track: string | null;
-    banner: number;
-  };
-  interface Capture {
-    xcaCaptureTerminalLines: () => unknown[];
-  }
   const records: {
     sequence: Entry[];
     printed: unknown[] | null;
@@ -120,29 +150,10 @@ function installRecorder() {
   const seenBeforeReady = new WeakSet<Element>();
   let previousSignature = "";
   Object.assign(window, { xcaTerminalRecords: records });
-  const capture = (window as unknown as Capture).xcaCaptureTerminalLines;
+  const { xcaCaptureTerminalLines: capture, xcaReadEntry: read } = window as unknown as Capture;
   const historySelector =
     ".xca-terminal-history .xca-terminal-banner, .xca-terminal-history .xca-terminal-line";
 
-  function read(): Entry {
-    const screen = document.querySelector<HTMLElement>(".xca-terminal-screen");
-    const progress = screen
-      ?.querySelector(".xca-terminal-boot-progress")
-      ?.getAttribute("aria-valuenow");
-    const fill = screen?.querySelector(".xca-terminal-boot-progress__fill")?.textContent;
-    return {
-      stage: document.querySelector<HTMLElement>(".xca-ca-intro")?.dataset.journey ?? null,
-      screen: [...(screen?.classList ?? [])]
-        .filter((name) => name.startsWith("xca-terminal-screen--"))
-        .map((name) => name.slice("xca-terminal-screen--".length)),
-      lines: screen?.querySelectorAll(historySelector).length ?? 0,
-      bootLines: document.querySelectorAll(".xca-terminal-bootlog__line").length,
-      progress: progress === undefined || progress === null ? null : Number(progress),
-      fill: fill === undefined || fill === null ? null : fill.length,
-      track: screen?.querySelector(".xca-terminal-boot-progress__track")?.textContent ?? null,
-      banner: screen?.querySelector(historySelector)?.textContent?.length ?? 0,
-    };
-  }
   function sample() {
     const entry = read();
     const previous = records.sequence.at(-1);
@@ -204,6 +215,7 @@ function installRecorder() {
  */
 export async function recordTerminal(page: Page): Promise<void> {
   await page.addInitScript(installLineCapture);
+  await page.addInitScript(installEntryReader);
   await page.addInitScript(installRecorder);
 }
 

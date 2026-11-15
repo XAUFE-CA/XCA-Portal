@@ -3,7 +3,7 @@ import { uiDependencyState } from "./ui-dependencies";
 
 const portalRoot = resolve(import.meta.dir, "../..");
 const uiRoot = resolve(portalRoot, "../Neoverse-UI");
-const syncScript = resolve(uiRoot, "scripts/sync-consumer.ts");
+const syncScript = resolve(uiRoot, "scripts/sync/sync-consumer.ts");
 
 async function run(args: string[], cwd: string) {
   const child = Bun.spawn([process.execPath, ...args], {

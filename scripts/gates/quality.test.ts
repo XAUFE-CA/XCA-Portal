@@ -8,6 +8,8 @@ import {
   fileLimits,
   inBudgetScope,
   nearHardLimit,
+  nearLevel,
+  nearMargin,
   reviewCategory,
 } from "./check-budgets";
 import { bannedPhrases, extractLinks, isExternalLink, isWordingRuleFile } from "./check-docs";
@@ -41,12 +43,23 @@ test("review categories separate files, functions and document units", () => {
   expect(reviewCategory("app/example.ts:run#1")).toBe("function");
   expect(reviewCategory("docs/example.md:units")).toBe("document");
 });
-test("near hard limit warns before blocking and skips reviewed exceptions", () => {
+test("near hard limit scales its margin with the budget size", () => {
+  expect(nearMargin(100)).toBe(10);
+  expect(nearMargin(500)).toBe(25);
+  expect(nearMargin(700)).toBe(35);
   expect(nearHardLimit(495, 300, 500)).toBe(true);
-  expect(nearHardLimit(489, 300, 500)).toBe(false);
+  expect(nearHardLimit(470, 300, 500)).toBe(false);
+  expect(nearHardLimit(98, 60, 100)).toBe(true);
+  expect(nearHardLimit(89, 60, 100)).toBe(false);
   expect(nearHardLimit(6000, 6000, 12000)).toBe(false);
   expect(nearHardLimit(7448, 6000, Number.POSITIVE_INFINITY)).toBe(false);
   expect(nearHardLimit(415, 60, 100, { ceiling: 415, reason: "reviewed lifecycle" })).toBe(false);
+});
+test("at-limit severity flags items within two units of blocking", () => {
+  expect(nearLevel(100, 100)).toBe("at-limit");
+  expect(nearLevel(99, 100)).toBe("at-limit");
+  expect(nearLevel(98, 100)).toBe("at-limit");
+  expect(nearLevel(97, 100)).toBe("near");
 });
 test("AST handles methods, arrow functions and Vue scripts without template noise", () => {
   expect(

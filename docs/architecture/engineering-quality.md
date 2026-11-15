@@ -39,7 +39,7 @@ bun run dev
 
 `dev` 先执行 `ui:sync` 再启动 Nuxt。`build`、`generate`、`typecheck`、`check` 和 `test:e2e` 使用已安装依赖，不隐式同步。修改共享库后先单独运行 `bun run ui:sync`。包依赖声明变化时先执行 `bun install` 更新锁文件。
 
-早期开发使用本地 `file:` 依赖与根级 overrides。同步脚本委托共享库的 `scripts/sync-consumer.ts`，按依赖顺序构建 Tokens、Motion、Overlay Runtime、Glass Runtime、Tailwind 与 Vue，再刷新安装目录中的产物并逐文件核对。包含嵌套副本，跳过内容相同的硬链接文件，使用冻结锁文件安装。
+早期开发使用本地 `file:` 依赖与根级 overrides。同步脚本委托共享库的 `scripts/sync/sync-consumer.ts`，按依赖顺序构建 Tokens、Motion、Overlay Runtime、Giscus Theme、Glass Runtime、Tailwind 与 Vue，再刷新安装目录中的产物并逐文件核对。包含嵌套副本，跳过内容相同的硬链接文件，使用冻结锁文件安装。
 
 [依赖来源检查](../../scripts/deps/ui-dependencies.ts) 同时读取 dependencies 与 overrides，同名 override 不能隐藏另一来源。只区分本地、发布和混合来源，不验证发布版本兼容性。实际本地路径由共享同步器核对。[来源回归测试](../../scripts/deps/ui-dependencies.test.ts) 和 [同步入口回归](../../scripts/deps/ui-sync.test.ts) 使用独立临时目录验证来源冲突、发布包跳过与缺失同步器，不执行安装或写入共享库。
 
@@ -142,7 +142,7 @@ Nuxt 以文件名推导路由与布局，单词文件名属于框架约定；[Bi
 
 范围由 `git ls-files` 的已跟踪和未忽略未跟踪文件决定，检查 ts/js/vue/css/md。生成文件、构建输出和依赖由 Git ignore 排除，`.agents/` 下的过程材料是带日期的归档，不计入阈值检查范围。新增生成资产应核实来源并配置精确排除，不得为手写业务文件添加忽略。字体覆盖 JSON 与二进制不属于代码长度阈值。
 
-存量超限登记在 `scripts/gates/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。理由不记录逐次增长，数值变化由 Git 历史与提交信息承载。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分；汇总按文件、函数和文档内容量分组计数，距硬限不足十个单位的项另输出 NEAR，已登记有效例外或硬限不设上限的项不计入。指向不存在文件或函数的例外会使检查失败。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。阈值检查脚本不判断代码设计质量。
+存量超限登记在 `scripts/gates/quality-budgets.json`，每项写明原因、登记日期和保留职责，上限值取当前精确大小。理由不记录逐次增长，数值变化由 Git 历史与提交信息承载。后续任何增长都必须再次说明。基线不是提限许可，阈值或例外的变化由审查者核对实际差异。软超限只输出 REVIEW，不强迫拆分；汇总按文件、函数和文档内容量分组计数。距硬限不足上限 5%（函数等小预算至少 10 个单位）的项按剩余量升序输出 NEAR，余量不超过 2 个单位的另标 AT LIMIT 并在汇总中计数，已登记有效例外或硬限不设上限的项不计入。指向不存在文件或函数的例外会使检查失败。禁止为清除提示或刷指标而拆分文件，禁止无理由调高阈值。阈值检查脚本不判断代码设计质量。
 
 ## 架构边界及局限
 

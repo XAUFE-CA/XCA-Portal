@@ -161,13 +161,46 @@ function createTargets(renderer: WebGLRenderer, width: number, height: number) {
   return targets;
 }
 
+interface CityDiffusion {
+  sourceTexture: { value: WebGLRenderTarget["texture"] };
+  sourceTexel: { value: Vector2 };
+  blurStep: { value: Vector2 };
+}
+
+// Extract the sharp city and diffuse it at two resolutions before the final composite pass.
+// 先提取清晰城市，再按两种分辨率扩散，最后才执行合成通道。
+function diffuseCity(
+  render: (output: WebGLRenderTarget, pass: ShaderMaterial) => void,
+  targets: ReturnType<typeof createTargets>,
+  uniforms: CityDiffusion,
+  extract: ShaderMaterial,
+  blur: ShaderMaterial,
+): void {
+  const [target, tight, scratch, wideScratch, wide] = targets;
+  uniforms.sourceTexture.value = target.texture;
+  uniforms.sourceTexel.value.set(1 / target.width, 1 / target.height);
+  render(tight, extract);
+  uniforms.sourceTexture.value = tight.texture;
+  uniforms.blurStep.value.set(1 / tight.width, 0);
+  render(scratch, blur);
+  uniforms.sourceTexture.value = scratch.texture;
+  uniforms.blurStep.value.set(0, 1 / tight.height);
+  render(tight, blur);
+  uniforms.sourceTexture.value = tight.texture;
+  uniforms.blurStep.value.set(1 / wide.width, 0);
+  render(wideScratch, blur);
+  uniforms.sourceTexture.value = wideScratch.texture;
+  uniforms.blurStep.value.set(0, 1 / wide.height);
+  render(wide, blur);
+}
+
 /**
  * Keep the sharp HDR city separate from half/eighth-resolution blue diffusion.
  * 将清晰 HDR 城市与半分辨率、八分之一分辨率的蓝色扩散分离。
  */
 export function createCityLayer(renderer: WebGLRenderer, width: number, height: number): CityLayer {
   const targets = createTargets(renderer, width, height);
-  const [target, tight, scratch, wideScratch, wide] = targets;
+  const [target, tight, , , wide] = targets;
   const sourceTexture = { value: target.texture };
   const sourceTexel = { value: new Vector2() };
   const blurStep = { value: new Vector2() };
@@ -230,21 +263,7 @@ export function createCityLayer(renderer: WebGLRenderer, width: number, height: 
       try {
         renderer.autoClear = renderer.xr.enabled = false;
         renderer.setScissorTest(false);
-        sourceTexture.value = target.texture;
-        sourceTexel.value.set(1 / target.width, 1 / target.height);
-        render(tight, extract);
-        sourceTexture.value = tight.texture;
-        blurStep.value.set(1 / tight.width, 0);
-        render(scratch, blur);
-        sourceTexture.value = scratch.texture;
-        blurStep.value.set(0, 1 / tight.height);
-        render(tight, blur);
-        sourceTexture.value = tight.texture;
-        blurStep.value.set(1 / wide.width, 0);
-        render(wideScratch, blur);
-        sourceTexture.value = wideScratch.texture;
-        blurStep.value.set(0, 1 / wide.height);
-        render(wide, blur);
+        diffuseCity(render, targets, { sourceTexture, sourceTexel, blurStep }, extract, blur);
         renderer.setRenderTarget(previous, face, mip);
         renderer.setViewport(viewport);
         renderer.setScissor(scissor);

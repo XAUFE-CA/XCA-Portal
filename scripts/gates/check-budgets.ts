@@ -16,15 +16,30 @@ export function fileLimits(path: string, config: BudgetConfig): Limits {
 export function budgetFailure(value: number, hard: number, exception?: Exception): boolean {
   return value > hard && (!exception?.reason.trim() || value > exception.ceiling);
 }
-// A soft-limit item ten units from blocking needs attention before the next edit.
-// 软超限项距硬限不足十个单位时，下一次改动前需要关注。
+// The review margin scales with the budget: five percent of the hard limit, with a ten-unit
+// floor for small budgets such as functions.
+// 预警余量随预算规模缩放：取硬限的 5%，函数等小预算至少保留 10 个单位。
+export function nearMargin(hard: number): number {
+  return Math.max(10, Math.ceil(hard * 0.05));
+}
 export function nearHardLimit(
   value: number,
   soft: number,
   hard: number,
   exception?: Exception,
 ): boolean {
-  return value > soft && Number.isFinite(hard) && hard - value <= 10 && !exception?.reason.trim();
+  return (
+    value > soft &&
+    Number.isFinite(hard) &&
+    hard - value <= nearMargin(hard) &&
+    !exception?.reason.trim()
+  );
+}
+// Two units or less of headroom is a separate severity so the next edit cannot block silently.
+// 余量不超过两个单位单独分级，避免下一次改动在无提示的情况下被阻断。
+export type NearLevel = "at-limit" | "near";
+export function nearLevel(value: number, hard: number): NearLevel {
+  return hard - value <= 2 ? "at-limit" : "near";
 }
 // Review keys identify a file, a function or a document content metric.
 // REVIEW 键标识文件、函数或文档内容量。
@@ -53,7 +68,7 @@ if (import.meta.main) {
   );
   if (tracked.exitCode) throw new Error("Cannot enumerate repository files");
   const failures: string[] = [];
-  const near: string[] = [];
+  const near: { key: string; value: number; hard: number; level: NearLevel }[] = [];
   const seen = new Set<string>();
   const groups: Record<ReviewCategory, number> = { file: 0, function: 0, document: 0 };
   let reviews = 0;
@@ -89,7 +104,8 @@ if (import.meta.main) {
         reviews++;
         groups[reviewCategory(key)]++;
       }
-      if (nearHardLimit(value, soft, hard, exception)) near.push(`${key}: ${value}/${hard}`);
+      if (nearHardLimit(value, soft, hard, exception))
+        near.push({ key, value, hard, level: nearLevel(value, hard) });
       if (budgetFailure(value, hard, exception))
         failures.push(
           `${key}: ${value} > ${hard}; add a reviewed reason and exact ceiling in scripts/gates/quality-budgets.json`,
@@ -99,9 +115,16 @@ if (import.meta.main) {
   for (const key of Object.keys(config.exceptions))
     if (!seen.has(key))
       failures.push(`${key}: 例外未对应现存的文件或函数，请从 quality-budgets.json 删除`);
-  for (const item of near) console.log(`NEAR ${item}`);
+  // The closest items lead so a reviewer sees what the next edit would block first.
+  // 余量最小的项排在前面，让审查者先看到下一次改动会阻断的内容。
+  near.sort((a, b) => a.hard - a.value - (b.hard - b.value));
+  for (const item of near) {
+    const level = item.level === "at-limit" ? "AT LIMIT" : "NEAR";
+    console.log(`${level} ${item.key}: ${item.value}/${item.hard}`);
+  }
+  const atLimit = near.filter((item) => item.level === "at-limit").length;
   console.log(
-    `Budget review: ${reviews} soft limits (${groups.function} functions, ${groups.file} files, ${groups.document} documents); ${near.length} near hard limits; ${failures.length} failures`,
+    `Budget review: ${reviews} soft limits (${groups.function} functions, ${groups.file} files, ${groups.document} documents); ${near.length} near hard limits (${atLimit} at limit); ${failures.length} failures`,
   );
   if (failures.length) {
     console.error(failures.join("\n"));

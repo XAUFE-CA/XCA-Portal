@@ -213,6 +213,41 @@ function compareTokenStyles() {
   }
   return issues;
 }
+// The chrome comparison runs in the page, so it stays a standalone function like the other probes.
+// 外观比对在页面内执行，因此与其他探针一样保持独立函数。
+function comparePromptChrome(): string[] {
+  const recorded = document.querySelectorAll(".xca-terminal-command")[1];
+  const live = document.querySelector(".xca-terminal-prompt");
+  if (!recorded || !live) throw new Error("Recorded and live prompts are required");
+  const selectors = [
+    ".ui-terminal-prompt__segment[data-tone='host']",
+    ".ui-terminal-prompt__segment[data-tone='path']",
+    ".ui-terminal-prompt__symbol",
+  ];
+  const properties = [
+    "font-family",
+    "font-size",
+    "line-height",
+    "color",
+    "background-color",
+    "padding",
+    "border-radius",
+    "clip-path",
+  ];
+  return selectors.flatMap((selector) => {
+    const left = recorded.querySelector(selector);
+    const right = live.querySelector(selector);
+    if (!left || !right) throw new Error(`Prompt chrome is missing: ${selector}`);
+    const recordedStyle = getComputedStyle(left);
+    const liveStyle = getComputedStyle(right);
+    return properties
+      .filter(
+        (property) =>
+          recordedStyle.getPropertyValue(property) !== liveStyle.getPropertyValue(property),
+      )
+      .map((property) => `${selector}: ${property}`);
+  });
+}
 test("portal terminal chrome and text retain the unmodified shared styles in both themes and widths", async ({
   page,
 }) => {
@@ -289,41 +324,7 @@ for (const width of [1440, 390]) {
       await expect(recorded.locator("[data-tone='host']")).toHaveText("guest@xca");
       await expect(recorded.locator("[data-tone='path']")).toHaveText("/community");
       await expect(recorded.locator(".ui-terminal-echo__text")).toHaveText("echo selectable");
-      expect(
-        await page.evaluate(() => {
-          const recorded = document.querySelectorAll(".xca-terminal-command")[1];
-          const live = document.querySelector(".xca-terminal-prompt");
-          if (!recorded || !live) throw new Error("Recorded and live prompts are required");
-          const selectors = [
-            ".ui-terminal-prompt__segment[data-tone='host']",
-            ".ui-terminal-prompt__segment[data-tone='path']",
-            ".ui-terminal-prompt__symbol",
-          ];
-          const properties = [
-            "font-family",
-            "font-size",
-            "line-height",
-            "color",
-            "background-color",
-            "padding",
-            "border-radius",
-            "clip-path",
-          ];
-          return selectors.flatMap((selector) => {
-            const left = recorded.querySelector(selector);
-            const right = live.querySelector(selector);
-            if (!left || !right) throw new Error(`Prompt chrome is missing: ${selector}`);
-            const recordedStyle = getComputedStyle(left);
-            const liveStyle = getComputedStyle(right);
-            return properties
-              .filter(
-                (property) =>
-                  recordedStyle.getPropertyValue(property) !== liveStyle.getPropertyValue(property),
-              )
-              .map((property) => `${selector}: ${property}`);
-          });
-        }),
-      ).toEqual([]);
+      expect(await page.evaluate(comparePromptChrome)).toEqual([]);
       await expect(page.locator(".xca-terminal-transcript").getByRole("textbox")).toHaveCount(1);
       await expect(
         echoes.locator(

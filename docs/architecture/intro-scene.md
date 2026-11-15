@@ -12,7 +12,8 @@ Status: adopted
 | [intro-geometry.ts](../../app/features/intro/core/intro-geometry.ts) | 场景尺度、视口焦距、道路生长、入口安装位置与距离锚点、入口与室内共用的显现进度 |
 | [intro-auditorium.ts](../../app/features/intro/core/intro-auditorium.ts)、[intro-auditorium-mesh.ts](../../app/features/intro/rendering/intro-auditorium-mesh.ts) | 报告厅物体名称、空间范围、材质分组与圆角家具网格 |
 | [intro-auditorium-surfaces.ts](../../app/features/intro/rendering/intro-auditorium-surfaces.ts) | 报告厅织物、地毯、穿孔板、拉丝金属与石材的表面纹理和材质参数 |
-| [intro-journey.ts](../../app/features/intro/core/intro-journey.ts) | 摄像机插值、终端居中测量、屏幕投影与归位轨迹 |
+| [intro-camera.ts](../../app/features/intro/core/intro-camera.ts) | 摄像机轨迹采样、姿态插值、屏幕投影矩阵与相机关键帧 |
+| [intro-journey.ts](../../app/features/intro/core/intro-journey.ts) | 终端居中测量、终端停靠帧与入场阶段编排 |
 | [intro-mark-mesh.ts](../../app/features/intro/rendering/intro-mark-mesh.ts) | CA 原始轮廓挤出、道路与报告厅静态网格 |
 | [intro-mark-renderer.ts](../../app/features/intro/rendering/intro-mark-renderer.ts)、[intro-scene.ts](../../app/features/intro/rendering/intro-scene.ts) | Three.js 初始化与预热、绘制生命周期、按材质合批及 CSS 相机适配 |
 | [intro-city-mesh.ts](../../app/features/intro/rendering/intro-city-mesh.ts) | 城市街区、收分高层、承托裙楼与同侧连廊 |
