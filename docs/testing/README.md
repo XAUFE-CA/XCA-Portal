@@ -43,7 +43,7 @@ Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定�
 | scripts/gates/quality.test.ts | module | bun-test | — | isolated |
 | scripts/gates/run-gates.test.ts | module | bun-test | — | isolated |
 | scripts/tests/test-registry.test.ts | unit | bun-test | — | — |
-| tests/e2e/site/*.spec.ts | system | playwright | — | browser |
+| tests/e2e/site/*.spec.ts | system | playwright | — | browser, scene |
 | tests/e2e/home/*.spec.ts | system | playwright | — | browser, scene |
 | tests/e2e/intro/*.spec.ts | system | playwright | — | browser, scene |
 | tests/e2e/terminal/*.spec.ts | system | playwright | — | browser, scene |
@@ -55,7 +55,7 @@ Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定�
 | --- | --- | --- |
 | browser | 需要生产构建与无头 Chromium | Runner 必须为 `playwright` |
 | isolated | 每个用例写独立临时目录，不读写共享状态 | 范围内文件包含 `mkdtempSync(` |
-| scene | 包含 `@cinematic` 用例；依赖 GPU 完整场景，推送门禁排除，由 `--scene` 计划在有 GPU 的本地环境运行 | 范围内文件包含 `@cinematic` |
+| scene | 包含 `@cinematic` 用例；依赖 GPU 完整场景或首页入场在时间上稳定完成，推送门禁排除，由 `--scene` 计划在有 GPU 的本地环境运行 | 范围内文件包含 `@cinematic` |
 | snapshot | 与图片基线比对，基线属于渲染它的机器 | 文件包含 `toHaveScreenshot(`，且基线目录含 PNG |
 
 属性与文件内容双向核对：声明了属性却没有对应证据会失败，出现证据却没有登记属性同样失败。

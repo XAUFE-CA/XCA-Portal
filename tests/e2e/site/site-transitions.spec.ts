@@ -334,7 +334,7 @@ test("a header width animation pauses glass sampling only for the route capture"
   expect(pauses.every((path) => path === "/")).toBe(true);
 });
 
-test("a scrolled source page keeps both route snapshots at their own viewport tops", async ({
+test("a scrolled source page keeps both route snapshots at their own viewport tops @cinematic", async ({
   page,
 }) => {
   await page.goto("/about");
@@ -602,9 +602,18 @@ async function sampleSelectionMotion(page: Page, choice: { selector: string; lab
       ...document.querySelectorAll<HTMLElement>(".site-header a, .site-header [role=radio]"),
     ].find((element) => element.textContent?.trim() === label);
     if (!indicator || !option) throw new Error("The selection indicator and option are required");
-    const position = () =>
-      Number.parseFloat(getComputedStyle(indicator).left) ||
-      new DOMMatrixReadOnly(getComputedStyle(indicator).transform).m41;
+    const position = () => {
+      const style = getComputedStyle(indicator);
+      const base = Number.parseFloat(style.left);
+      // The shared indicator keeps its base in left and flies with a transform; the visible
+      // position is the sum of both, whichever property the animation drives.
+      // 共享选中背景把基础偏移留在 left，用 transform 飞行；可见位置是两者之和，与动画驱动的属性无关。
+      const translate =
+        style.transform === "none" || style.transform === ""
+          ? 0
+          : new DOMMatrixReadOnly(style.transform).m41;
+      return (Number.isFinite(base) ? base : 0) + translate;
+    };
     const before = position();
     option.click();
     const deadline = performance.now() + 5000;

@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 import { parseHeroTitle } from "../../../app/components/home/hero-title";
 import localizedHeroSentences from "../../../app/data/hero-sentences.json" with { type: "json" };
+import { HERO_TYPING } from "../../../app/features/intro/core/timing";
+import { INTRO_READING_UNIT_MS } from "../../../app/utils/motion";
 
 const heroSentences = localizedHeroSentences["zh-CN"].map((source) => parseHeroTitle(source).text);
 const firstSentence = heroSentences[0];
@@ -170,9 +172,15 @@ test("the complete title stays visible before deletion", async ({ page }) => {
   const visibleLetters = page.locator(".xca-terminal-title__letter--visible");
   await expect(visibleLetters).toHaveCount(firstSentenceLength);
   await page.clock.pauseAt(new Date(Date.now() + 100));
-  await page.clock.runFor(2500);
+  // A software renderer consumes part of the reading hold while the intro settles; sample with
+  // headroom, then cross the hold by several erase steps so deletion is still observed.
+  // 软件渲染器会在入场落定前消耗部分阅读停顿；留余量取样，再跨过停顿数个擦除间隔验证删除确实发生。
+  const holdMs = INTRO_READING_UNIT_MS * HERO_TYPING.hold;
+  const eraseMs = INTRO_READING_UNIT_MS * HERO_TYPING.erase;
+  const driftAllowance = 1500;
+  await page.clock.runFor(holdMs - driftAllowance);
   await expect(visibleLetters).toHaveCount(firstSentenceLength);
-  await page.clock.runFor(1200);
+  await page.clock.runFor(driftAllowance + eraseMs * 4);
   expect(await visibleLetters.count()).toBeLessThan(firstSentenceLength);
 });
 
