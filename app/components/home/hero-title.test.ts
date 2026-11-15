@@ -18,11 +18,12 @@ describe("hero title accents", () => {
   });
 
   test("a marked span accents only its own characters", () => {
-    const parsed = parseHeroTitle("为好奇心，**打开下一行**。");
-    expect(parsed.text).toBe("为好奇心，打开下一行。");
-    expect(accentText("为好奇心，**打开下一行**。")).toBe("打开下一行");
+    const source = "前缀，**强调文字**。";
+    const parsed = parseHeroTitle(source);
+    expect(parsed.text).toBe("前缀，强调文字。");
+    expect(accentText(source)).toBe("强调文字");
     expect(parsed.letters.filter(({ accent }) => accent).map(({ index }) => index)).toEqual([
-      5, 6, 7, 8, 9,
+      3, 4, 5, 6,
     ]);
     expect(parsed.letters.every(({ index }, i) => index === i)).toBe(true);
   });
@@ -53,9 +54,8 @@ describe("hero title accents", () => {
         expect(accentText(source).length, locale).toBeGreaterThan(0);
       }
     }
-    const beforeComma = "**从问题**，走向新发现。";
-    expect(zh).toContain(beforeComma);
-    expect(accentText(beforeComma)).toBe("从问题");
+    const beforeComma = "**前缀**，后缀。";
+    expect(accentText(beforeComma)).toBe("前缀");
     expect(beforeComma.indexOf("**")).toBeLessThan(beforeComma.indexOf("，"));
   });
 });

@@ -29,32 +29,29 @@ const svg = mark
 const depthLayers = Array.from({ length: 18 }, (_, index) => (index + 1) * 4);
 const signposts: {
   label: MessageKey;
-  compactLabel?: MessageKey;
-  detail: string;
-  command: string;
-  compactCommand?: string;
+  alt: MessageKey;
+  icon: "sincerity" | "inclusion" | "harmony" | "passion";
 }[] = [
-  ...SITE.navigation.map((item) => ({
-    label: item.label,
-    detail: SITE.routes[item.route],
-    command: `xca open ${item.route}`,
-    compactCommand: SITE.routes[item.route],
-  })),
-  { label: "summary.help", compactLabel: "intro.sign.commands", detail: "help", command: "help" },
   {
-    label: "summary.uname",
-    compactLabel: "intro.sign.environment",
-    detail: "uname -a",
-    command: "uname -a",
+    label: "intro.value.sincerity",
+    alt: "intro.value.sincerity.alt",
+    icon: "sincerity",
   },
   {
-    label: "terminal.tui",
-    compactLabel: "intro.sign.explore",
-    detail: "help / theme",
-    command: "xca explore",
+    label: "intro.value.inclusion",
+    alt: "intro.value.inclusion.alt",
+    icon: "inclusion",
   },
-  { label: "theme.label", detail: "light / dark / system", command: "xca theme" },
-  { label: "terminal.shell", detail: "pwd / ls / cat", command: "help" },
+  {
+    label: "intro.value.harmony",
+    alt: "intro.value.harmony.alt",
+    icon: "harmony",
+  },
+  {
+    label: "intro.value.passion",
+    alt: "intro.value.passion.alt",
+    icon: "passion",
+  },
 ];
 const fins = JOURNEY_STATIONS.map((station) => ({
   ...station,
@@ -142,20 +139,11 @@ onBeforeUnmount(() => {
                 <span class="xca-ca-intro__content-index">0{{ fin.index + 1 }}</span>
               </div>
               <strong>
-                <span class="xca-ca-intro__content-full">{{ t(fin.panel.label) }}</span>
-                <span class="xca-ca-intro__content-compact">
-                  {{ t(fin.panel.compactLabel ?? fin.panel.label) }}
-                </span>
+                {{ t(fin.panel.label) }}
               </strong>
-              <code class="xca-ca-intro__content-detail">{{ fin.panel.detail }}</code>
               <div class="xca-ca-intro__content-footer">
-                <code>
-                  <span class="xca-ca-intro__content-full">{{ fin.panel.command }}</span>
-                  <span class="xca-ca-intro__content-compact">
-                    {{ fin.panel.compactCommand ?? fin.panel.command }}
-                  </span>
-                </code>
-                <SiteIcon name="arrowUp" class="xca-ca-intro__content-arrow" />
+                <code>{{ t(fin.panel.alt) }}</code>
+                <SiteIcon :name="fin.panel.icon" class="xca-ca-intro__content-icon" />
               </div>
             </div>
           </div>

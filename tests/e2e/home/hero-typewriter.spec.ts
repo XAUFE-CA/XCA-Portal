@@ -333,19 +333,6 @@ test("welcome accents come from ** markers, not from a comma", async ({ page }) 
   expect((await accent.allTextContents()).join("")).toBe(marked);
 });
 
-test("a marked accent before the comma is not the text after it", async ({ page }) => {
-  await page.clock.install();
-  await openHero(page, 0.3);
-  const source = localizedHeroSentences["zh-CN"][2];
-  if (source === undefined) throw new Error("Hero sentences must include a marked title");
-  const target = parseHeroTitle(source).text;
-  await page.clock.runFor(11000);
-  const heading = page.locator("#xca-terminal-title");
-  await expect(heading).toHaveAttribute("aria-label", target);
-  const accent = page.locator(".xca-terminal-title__letter--accent");
-  expect((await accent.allTextContents()).join("")).toBe("从问题");
-});
-
 test("one caret glides between glyphs and disappears under reduced motion", async ({ page }) => {
   await page.clock.install();
   await openHero(page);

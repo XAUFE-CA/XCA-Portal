@@ -91,7 +91,7 @@ test("the road front keeps its lead while matching camera speed", () => {
 });
 
 test("signs share the support reveal and reach full opacity before the camera passes", () => {
-  expect(JOURNEY_STATIONS.filter((station) => station.hasPanel)).toHaveLength(6);
+  expect(JOURNEY_STATIONS.filter((station) => station.hasPanel)).toHaveLength(4);
   for (const station of JOURNEY_STATIONS) {
     expect(sceneryOpacity(0, station.depth)).toBe(0);
     expect(sceneryOpacity(roadGrowth(station.depth + 1500), station.depth)).toBe(1);

@@ -145,8 +145,8 @@ export const ROAD_MATERIALIZATION = { reach: 0.18, feather: 900 } as const;
  * 共用安装坐标让横向路牌与实体壳体保持一致。
  */
 export const JOURNEY_STATIONS = Array.from(
-  { length: 6 },
-  (_, index) => -2600 + ((JOURNEY.roadEnd + 3100) * index) / 5,
+  { length: 4 },
+  (_, index) => -2600 + ((JOURNEY.roadEnd + 3100) * index) / 3,
 ).flatMap((depth, index) =>
   ([-1, 1] as const).map((side) => ({
     index,
