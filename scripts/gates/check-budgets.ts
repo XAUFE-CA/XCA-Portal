@@ -14,7 +14,8 @@ export function fileLimits(path: string, config: BudgetConfig): Limits {
   return path.endsWith(".css") ? config.limits.css : config.limits.source;
 }
 export function budgetFailure(value: number, hard: number, exception?: Exception): boolean {
-  return value > hard && (!exception?.reason.trim() || value > exception.ceiling);
+  if (!exception) return value > hard;
+  return !exception.reason.trim() || value <= hard || value !== exception.ceiling;
 }
 // The review margin scales with the budget: five percent of the hard limit, with a ten-unit
 // floor for small budgets such as functions.
@@ -106,10 +107,17 @@ if (import.meta.main) {
       }
       if (nearHardLimit(value, soft, hard, exception))
         near.push({ key, value, hard, level: nearLevel(value, hard) });
-      if (budgetFailure(value, hard, exception))
-        failures.push(
-          `${key}: ${value} > ${hard}; add a reviewed reason and exact ceiling in scripts/gates/quality-budgets.json`,
-        );
+      if (budgetFailure(value, hard, exception)) {
+        if (exception && value <= hard) {
+          failures.push(`${key}: ${value} <= ${hard}; remove unnecessary exception`);
+        } else if (exception && value !== exception.ceiling) {
+          failures.push(`${key}: exception ceiling ${exception.ceiling} does not match ${value}`);
+        } else {
+          failures.push(
+            `${key}: ${value} > ${hard}; add a reviewed reason and exact ceiling in scripts/gates/quality-budgets.json`,
+          );
+        }
+      }
     }
   }
   for (const key of Object.keys(config.exceptions))

@@ -56,6 +56,36 @@ test("budget CLI includes untracked source and rejects growth beyond a reviewed 
   });
 });
 
+test("budget CLI requires exact exceptions and rejects redundant ones", () => {
+  withFixture((root) => {
+    const path = "backend/api/openapi.generated.ts";
+    const config = {
+      limits: { source: [300, 500], css: [400, 600], test: [400, 700], function: [60, 100] },
+      exceptions: { [path]: { ceiling: 502, reason: "generated contract fixture" } },
+    };
+    write(root, "scripts/gates/quality-budgets.json", JSON.stringify(config));
+    write(root, path, "// generated\n".repeat(501));
+    const shrunk = check(root, "budgets");
+    expect(shrunk.code).toBe(1);
+    expect(shrunk.output).toContain(`${path}: exception ceiling 502 does not match 501`);
+
+    write(root, path, "// generated\n".repeat(502));
+    expect(check(root, "budgets").code).toBe(0);
+
+    write(root, path, "// generated\n".repeat(500));
+    const redundant = check(root, "budgets");
+    expect(redundant.code).toBe(1);
+    expect(redundant.output).toContain(`${path}: 500 <= 500; remove unnecessary exception`);
+
+    write(
+      root,
+      "scripts/gates/quality-budgets.json",
+      JSON.stringify({ ...config, exceptions: {} }),
+    );
+    expect(check(root, "budgets").code).toBe(0);
+  });
+});
+
 test("budget CLI ranks at-limit items before other near warnings", () => {
   withFixture((root) => {
     write(

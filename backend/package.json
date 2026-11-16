@@ -1,0 +1,16 @@
+{
+  "name": "xca-portal-backend-contract",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "api:generate": "bun tools/contract.mjs generate",
+    "api:check": "redocly lint api/openapi.yaml && bun tools/contract.mjs check && tsc -p api/tsconfig.json"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.3",
+    "@redocly/cli": "2.78.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "6.0.3"
+  },
+  "packageManager": "bun@1.4.4"
+}

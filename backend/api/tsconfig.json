@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "types": []
+  },
+  "files": ["openapi.generated.ts", "contract.types.ts"]
+}

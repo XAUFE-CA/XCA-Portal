@@ -1,0 +1,466 @@
+openapi: 3.1.0
+info:
+  title: XCA Portal Authentication API
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+  description: >-
+    Contract for 1A authentication. Only the health probes are implemented in the
+    initial infrastructure batch. Browsers use the same origin as the portal;
+    deployment controls the exposure of health probes. Authentication responses,
+    including errors and cookies, must use Cache-Control: no-store. Network errors
+    are failures, never a successful guest session.
+servers:
+  - url: /
+paths:
+  /api/v1/auth/email/code:
+    post:
+      operationId: requestEmailCode
+      summary: Request a sign-in or invitation activation code
+      description: >-
+        Syntactically valid, non-rate-limited requests receive indistinguishable
+        202 responses for real and ineligible accounts or invitations. A single
+        recipient's delivery failure does not change the public response. A new
+        request invalidates earlier unused challenges for the same email address.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailCodeRequest"
+      responses:
+        "202":
+          description: An opaque real or non-verifiable flow with the same response shape.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailCodeAccepted"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "403":
+          $ref: "#/components/responses/InvalidOrigin"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/InvalidRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/email/verify:
+    post:
+      operationId: verifyEmailCode
+      summary: Verify a flow and establish a session
+      description: >-
+        Only successful verification establishes a session. Unknown, incorrect,
+        expired, consumed or otherwise ineligible flows all use the same
+        invalid_or_expired_code response. The flow is not automatically retried.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailVerifyRequest"
+      responses:
+        "200":
+          description: Verified identity and newly issued session cookie.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSession"
+        "400":
+          description: Invalid request or invalid, expired or ineligible flow.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyError"
+        "403":
+          $ref: "#/components/responses/InvalidOrigin"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/InvalidRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: Read the current browser session
+      description: >-
+        A successful response with identity null means guest. A network error
+        or service failure is not a guest response and must not clear identity.
+      security:
+        - sessionCookie: []
+        - {}
+      responses:
+        "200":
+          description: Authenticated identity or null for a guest or expired session.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current session
+      description: >-
+        Idempotent for a missing or expired session. The client only clears its
+        identity after 204; an interrupted or uncertain result requires a new
+        session query. The request is a same-origin JSON object.
+      security:
+        - sessionCookie: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "204":
+          description: Session revoked or absent; the response has no body.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+            Set-Cookie:
+              $ref: "#/components/headers/ClearedCookie"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "403":
+          $ref: "#/components/responses/InvalidOrigin"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/InvalidRequest"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /healthz:
+    get:
+      operationId: health
+      summary: Check whether the process is alive
+      security: []
+      responses:
+        "200":
+          description: Process is alive without checking external dependencies.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+  /readyz:
+    get:
+      operationId: readiness
+      summary: Check required dependencies
+      description: PostgreSQL is the only required runtime dependency in this batch.
+      security: []
+      responses:
+        "200":
+          description: Required dependencies are reachable.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ready"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-xca_session
+      description: >-
+        Production uses __Host-xca_session with Secure, HttpOnly, Path=/ and
+        SameSite=Lax, without Domain. Local HTTP development uses a different
+        cookie name with HttpOnly, Path=/ and SameSite=Lax. Cookie credentials
+        are never returned in JSON. Cross-origin credentialed CORS is not enabled.
+  parameters:
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      description: >-
+        Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN;
+        missing or mismatched origins are rejected. Together with JSON-only
+        requests this protects the write endpoints against cross-site requests.
+        The browser supplies this header; application JavaScript must not set it.
+      schema:
+        type: string
+        format: uri
+  headers:
+    NoStore:
+      required: true
+      description: Authentication and probe responses must not be cached.
+      schema:
+        type: string
+        enum: [no-store]
+    SessionCookie:
+      required: true
+      description: A session cookie with the attributes described by sessionCookie.
+      schema:
+        type: string
+    ClearedCookie:
+      required: true
+      description: Expire the session cookie using the same scope as the issued cookie.
+      schema:
+        type: string
+    RetryAfter:
+      required: true
+      description: Number of seconds before another request is permitted.
+      schema:
+        type: integer
+        minimum: 1
+  schemas:
+    EmailCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      example:
+        email: member@example.invalid
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 254
+        invitation:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: Optional invitation secret, never logged or returned.
+    EmailCodeAccepted:
+      type: object
+      additionalProperties: false
+      required: [flow_id, expires_at]
+      example:
+        flow_id: abcdefghijklmnopqrstuvwxyz012345
+        expires_at: "2030-01-01T00:10:00Z"
+      properties:
+        flow_id:
+          $ref: "#/components/schemas/FlowId"
+        expires_at:
+          type: string
+          format: date-time
+    FlowId:
+      type: string
+      minLength: 32
+      maxLength: 128
+      pattern: "^[A-Za-z0-9_-]+$"
+      description: Unpredictable opaque identifier for the current email challenge.
+    EmailVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [flow_id, code]
+      example:
+        flow_id: abcdefghijklmnopqrstuvwxyz012345
+        code: "012345"
+      properties:
+        flow_id:
+          $ref: "#/components/schemas/FlowId"
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: Six digits, including leading zeroes.
+    Identity:
+      type: object
+      additionalProperties: false
+      required: [user, label]
+      properties:
+        user:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Stable unique login name.
+        label:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Display name.
+    Session:
+      type: object
+      additionalProperties: false
+      required: [identity]
+      example:
+        identity: null
+      properties:
+        identity:
+          anyOf:
+            - $ref: "#/components/schemas/Identity"
+            - type: "null"
+    AuthenticatedSession:
+      type: object
+      additionalProperties: false
+      required: [identity]
+      example:
+        identity:
+          user: member
+          label: Member
+      properties:
+        identity:
+          $ref: "#/components/schemas/Identity"
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    Ready:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ready]
+    InvalidRequestError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      example:
+        error:
+          code: invalid_request
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [invalid_request]
+    VerifyError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      example:
+        error:
+          code: invalid_or_expired_code
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [invalid_request, invalid_or_expired_code]
+    RateLimitedError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      example:
+        error:
+          code: rate_limited
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [rate_limited]
+    UnavailableError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      example:
+        error:
+          code: service_unavailable
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [service_unavailable]
+  responses:
+    TooLarge:
+      description: Request body exceeds the configured limit.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidRequestError"
+    InvalidRequest:
+      description: Invalid request syntax or fields.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidRequestError"
+    InvalidOrigin:
+      description: Missing or disallowed Origin; no internal details are returned.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidRequestError"
+    RateLimited:
+      description: The requester or email address has reached a rate limit.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RateLimitedError"
+    Unavailable:
+      description: A required service is unavailable, independent of account eligibility.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UnavailableError"
