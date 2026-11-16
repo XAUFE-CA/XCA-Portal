@@ -14,6 +14,7 @@ Status: adopted
 | [useIntroPresentation.ts](../../app/features/intro/presentation/useIntroPresentation.ts) | 组装运行时与生命周期，公开入场状态和方法 |
 | [intro-runtime.ts](../../app/features/intro/presentation/intro-runtime.ts) | 入场状态容器、共享服务装配与可暂停等待能力 |
 | [intro-sequence.ts](../../app/features/intro/presentation/intro-sequence.ts) | 启动输出、逐行横幅、跳过、重播与清理的阶段编排 |
+| [IntroSkipHint.vue](../../app/features/intro/components/IntroSkipHint.vue) | CA 阶段的跳过提示条 |
 | [intro-entry.ts](../../app/features/intro/core/intro-entry.ts)、[intro-playback.ts](../../app/features/intro/core/intro-playback.ts) | 会话入口判定、快捷键、短入场及动画冻结、取消与暂停 |
 | [timing.ts](../../app/features/intro/core/timing.ts)、[boot-script.ts](../../app/features/intro/presentation/boot-script.ts) | 节奏倍率、交接进度与启动日志顺序 |
 | [intro-session.client.ts](../../app/plugins/intro-session.client.ts) | 在路由跳转前记录本次会话的入口地址 |
@@ -36,7 +37,7 @@ Status: adopted
 
 减少动画偏好下自动跳过空间入场，主动重播仍展示可读的启动消息与 ASCII，省略位移和缩放。文字阅读节奏独立于空间动画时长。`public/intro-gate.js` 在首帧前设置首页入场状态，避免正常布局提前闪现。入场状态仅在首页设置。
 
-首页标题从 `app/data/hero-sentences.json` 读取双语轮播内容，`**...**` 标注使用强调色的文字，由 `app/components/home/hero-title.ts` 解析成纯文本与逐字序列；逗号只影响打字节奏，不决定强调范围。字符显现与删除按共享动效时长淡入淡出，唯一光标按字形度量随每个字符平滑移动；基线取自当前字符的内联盒与字体上伸部，折行后仍对齐其所在行，不依赖会被排回上一行的零宽基线探针。减少动画偏好下不播放过渡并隐藏光标。终端交互开始后，标题完成当前文字单元再暂停并隐藏光标。点击终端外部恢复，不能仅靠 mouseleave 恢复。
+首页标题从 `app/data/hero-sentences.json` 读取双语轮播内容，`**...**` 标注使用强调色的文字，由 `app/components/home/hero-title.ts` 解析成纯文本与逐字序列；逗号只影响打字节奏，不决定强调范围。字符显现与删除按共享动效时长淡入淡出，唯一光标按字形度量随每个字符平滑移动；基线取自当前字符的内联盒与字体上伸部，折行后仍对齐其所在行，不依赖会被排回上一行的零宽基线探针。减少动画偏好下不播放过渡并隐藏光标。终端交互开始后，标题完成当前文字单元再暂停并隐藏光标。点击终端外部恢复，不能仅靠 mouseleave 恢复。手机上位标题的行高与副标题高度按两种语言中较高的一侧占位，切换语言不改变标题区高度，也不推动下方终端。
 
 ## 启动输出
 
@@ -48,7 +49,11 @@ Status: adopted
 
 入场期间在 700 毫秒内连续独立按下三次空格可跳过动画，长按重复、组合键、IME 和可编辑控件中的空格不计数，其他按键会重置计数。Escape 和跳过按钮共用平滑跳过流程。该流程冻结现有场景，取消后续输出，再从终端当前投影过渡到正常布局，同时淡出场景。终端尚不可见时直接在最终位置淡入。减少动画偏好下直接恢复可读布局。
 
+CA 阶段在视口下部显示提示条，说明 Escape 与连续三次空格两种跳过方式，构造沿用 [上下文菜单](site-shell/context-menu.md) 的视口提示条。触控设备没有键盘快捷键，提示条改为可点击的跳过按钮。进入启动输出后提示条随阶段切换退出，由终端标题栏的跳过按钮接替。
+
 CA 绘制阶段被打断时，空间场景随归位过渡淡出，但终端不跳到完成态。场景淡出完成后先卸载渲染器，再播放文字，避免软件渲染器继续绘制已隐藏的 WebGL 场景。
+
+停靠期间终端保持交接屏，字符画与命令行保持隐藏，已打印的启动日志随终端归位，尚无日志时不显示空闲进度条。归位完成后才由 `playBrand` 逐行打印，不预先闪出完成态。
 
 跳过流程继续调用同一个 `playBrand`，沿用第二屏的既有节奏与呈现，命令行在打印期间保持隐藏，字符画与欢迎文案逐行显现后才进入就绪态。跳过因此只省略空间场景，不省略文字入场。重播、卸载与视口变化取消同一组动画与异步任务，仍给出确定终态。
 

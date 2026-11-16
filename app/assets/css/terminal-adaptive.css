@@ -30,12 +30,17 @@
     font-size: var(--neoverse-font-size-sm);
   }
   /* Phones keep the longest sentence on one line: Han copy scales with the viewport, while the
-     wider Latin copy starts smaller so it fits the same width.
-     手机让最长语句保持单行：中文随视口缩放，较宽的英文改用更小字号以适配同一宽度。 */
+     wider Latin copy starts smaller so it fits the same width. The class comes from the locale
+     state, so the size changes in the same frame as the copy instead of one paint later.
+     手机让最长语句保持单行：中文随视口缩放，较宽的英文改用更小字号以适配同一宽度。
+     类名来自语言状态，字号与文案在同一帧切换，不会晚一帧按中文字号折行。 */
   .xca-terminal-hero__heading h1 {
     font-size: clamp(1.25rem, 7.2vw, 2rem);
+    /* Both locales share one line box, so switching language cannot change the title height.
+       两种语言共用同一行高，切换语言因此不会改变标题高度。 */
+    line-height: clamp(1.25rem, 7.2vw, 2rem);
   }
-  :lang(en) .xca-terminal-hero__heading h1 {
+  .xca-terminal-hero--en .xca-terminal-hero__heading h1 {
     font-size: clamp(0.9375rem, 4.9vw, 2rem);
   }
   .xca-terminal-anchor {

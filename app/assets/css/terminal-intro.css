@@ -52,6 +52,67 @@ body:has(.xca-terminal-hero--focused) > .xca-document-scrollbar {
 .xca-terminal-hero--intro .xca-terminal-anchor {
   z-index: 1;
 }
+/* The skip hint is a viewport surface over the running scene, so it leaves the hero stacking
+   context and occupies the shared toast layer.
+   跳过提示是覆盖运行中场景的视口表面，因此离开首页层叠上下文并占用共享 toast 层。 */
+.xca-intro-skip-hint {
+  position: fixed;
+  z-index: var(--neoverse-layout-layer-toast);
+  bottom: max(var(--neoverse-space-4), 4svh);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(90vw, 28rem);
+  pointer-events: none;
+  opacity: 1;
+}
+.xca-intro-skip-hint__keys,
+.xca-intro-skip-hint__tap {
+  margin: 0;
+  padding: var(--neoverse-space-3) var(--neoverse-space-4);
+  border-radius: var(--neoverse-overlay-radius);
+  font-size: var(--neoverse-font-size-sm);
+  line-height: var(--neoverse-line-height-snug);
+  text-align: center;
+}
+/* A touch screen has no keyboard shortcut, so the hint itself becomes the exit control.
+   触摸屏没有键盘快捷键，提示条因此直接成为退出控件。 */
+.xca-intro-skip-hint__tap {
+  display: none;
+  pointer-events: auto;
+  font-family: var(--neoverse-font-family-sans);
+  color: inherit;
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .xca-intro-skip-hint__keys {
+    display: none;
+  }
+  .xca-intro-skip-hint__tap {
+    display: block;
+  }
+}
+/* Only opacity animates: the intro compiles its renderer and uploads textures on the main
+   thread, and a filter transition would freeze the hint blurred until it yields.
+   只过渡透明度。入场会在主线程编译渲染器并上传纹理，滤镜过渡会让提示条一直停在模糊状态，
+   直到主线程让出。 */
+.xca-intro-skip-hint-enter-active,
+.xca-intro-skip-hint-leave-active {
+  transition: opacity var(--neoverse-motion-duration-standard)
+    var(--neoverse-motion-easing-standard);
+}
+.xca-intro-skip-hint-leave-active {
+  transition-timing-function: var(--neoverse-motion-easing-accelerate);
+}
+.xca-intro-skip-hint-enter-from,
+.xca-intro-skip-hint-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-intro-skip-hint-enter-active,
+  .xca-intro-skip-hint-leave-active {
+    transition: none;
+  }
+}
 .xca-terminal-hero--intro:not(.xca-terminal-hero--revealing) .xca-terminal-hero__heading {
   opacity: 0;
   transform: translateY(var(--neoverse-motion-distance-mid));

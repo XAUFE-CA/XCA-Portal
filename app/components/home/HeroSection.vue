@@ -18,12 +18,14 @@ import {
   CaIntroMark,
   HERO_TYPING,
   INTRO_READING_UNIT_MS,
+  IntroSkipHint,
   useIntroPresentation,
 } from "~/features/intro";
 import { useTerminalSession } from "~/features/terminal/client-session";
 import TerminalFocusBackdrop from "~/features/terminal/components/TerminalFocusBackdrop.vue";
 import TerminalHost from "~/features/terminal/components/TerminalHost.vue";
 import type { TerminalServices } from "~/features/terminal/core/types";
+import { locales, translate } from "~/i18n";
 import { parseHeroTitle } from "./hero-title";
 import { useTitleCursor } from "./useTitleCursor";
 
@@ -43,6 +45,9 @@ const titleLength = computed(() => titleLetters.value.length);
 const sentenceTexts = computed(() =>
   sentences.value.map((sentence) => parseHeroTitle(sentence).text),
 );
+// The subtitle occupies the taller locale, so a language swap cannot move the terminal.
+// 副标题按两种语言中较高的高度占位，切换语言因此不会推动终端。
+const subtitleVariants = locales.map((value) => translate(value, "home.subtitle"));
 // Keep the complete heading in SSR; animation starts after the intro reveals it.
 // SSR 保留完整标题。动画在开场显示后才开始。
 const visibleLetters = ref(titleLength.value);
@@ -269,10 +274,12 @@ onBeforeUnmount(() => {
       'xca-terminal-hero--docking': revealing,
       'xca-terminal-hero--revealing': revealing,
       'xca-terminal-hero--focused': expanded,
+      'xca-terminal-hero--en': locale === 'en',
     }"
     aria-labelledby="xca-terminal-title"
   >
     <div v-if="phase !== 'ready'" class="xca-terminal-hero__intro-backdrop" aria-hidden="true" />
+    <IntroSkipHint :visible="phase === 'logo'" @skip="skipIntro" />
     <CaIntroMark v-if="spatialIntro" :ref="bindIntroMark" />
     <TerminalFocusBackdrop
       :expanded="expanded"
@@ -324,7 +331,18 @@ onBeforeUnmount(() => {
           />
         </span>
       </h1>
-      <p class="xca-terminal-hero__subtitle">{{ t("home.subtitle") }}</p>
+      <p class="xca-terminal-hero__subtitle">
+        <span
+          v-for="(value, index) in subtitleVariants"
+          :key="index"
+          class="xca-terminal-hero__subtitle-sizing"
+          aria-hidden="true"
+          >{{
+            value
+          }}</span
+        >
+        <span>{{ t("home.subtitle") }}</span>
+      </p>
     </div>
     <ContextMenuHost :menu="terminalMenu" />
     <ContextMenuHost :menu="titleMenu" />

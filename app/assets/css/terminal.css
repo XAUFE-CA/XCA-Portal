@@ -12,6 +12,19 @@
   max-width: var(--neoverse-layout-reading-wide-width);
   text-align: center;
 }
+/* The subtitle occupies the taller locale, so switching language never moves the terminal.
+   副标题按两种语言中较高的高度占位，切换语言因此不会推动终端。 */
+.xca-terminal-hero__subtitle {
+  display: grid;
+  align-items: center;
+}
+.xca-terminal-hero__subtitle > span {
+  grid-area: 1 / 1;
+}
+.xca-terminal-hero__subtitle-sizing {
+  visibility: hidden;
+  pointer-events: none;
+}
 .xca-terminal-hero__heading h1 {
   margin: 0;
   font-size: var(--neoverse-typography-display-md-size);

@@ -37,6 +37,8 @@
   "home.description": "XCA Computer Association, an open community for technology discussions and hands-on projects.",
   "home.ogDescription": "Explore technology, share ideas, and create together.",
   "home.subtitle": "Explore technology, share ideas, and grow together through conversation and practice.",
+  "intro.skipHint": "Press Esc or Space three times to skip the animation",
+  "intro.skipTap": "Skip animation",
   "intro.value.sincerity": "Sincerity",
   "intro.value.sincerity.alt": "真诚",
   "intro.value.inclusion": "Inclusion",

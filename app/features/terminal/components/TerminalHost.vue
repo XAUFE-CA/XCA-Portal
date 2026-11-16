@@ -461,7 +461,10 @@ defineExpose({
             <span class="xca-terminal-bootlog__status"><span>{{ line.status }}</span></span>
             <span>{{ t(line.message.key, line.message.params) }}</span>
           </UiTerminalLine>
+          <!-- A bar with no printed line belongs to no screen, so handoff and skip docking show none.
+               没有日志行的进度条不属于任何屏幕，交接与跳过停靠都不显示。 -->
           <div
+            v-if="introStage === 'boot' || bootLines.length"
             class="xca-terminal-boot-progress"
             role="progressbar"
             :aria-label="t('terminal.boot')"

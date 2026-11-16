@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { UiPopover, UiSurface, useLayoutWidthMotion } from "@neoverse-ui/vue";
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { tokenLength } from "~/utils/cssTokens";
 import SiteHeaderNavigation from "./SiteHeaderNavigation.vue";
 import SiteHeaderPreferences from "./SiteHeaderPreferences.vue";
@@ -26,7 +26,10 @@ const headerWrap = ref<HTMLElement | null>(null);
 // the navigation past its destination before the other groups catch up.
 // 同时测量所有网格占宽区域，避免某组先变宽，把导航推过终点后再由其他组拉回。
 useLayoutWidthMotion({
-  root: headerWrap,
+  // The compact header keeps only the brand and the menu trigger. Animating the trigger width
+  // moves the popover anchor frame by frame, which reads as a jitter over the open menu.
+  // 紧凑页头只有标识与菜单触发按钮。逐帧动画触发按钮宽度会带动浮层锚点，在展开的菜单上表现为抖动。
+  root: computed(() => (compactHeader.value ? null : headerWrap.value)),
   targets:
     ".site-header__brand, .site-navigation > [data-surface], .site-preference-group > [data-surface]",
   trigger: () => [locale.value, theme.value],

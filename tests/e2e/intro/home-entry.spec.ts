@@ -145,6 +145,10 @@ test("three separate spaces smoothly skip the scene and retain the real terminal
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-ca-intro")).toBeVisible();
+  // The CA stage names the keyboard shortcuts; the header button only appears with the boot output.
+  // CA 阶段说明键盘快捷键；标题栏按钮要到启动输出才出现。
+  const hint = page.locator(".xca-intro-skip-hint");
+  await expect(hint).toContainText("Esc");
   await page
     .locator(".xca-terminal-window")
     .evaluate((node) => node.setAttribute("data-host", "original"));
@@ -182,6 +186,7 @@ test("three separate spaces smoothly skip the scene and retain the real terminal
   await ready(page);
   await expect(page.locator(".xca-terminal-window")).toHaveAttribute("data-host", "original");
   await expect(page.locator(".xca-ca-intro, .xca-terminal-hero__intro-backdrop")).toHaveCount(0);
+  await expect(hint).toHaveCount(0);
   await expect(page.locator("#xca-command-input")).toHaveValue("");
   await page.locator("#xca-command-input").fill("echo skipped");
   await page.locator("#xca-command-input").press("Enter");
@@ -450,4 +455,71 @@ test("skipping the CA drawing keeps the terminal's second screen", async ({ page
   expect(final?.stage).toBe("xca-terminal-screen--ready");
   expect(final?.lines).toBeGreaterThan(0);
   expect(final?.prompt).toBe(true);
+});
+
+test("skipping during the boot output never flashes the finished screen", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".xca-terminal-screen--boot")).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
+  // Frame sampling catches a prompt, artwork or idle progress bar that paints before the brand.
+  // 逐帧采样可捕获在 brand 之前画出的命令行、字符画或空闲进度条。
+  const frames = await page.evaluate(async () => {
+    const read = () => {
+      const screen = document.querySelector(".xca-terminal-screen");
+      const transcript = document.querySelector(".xca-terminal-transcript");
+      const prompt = document.querySelector(".xca-terminal-prompt");
+      const history = document.querySelector(".xca-terminal-history");
+      const stage =
+        [...(screen?.classList ?? [])].find((name) => name.startsWith("xca-terminal-screen--")) ??
+        "";
+      return {
+        stage,
+        transcript: transcript ? getComputedStyle(transcript).visibility : "",
+        prompt: prompt ? getComputedStyle(prompt).visibility : "",
+        characters: (history?.textContent ?? "").trim().length,
+        bootLines: document.querySelectorAll(".xca-terminal-bootlog__line").length,
+        progress: !!document.querySelector(".xca-terminal-boot-progress"),
+      };
+    };
+    const samples = [];
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    for (let frame = 0; frame < 400; frame++) {
+      samples.push(read());
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    }
+    return samples;
+  });
+  const brandStart = frames.findIndex((frame) => frame.stage === "xca-terminal-screen--brand");
+  expect(brandStart).toBeGreaterThan(0);
+  const docking = frames.slice(0, brandStart);
+  expect(docking.every((frame) => frame.transcript === "hidden")).toBe(true);
+  expect(docking.every((frame) => frame.prompt === "hidden")).toBe(true);
+  expect(docking.every((frame) => frame.characters === 0)).toBe(true);
+  // An idle bar belongs to no screen; the boot stage or a printed line must justify it.
+  // 空闲进度条不属于任何屏幕，只有 boot 阶段或已打印日志时才显示。
+  expect(
+    frames.every(
+      (frame) => !frame.progress || frame.bootLines > 0 || frame.stage.endsWith("--boot"),
+    ),
+  ).toBe(true);
+});
+
+test("a touch screen taps the skip hint to leave the CA stage", async ({ browser, baseURL }) => {
+  if (!baseURL) throw new Error("The touch context needs the test origin");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  await page.goto(`${baseURL}/`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".xca-intro-skip-hint__tap")).toBeVisible({ timeout: SCENE_TIMEOUT });
+  await expect(page.locator(".xca-intro-skip-hint__keys")).toBeHidden();
+  await page.locator(".xca-intro-skip-hint__tap").tap();
+  await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
+    timeout: SETTLE_TIMEOUT,
+  });
+  await expect(page.locator("#xca-command-input")).toBeEnabled();
+  await context.close();
 });

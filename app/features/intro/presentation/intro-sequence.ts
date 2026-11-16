@@ -332,7 +332,11 @@ export async function enterHome(context: IntroContext, brief = false): Promise<v
   // Brief entry decorates the ready page; only a full intro owns its interaction state.
   // 短入场只装饰可交互页面，只有完整入场才占用交互状态。
   if (!brief) {
-    context.phase.value = "reveal";
+    // Pending text docks on the handoff screen. Revealing would paint the finished banner and
+    // prompt before the brand rows start, so the last screen flashes and disappears again.
+    // 待打印文字在 handoff 屏停靠。提前进入 reveal 会在 brand 逐行打印前画出完成的字符画与
+    // 命令行，最后一屏因此闪现后再次消失。
+    context.phase.value = textPending ? "handoff" : "reveal";
     context.revealing.value = true;
   }
   context.state.viewportSize = viewportDimensions();
