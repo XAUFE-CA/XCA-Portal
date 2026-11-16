@@ -14,7 +14,7 @@ Status: adopted
 
 图片基线与完整入场场景属于 system 层级，分别用 `snapshot` 与 `scene` 元数据标记。
 
-Go 后端的单元测试与探针响应对 OpenAPI 的校验由 `backend/` 内的 `go test ./...` 执行，不由门户测试注册表发现或计入浏览器分片。后端独立检查入口与接口生成检查见 [Go 后端](../architecture/backend.md)。认证业务和真实浏览器链路测试尚未加入。
+Go 后端的单元测试与探针响应对 OpenAPI 的校验由 `backend/` 内的 `go test ./...` 执行，不由门户测试注册表发现或计入浏览器分片。`bun run test:integration` 在独立 PostgreSQL 和 Mailpit 中运行带 `integration` 标签的迁移、邀请、验证码、限流、邮件和未注册协议适配器测试，并开启 Go 竞争检测。该入口需要 Docker Compose、Go 和 C 工具链，使用固定回环端口 `15432`、`12526` 和 `18026`，仅回收本次创建的资源。认证 HTTP 路由和真实浏览器登录链路尚未开放。
 
 ## 注册表
 

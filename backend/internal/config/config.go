@@ -24,6 +24,8 @@ type Config struct {
 	SMTPPassword      string
 	MailFrom          string
 	OTPHMACKey        []byte
+	OTPKeyVersion     int
+	OTPPreviousKeys   map[int][]byte
 	RateLimitHMACKey  []byte
 	PublicOrigin      string
 	TrustedProxies    []netip.Prefix
@@ -64,6 +66,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 	if string(c.OTPHMACKey) == string(c.RateLimitHMACKey) {
 		return c, errors.New("OTP_HMAC_KEY and RATE_LIMIT_HMAC_KEY must differ")
+	}
+	if err := loadOTPKeys(&c, lookup); err != nil {
+		return c, err
 	}
 	c.PublicOrigin = value(lookup, "PUBLIC_ORIGIN", "http://127.0.0.1:4100")
 	if err := validateOrigin(c.PublicOrigin, c.Environment == "production"); err != nil {
@@ -143,7 +148,11 @@ func validateDatabase(raw string, production bool) error {
 }
 
 func secret(lookup func(string) (string, bool), name string) ([]byte, error) {
-	decoded, err := base64.StdEncoding.DecodeString(value(lookup, name, ""))
+	return decodeSecret(value(lookup, name, ""), name)
+}
+
+func decodeSecret(raw, name string) ([]byte, error) {
+	decoded, err := base64.StdEncoding.DecodeString(raw)
 	if err != nil || len(decoded) < 32 {
 		return nil, invalid(name)
 	}
@@ -158,6 +167,37 @@ func secret(lookup func(string) (string, bool), name string) ([]byte, error) {
 		return nil, invalid(name)
 	}
 	return decoded, nil
+}
+
+func loadOTPKeys(c *Config, lookup func(string) (string, bool)) error {
+	version, err := strconv.ParseUint(value(lookup, "OTP_HMAC_KEY_VERSION", "1"), 10, 31)
+	if err != nil || version == 0 {
+		return invalid("OTP_HMAC_KEY_VERSION")
+	}
+	c.OTPKeyVersion = int(version)
+	c.OTPPreviousKeys = make(map[int][]byte)
+	raw := value(lookup, "OTP_PREVIOUS_HMAC_KEYS", "")
+	if raw == "" {
+		return nil
+	}
+	used := map[string]bool{string(c.OTPHMACKey): true, string(c.RateLimitHMACKey): true}
+	for _, pair := range strings.Split(raw, ",") {
+		parts := strings.Split(pair, ":")
+		if len(parts) != 2 {
+			return invalid("OTP_PREVIOUS_HMAC_KEYS")
+		}
+		v, err := strconv.ParseUint(parts[0], 10, 31)
+		if err != nil || v == 0 || int(v) == c.OTPKeyVersion {
+			return invalid("OTP_PREVIOUS_HMAC_KEYS")
+		}
+		key, err := decodeSecret(parts[1], "OTP_PREVIOUS_HMAC_KEYS")
+		if err != nil || used[string(key)] || c.OTPPreviousKeys[int(v)] != nil {
+			return invalid("OTP_PREVIOUS_HMAC_KEYS")
+		}
+		used[string(key)] = true
+		c.OTPPreviousKeys[int(v)] = key
+	}
+	return nil
 }
 
 func validateOrigin(raw string, production bool) error {

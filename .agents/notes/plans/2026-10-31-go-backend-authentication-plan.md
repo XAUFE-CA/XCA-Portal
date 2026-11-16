@@ -291,6 +291,14 @@ Terminal 的历史、虚拟路径、草稿与视觉身份仍归 `TerminalSession
 
 接口生成文件为 499 行，距源码硬上限仅 1 行。生成文件继续参与格式和规模检查，超限后的精确例外及变动审查规则见 [工程质量规则](../../../docs/architecture/engineering-quality.md#代码与文档规模阈值)。
 
+### 第二批实施进度
+
+第二批工作区包含五类数据库表、受控迁移和邀请命令、内部验证码与原子限流、SMTP 传输及独立 PostgreSQL 和 Mailpit 集成测试。验证码申请协议适配器未注册到 API。验证事务通过回调预留同一事务中的会话操作，没有签发 Cookie 或对外宣称登录成功。
+
+本地 `bun run test:integration` 在 Windows 的 Docker Engine 中执行 PostgreSQL、Mailpit 和 Go 竞争检测。Linux WSL 使用独立 Compose 项目执行 `go test -tags=integration -race -count=1 ./...`，同样通过。收紧真假流程的容量保留后，Windows 完整集成测试和 Linux 对应竞争回归再次通过。测试均回收各自创建的资源。Linux 环境没有 Bun，未在该环境运行 Bun 测试入口。初次运行的测试 SMTP 端口存在占用，测试入口使用固定端口 `15432`、`12526` 和 `18026`，不改变开发端口。
+
+本地 Go 检查、接口生成检查、`bun run check` 和 `bun run build` 通过。`bun run test:e2e` 为 191 个用例通过。远端 CI 和 required checks 尚未核验。生产构建仍提示 Nuxt `cache-driver` 外部依赖警告，未在本批排查。
+
 ### 本地依赖与运行配置
 
 - Docker Engine `29.9.3` 和 Compose `v5.7.1` 已在 Windows 主机连通，`docker ps` 正常返回。验收时没有运行中的容器，尚未启动 PostgreSQL。既有 Nuxt `4100` 端口正在监听，实施时复用现有服务，不接管、终止或重开实例。

@@ -42,6 +42,35 @@ func TestSMTPPortOverride(t *testing.T) {
 	}
 }
 
+func TestOTPKeyVersions(t *testing.T) {
+	env := testEnv()
+	env["OTP_HMAC_KEY_VERSION"] = "2"
+	env["OTP_PREVIOUS_HMAC_KEYS"] = "1:" + base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+	env["OTP_HMAC_KEY"] = base64.StdEncoding.EncodeToString([]byte("abcdef0123456789abcdef0123456789"))
+	c, err := loadMap(env)
+	if err != nil || c.OTPKeyVersion != 2 || len(c.OTPPreviousKeys[1]) != 32 {
+		t.Fatalf("key rotation configuration rejected: %v", err)
+	}
+	for _, previous := range []string{
+		"2:" + env["OTP_HMAC_KEY"],
+		"0:" + env["OTP_HMAC_KEY"],
+		"1:not-base64",
+		"1:" + env["RATE_LIMIT_HMAC_KEY"],
+		"1:" + env["OTP_HMAC_KEY"],
+		"1:" + env["OTP_PREVIOUS_HMAC_KEYS"] + ",1:" + env["OTP_HMAC_KEY"],
+	} {
+		env["OTP_PREVIOUS_HMAC_KEYS"] = previous
+		if _, err := loadMap(env); err == nil {
+			t.Error("accepted invalid previous OTP key configuration")
+		}
+	}
+	env["OTP_PREVIOUS_HMAC_KEYS"] = ""
+	env["OTP_HMAC_KEY_VERSION"] = "0"
+	if _, err := loadMap(env); err == nil {
+		t.Error("accepted invalid current OTP key version")
+	}
+}
+
 func TestRejectsInvalidConfigurationWithoutLeakingValues(t *testing.T) {
 	cases := []struct{ name, key, value string }{
 		{"missing database", "DATABASE_URL", ""},

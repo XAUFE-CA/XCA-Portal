@@ -18,7 +18,7 @@ CI 联合检出共享库时固定到具体提交，同一 SHA 必须同步维护
 
 门户 CI 只缓存 Bun 的下载目录与 Playwright 浏览器二进制（按锁文件哈希，供各分片复用），不缓存 node_modules 和构建输出。门禁与生产构建在一个作业内完成并上传产物，浏览器作业下载同一产物后只跑测试，避免每个分片重复构建。
 
-`quality.yml` 的 `backend` 作业与门户和八个浏览器分片独立，检查 Go 格式、静态分析、测试、构建、Linux 竞争检测及 OpenAPI 生成结果。Go 版本由 `backend/go.mod` 指定。工作流的路径过滤同样适用于该作业，新增作业不会自动成为 required check；管理员须核对分支保护与仅文档改动的跳过策略。后端检查入口见 [Go 后端](backend.md)。
+`quality.yml` 的 `backend` 作业与门户和八个浏览器分片独立，检查 Go 格式、静态分析、测试、构建、Linux 竞争检测及 OpenAPI 生成结果，并在隔离的 PostgreSQL 和 Mailpit 中运行集成测试。Go 版本由 `backend/go.mod` 指定。工作流的路径过滤同样适用于该作业，新增作业不会自动成为 required check；管理员须核对分支保护与仅文档改动的跳过策略。后端检查入口见 [Go 后端](backend.md)。
 
 `quality.yml` 对 `push`（`main`）与 `pull_request` 都设置 `paths-ignore`，全部使用目录或通配模式而不逐文件列举：`.agents/**`、`docs/adr/**`、`docs/architecture/**`、`docs/terminology/**`、`docs/*.md`、`*.md` 与 `LICENSE*` 的单独改动不触发完整工作流，这些路径既不参与构建也不是门禁输入。`docs/testing/**` 保持触发，因为其中的 `README.md` 是测试注册表、属于门禁输入；同目录的叙述文档因此也会触发，属保留该目录的代价。`.github/**`、`content/**`、运行时源码和所有清单配置同样不受忽略。被排除文档的格式、链接与用词检查由本地 `check:fast` 承担。`cinematic.yml` 与 `images.yml` 只有手动触发；需要核验仅含文档的推送时用 `workflow_dispatch`，该入口不受路径过滤影响。若启用 required checks，须为被路径过滤跳过的提交配置对应的跳过规则，否则 PR 会一直等待必需检查。
 

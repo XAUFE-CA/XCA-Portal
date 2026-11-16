@@ -59,6 +59,8 @@ jobs:
           bun-version: 1.4.4
       - name: Go checks and race tests
         run: bun tools/check.mjs -race
+      - name: Backend integration tests
+        run: bun tools/integration.mjs
       - name: Install contract tools
         run: bun install --frozen-lockfile
       - name: Validate API contract and generated types
