@@ -12,6 +12,7 @@ docs/
     browser-regression.md       浏览器回归观测、运行要求与结果记录
   terminology/                  术语体系：术语、用词与翻译规则（入口 terminology/README.md）
   architecture/                 架构说明与现行接口，只描述当前真实情况
+    backend.md                  Go 后端配置、探针、接口定义与本地依赖
     engineering-quality.md      环境与依赖维护、门禁分级、代码与文档规模阈值、CI 决策
     fonts.md                    字体角色、资源许可、加载与子集生成
     terminal-extending.md       终端命令、会话、外观与交互扩展接口

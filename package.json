@@ -28,7 +28,8 @@
     "check:docs": "bun scripts/gates/check-docs.ts",
     "check:architecture": "bun scripts/gates/check-architecture.ts",
     "check:references": "bun scripts/gates/check-references.ts",
-    "check:fast": "bun scripts/gates/run-gates.ts --fast"
+    "check:fast": "bun scripts/gates/run-gates.ts --fast",
+    "backend:api:check": "bun --cwd=backend api:check"
   },
   "dependencies": {
     "@neoverse-ui/glass-runtime": "file:../Neoverse-UI/packages/glass-runtime",

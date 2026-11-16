@@ -35,6 +35,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The backend checks run independently of the portal build and browser shards.
+  # 后端检查独立于门户构建和浏览器分片运行。
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Go checks and race tests
+        run: bun tools/check.mjs -race
+      - name: Install contract tools
+        run: bun install --frozen-lockfile
+      - name: Validate API contract and generated types
+        working-directory: .
+        run: bun run backend:api:check
+
   # Gates and the production build run once; browser jobs reuse the artifact.
   # 门禁与生产构建只运行一次，浏览器作业复用其产物。
   gates:

@@ -216,7 +216,7 @@
 
     "@neoverse-ui/glass-runtime": ["@neoverse-ui/glass-runtime@file:../Neoverse-UI/packages/glass-runtime", { "devDependencies": { "happy-dom": "^21.0.4", "vitest": "^5.1.0" } }],
 
-    "@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" } }],
+    "@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" }, "devDependencies": { "happy-dom": "^21.0.4" } }],
 
     "@neoverse-ui/overlay-runtime": ["@neoverse-ui/overlay-runtime@file:../Neoverse-UI/packages/overlay-runtime", {}],
 
@@ -1850,11 +1850,11 @@
 
     "@neoverse-ui/motion/@neoverse-ui/tokens": ["@neoverse-ui/tokens@file:../Neoverse-UI/packages/tokens", {}],
 
-    "@neoverse-ui/tailwind/@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" } }],
+    "@neoverse-ui/tailwind/@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" }, "devDependencies": { "happy-dom": "^21.0.4" } }],
 
     "@neoverse-ui/tailwind/@neoverse-ui/tokens": ["@neoverse-ui/tokens@file:../Neoverse-UI/packages/tokens", {}],
 
-    "@neoverse-ui/vue/@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" } }],
+    "@neoverse-ui/vue/@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" }, "devDependencies": { "happy-dom": "^21.0.4" } }],
 
     "@neoverse-ui/vue/@neoverse-ui/overlay-runtime": ["@neoverse-ui/overlay-runtime@file:../Neoverse-UI/packages/overlay-runtime", {}],
 
@@ -2086,7 +2086,7 @@
 
     "@neoverse-ui/vue/@neoverse-ui/motion/@neoverse-ui/tokens": ["@neoverse-ui/tokens@file:../Neoverse-UI/packages/tokens", {}],
 
-    "@neoverse-ui/vue/@neoverse-ui/tailwind/@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" } }],
+    "@neoverse-ui/vue/@neoverse-ui/tailwind/@neoverse-ui/motion": ["@neoverse-ui/motion@file:../Neoverse-UI/packages/motion", { "dependencies": { "@neoverse-ui/tokens": "^0.3.1" }, "devDependencies": { "happy-dom": "^21.0.4" } }],
 
     "@neoverse-ui/vue/@neoverse-ui/tailwind/@neoverse-ui/tokens": ["@neoverse-ui/tokens@file:../Neoverse-UI/packages/tokens", {}],
 

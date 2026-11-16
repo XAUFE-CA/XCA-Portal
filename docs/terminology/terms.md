@@ -18,6 +18,13 @@
 | 报告厅 | Auditorium，完整入场末段的室内场景 | 包含中央过道、阶梯座椅与舞台，屏幕直接使用真实终端，不指独立页面或真实场馆 |
 | 传送门 | Portal，道路与报告厅之间可穿过的开口 | 进入前只在开口内显示室内，穿过后显示完整报告厅，不指黑屏或交叉淡化 |
 | 会话 | Session | 正文写“会话”，`Session` 只指代码类 |
+| 认证 | 确认访问者身份的过程 | 与授权和成员资格区分 |
+| 账户 | 用于识别访问者的服务端记录 | 不等同于会话或成员资格 |
+| 邀请 | 绑定目标邮箱的账户激活凭据 | 不表示已完成注册或授权 |
+| 验证码 | 验证身份的短时密码 | 具体机制写 OTP，不保存明文 |
+| PostgreSQL | 关系数据库 | 保留官方大小写 |
+| Mailpit | 本地邮件接收和检查工具 | 仅供开发与测试 |
+| OpenAPI | HTTP 接口描述标准 | 保留官方大小写 |
 | 虚拟工作区 | VirtualWorkspace | 正文写“虚拟工作区” |
 | 命令上下文 | CommandContext | 正文写“命令上下文” |
 | 共享 UI | Neoverse-UI 的组件、样式变量与运行时 | 指层，不指具体组件 |
@@ -61,6 +68,11 @@
 | hook | 插件生命周期回调 | 正文写 hook，不写“钩子” |
 | IME | Input Method Editor（输入法） | 正文只写 IME |
 | OTP | One-Time Password（一次性密码） | 正文只写 OTP |
+| HTTP | Hypertext Transfer Protocol（超文本传输协议） | 正文只写 HTTP |
+| SMTP | Simple Mail Transfer Protocol（简单邮件传输协议） | 正文只写 SMTP |
+| TLS | Transport Layer Security（传输层安全） | 正文只写 TLS |
+| HMAC | Hash-based Message Authentication Code（基于哈希的消息认证码） | 正文只写 HMAC |
+| CSRF | Cross-Site Request Forgery（跨站请求伪造） | 正文只写 CSRF |
 | OAuth | Open Authorization（开放授权协议） | 保留大小写 |
 | DOM | Document Object Model（文档对象模型） | 正文只写 DOM |
 | SSR | Server-Side Rendering（服务端渲染） | 正文只写 SSR |

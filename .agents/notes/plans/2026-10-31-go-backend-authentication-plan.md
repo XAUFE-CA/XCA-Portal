@@ -1,8 +1,8 @@
 # Go 后端认证实施计划
 
-Status: proposed
+Status: in progress
 
-更新日期：2026-11-14。复核本地 `main`（`b077f1e`）的测试注册表、脚本分层、CI 与终端接口。原有认证方案不变，本次更新实施入口和测试登记要求，并记录现有 CI 脚本路径问题。后端尚未实施。
+更新日期：2026-11-15。复核本地 `main`（`da029d0`）与真实 Docker Engine，补全认证返回值、终端计时、数据库限流、环境配置和分批实施方案。原有技术路线不变，第一批基础设施开始实施。
 
 本次复核依据：`app/features/terminal/core/session.ts`（统一计时与敏感命令的错误映射）、`app/features/terminal/client-session.ts` 与 `app/components/home/HeroSection.vue`（装配点）、`playwright.config.ts`（单一测试服务器）、`.github/workflows/quality.yml` 与 `scripts/gates/run-gates.ts`（CI 与门禁范围）、[测试注册表](../../../docs/testing/README.md)与 `scripts/tests/test-plan.ts`（测试执行）、`docs/AGENTS.md` 与 `docs/terminology/terms.md`（文档与术语登记）。
 
@@ -61,9 +61,9 @@ Nuxt 继续负责页面、SSR、终端解释、主题、语言和动画。Go 负
 
 Go 服务放在当前仓库的 `backend/`，使用独立的 `go.mod`、构建和部署流程。门户与后端的接口、适配器和对应测试在同一变更中审查。只有确认多个客户端或独立维护团队需要后，再评估拆分仓库。
 
-CI 现状是一个提交触发的工作流 `quality.yml`：门禁与生产构建在同一个作业内完成并上传产物，浏览器作业按八个分片复用该产物；`cinematic.yml` 与 `images.yml` 按需运行，三者各自固定共享库提交，工作流没有路径筛选。加入 `backend/` 时新增独立作业运行 Go 检查，不把 Go 命令塞进 `scripts/gates/run-gates.ts`，该入口只聚合门户门禁。Go 版本只在 `go.mod` 声明，CI 由 `setup-go` 读取。新增作业不会自动成为必需检查，需要在仓库设置中手动加入，并分别核验工作流结果与 required checks 配置。
+CI 现状是 `quality.yml`：门禁与生产构建在同一个作业内完成并上传产物，浏览器作业按八个分片复用该产物；`cinematic.yml` 与 `images.yml` 按需运行，三者固定共享库提交。`quality.yml` 的 `paths-ignore` 只排除特定过程材料与文档，`backend/**` 和工作流文件不在排除范围。加入 `backend/` 时新增独立作业运行 Go 检查，不把 Go 命令塞进 `scripts/gates/run-gates.ts`，该入口只聚合门户门禁。Go 版本在 `go.mod` 声明，CI 由 `setup-go` 读取。新增作业不会自动成为必需检查，需要在仓库设置中手动加入，并核验路径过滤对 required checks 的影响。
 
-CI 命令入口已统一到清单脚本：`quality.yml`、`cinematic.yml` 和 `images.yml` 分别调用 `bun run test:ci`、`bun run test:scene:ci` 与 `bun run test:visual:ci`，脚本路径与命令名由 `check:references` 校验。认证实施前仍须以实际 CI 运行结果验证，不以本地门禁通过代替远端工作流通过。
+CI 命令入口已统一到清单脚本：`quality.yml`、`cinematic.yml` 和 `images.yml` 分别调用 `bun run test:ci`、`bun run test:scene:ci` 与 `bun run test:visual:ci`，脚本路径与命令名由 `check:references` 校验。旧脚本路径已修复，不再列为后端新任务。认证实施前仍须以实际 CI 运行结果验证，不以本地门禁通过代替远端工作流通过。
 
 门户门禁的范围限于门户：`scripts/gates/check-budgets.ts` 统计 ts、js、vue、css、md，`scripts/gates/check-architecture.ts` 只扫描 `app/**`。实施时确定 Go 侧的对应检查（gofmt、go vet、staticcheck、`go test -race` 与生产构建），并决定是否把阈值或架构规则扩展到 `.go`；不扩展时在[工程质量规则](../../../docs/architecture/engineering-quality.md)写明理由，避免两端规则不一致。
 
@@ -125,7 +125,7 @@ HTTP 层只处理请求、响应和身份上下文。认证规则放在应用用
 
 ## 数据设计
 
-1A 使用四类表。字段类型和索引在迁移中明确，内部用户标识不采用学号、邮箱或显示名。
+1A 使用五类表。除账户、邀请、验证码和会话外，增加 PostgreSQL 原子限流计数，不引入 Redis。字段类型和索引在迁移中明确，内部用户标识不采用学号、邮箱或显示名。
 
 | 表 | 主要字段与规则 |
 | --- | --- |
@@ -133,6 +133,7 @@ HTTP 层只处理请求、响应和身份上下文。认证规则放在应用用
 | `invitations` | 邀请摘要、规范化邮箱、预设登录名、预设显示名、有效期、创建时间、撤销时间、使用时间、使用账户；原始邀请字符串只向创建者显示一次 |
 | `email_challenges` | 流程 ID、目标邮箱、OTP 摘要、关联邀请、有效期、尝试次数、使用时间、创建时间；验证成功后失效 |
 | `sessions` | 会话摘要、用户 ID、创建时间、最后使用时间、过期时间、撤销时间；数据库不保存浏览器持有的原始会话凭证 |
+| `auth_rate_limits` | 限流范围、来源摘要、时间窗、原子计数和过期时间；唯一约束保护同一主体与时间窗的并发更新 |
 
 邮箱统一做大小写和空白规范化，显示用邮箱与登录标识分开处理。账户状态至少区分正常和停用；停用账户不能建立新会话，已有会话在查询时拒绝。
 
@@ -241,9 +242,9 @@ Terminal 的历史、虚拟路径、草稿与视觉身份仍归 `TerminalSession
 
 ### 公开错误码到终端输出
 
-`Session` 对 `sensitive` 命令统一把异常映射为 `error.auth`，`login` 已标记为 sensitive。适配器若把 `invalid_or_expired_code`、`rate_limited`、`service_unavailable` 作为异常抛出，分阶段提示会退化为一条通用失败，与 HTTP 接口一节的错误规则冲突。预期失败由适配器返回已本地化的错误行并把命令状态记为失败，异常只用于程序缺陷与不可识别的情况；取消仍由 `AbortSignal` 判定，不经过该映射。
+`Session` 对 `sensitive` 命令统一把异常映射为 `error.auth`，`login` 已标记为 sensitive。适配器若将 `invalid_or_expired_code`、`rate_limited`、`service_unavailable` 当作异常抛出，会退化为通用失败。1A 改为下文的结构化 `AuthResult`，由命令层翻译预期失败并返回错误行，现有错误行机制设置失败状态。未知程序异常仍使用安全的通用提示；取消继续由 `AbortSignal` 处理。
 
-适配器需要翻译能力才能产出双语文案，而 `AuthGateway.login` 的上下文当前是 `Pick<CommandContext, "ask" | "write">`。1A 把它扩展为包含 `t` 的上下文，同步修改 `app/features/terminal/core/types.ts`、[终端扩展接口](../../../docs/architecture/terminal-extending.md#多步交互与登录)与 `core/extensions.test.ts`。命令行的历史记录规则不变：`login` 不写入历史与 Transcript。
+适配器需要翻译能力来提出双语输入问题，而 `AuthGateway.login` 的上下文当前是 `Pick<CommandContext, "ask" | "write">`。1A 把它扩展为包含 `t` 的上下文，公开错误码由命令层翻译，适配器不重复生成文案。同步修改 `app/features/terminal/core/types.ts`、[终端扩展接口](../../../docs/architecture/terminal-extending.md#多步交互与登录)与 `core/extensions.test.ts`。命令行的历史记录规则不变：`login` 不写入历史与 Transcript。
 
 ### 登录超时与取消
 
@@ -274,12 +275,89 @@ Terminal 的历史、虚拟路径、草稿与视觉身份仍归 `TerminalSession
 
 术语先登记再使用。[术语表](../../../docs/terminology/terms.md)目前只有“会话”一条与认证相关，邀请、验证码、账户、统一身份认证与成员资格在写入文档和界面文案前先补表。
 
+## 1A 技术定案与开发默认值
+
+本节为 2026-11-15 的实施设计决策，数值适用于内部试运行和可重复测试。正式部署地址、邀请管理人、邮件权限及 SMTP 凭据仍需在对应环境确认，不把推荐默认值写成生产验收事实。
+
+### 第一批实施进度
+
+`backend/` 已加入独立 Go 模块、配置校验、PostgreSQL 就绪检查、进程存活检查、OpenAPI 定义、类型生成和独立 CI 作业。认证处理器、邮件发送、业务表和门户接入均未实现。后续迁移工具选定 `golang-migrate` `v4.20.1` 的 PostgreSQL 构建；本批只核对工具可以运行，迁移目录、受控发布入口及并发保护测试归第二批。
+
+本地验证中，PostgreSQL 的启动、停止和 API 就绪恢复通过。Mailpit 在不发布宿主端口的独立容器中达到健康状态，SMTP 收件与 Web 查询通过并正常停止；Windows 上已有连接占用 `1025`，该次验证未覆盖宿主端口绑定。Go、接口和门户检查的最终结果以本次交付报告为准，远端工作流尚未运行。
+
+本地 Go 检查和 Windows 竞争检测通过，Linux amd64 交叉构建及隔离容器中的配置、HTTP 测试通过；Linux 竞争检测尚待 CI。OpenAPI 检查、失效生成文件与未定义引用的负向验证通过。门户 `bun run check` 通过；无头 E2E 为 188 通过、3 失败，分别是人为放大字号的 Hero 换行光标、快速路由返回采样和窄屏终端截图。验证期间并行工作更新了 HEAD，上述 E2E 不是对单一提交的隔离验收。
+
+门户冻结安装的干运行返回成功，但提示本地 Neoverse-UI Motion 依赖与锁文件记录不一致；未执行实际安装，也未修改共享库或门户锁文件。构建提示 Nuxt 的 `cache-driver` 作为外部依赖处理，构建完成，原因尚未单独核实。GitHub 分支保护读取返回 `403`，required checks 未核实。
+
+接口生成文件为 499 行，距源码硬上限仅 1 行。生成文件继续参与格式和规模检查，超限后的精确例外及变动审查规则见 [工程质量规则](../../../docs/architecture/engineering-quality.md#代码与文档规模阈值)。
+
+### 本地依赖与运行配置
+
+- Docker Engine `29.9.3` 和 Compose `v5.7.1` 已在 Windows 主机连通，`docker ps` 正常返回。验收时没有运行中的容器，尚未启动 PostgreSQL。既有 Nuxt `4100` 端口正在监听，实施时复用现有服务，不接管、终止或重开实例。
+- 后端开发专用 Compose 配置使用固定大版本的 PostgreSQL、Mailpit 镜像，准确版本与摘要由实现时锁定。容器端口只绑定 `127.0.0.1`，PostgreSQL 使用 `5432`，Mailpit SMTP 宿主端口由 `SMTP_PORT` 指定，默认将 `2525` 映射到容器端口 `1025`，Mailpit Web 使用 `8025`；Go API 默认监听 `127.0.0.1:8080`。启动前先检查占用，禁止静默更换端口。Windows PowerShell、Linux 都使用 `docker compose` 与原生 `go` 命令，不以 Bash/Make 为唯一入口。
+- 新增 `backend/.env.example` 和严格的配置加载、启动前校验，真实凭据只存放在已被 Git 忽略的环境文件或受控进程环境。拟定配置项包含 `APP_ENV`、`API_LISTEN_ADDR`、`DATABASE_URL`、`MAIL_TRANSPORT`、`SMTP_HOST`、`SMTP_PORT`、`SMTP_TLS_MODE`、`SMTP_USERNAME`、`SMTP_PASSWORD`、`MAIL_FROM`、`OTP_HMAC_KEY`、`RATE_LIMIT_HMAC_KEY`、`PUBLIC_ORIGIN`、`TRUSTED_PROXY_CIDRS`、`SESSION_TTL`。生产环境拒绝空密钥、明文 SMTP 和测试收件器，变量最终名称由配置测试确定。
+- Go 版本以 `backend/go.mod` 为唯一来源，CI 从该文件安装工具链。`gofmt`、`go vet`、`go test`、`go build` 与固定版本 `staticcheck` 兼容 Windows/Linux；`go test -race` 至少由具备 C 工具链的 Linux CI 执行。
+
+### API 结果契约与认证状态
+
+预期失败不使用异常传递，前端统一使用判别联合类型，成功身份与业务失败分别携带明确字段：
+
+```ts
+type AuthFailureCode =
+  "invalid_request" | "invalid_or_expired_code" | "rate_limited" | "service_unavailable";
+
+type AuthResult<T> =
+  { ok: true; value: T } | { ok: false; code: AuthFailureCode; retryAfterSeconds?: number };
+
+// login: AuthResult<AuthIdentity>
+// getSession: AuthResult<AuthIdentity | null>
+// logout: AuthResult<null>
+```
+
+- `getSession` 成功返回空身份才代表游客，网络或服务故障为 `ok: false`，不得调用 `setIdentity(null)`。`logout` 必须收到 `204` 后才能清空身份；超时或结果不确定时标记待核对。`login` 成功才设身份，错误码由命令的 `ctx.t` 翻译并输出带错误样式的行。
+- OpenAPI 明确 `400 invalid_request`、`400 invalid_or_expired_code`、`429 rate_limited`、`503 service_unavailable`。非法来源的浏览器写请求使用 `403` 和安全的通用错误，不包含内部状态。网络断开归一化为 `service_unavailable`，取消单独处理，不冒充服务端响应。
+- 请求验证码返回的 `202` 统一包含 `flow_id`、`expires_at`，真实和假流程具有同形响应；假流程永远不能验证成功。相同邮箱的再次申请会使旧的未使用挑战失效，不自动重发验证码。
+- 客户端认证适配器持有当前标签页的 `unknown/checking/guest/authenticated/error` 状态和单调操作版本。Go 会话 Cookie 是最终身份依据；旧 `whoami`、组件卸载后的响应或已取消请求不得覆盖新登录、注销。适配器不依赖 Intro，重新挂载时可核对待确认状态。
+
+### OTP、会话与命令超时
+
+| 参数 | 1A 内部试运行默认值 |
+| --- | --- |
+| 邀请有效期 | 7 天 |
+| OTP 长度与有效期 | 6 位数字，10 分钟 |
+| OTP 错误尝试 | 每流程最多 5 次 |
+| 同邮箱重发间隔 | 至少 60 秒 |
+| 同邮箱申请额度 | 每 15 分钟最多 3 次 |
+| 来源 IP 申请额度 | 每 15 分钟最多 30 次，留意校园 NAT |
+| 会话有效期 | 绝对 24 小时，不自动延长 |
+| 单个网络请求超时 | 15 秒 |
+| OTP 人工输入等待 | 最多 8 分钟，不延长服务端 OTP 有效期 |
+| 整个登录流程期限 | 12 分钟，普通终端命令仍为 30 秒 |
+
+- `TerminalSession` 的 `ctx.ask` 已支持随 `AbortSignal` 取消并清理交互，但 `execute` 仍以统一 30 秒计时。为多步命令增加明确的期限元数据，将输入等待、每次网络请求及总流程定时分离；进入和离开输入阶段时更新计时器，不放大普通命令超时。完成、Esc、Ctrl+C、卸载及失败都释放计时器和监听。
+- 取消验证码验证或注销不代表回滚已提交的 Go 事务。请求取消、Cookie 响应丢失或旧请求迟到时，用新 `getSession` 查询当前服务器会话；不重放欢迎消息，不自动重试已消费的 OTP。待核对状态持续到有效的新查询完成。
+- 生产使用 `__Host-xca_session` Cookie，`Secure; HttpOnly; Path=/; SameSite=Lax`，不允许 `Domain`，通过 HTTPS 同源入口签发。仅本地 HTTP 环境使用不同名称的开发 Cookie，同样保持 `HttpOnly` 和来源校验；不将开发设置用于生产。身份相关响应统一 `Cache-Control: no-store`。
+- 浏览器 `POST` 必须带与配置严格一致的 `Origin`，不存在或不匹配都拒绝。只接受 `application/json`，不开跨域凭据 CORS。`SameSite` 不能代替来源检查；反向代理的 `X-Forwarded-*` 仅接受可信代理提供的值。
+
+### 并发数据库与邮件投递
+
+- OTP 使用安全随机源生成。`email_challenges` 存储绑定流程 ID 的服务端密钥 HMAC 和密钥版本，验证时恒定时间比较；旧密钥保留至所有有效挑战过期。明文 OTP、邀请串、会话 Cookie 和 HMAC 密钥均不得记录在日志。会话凭证独立高熵生成，数据库只保存安全摘要。
+- `auth_rate_limits` 通过 `(scope, subject_digest, window_start)` 唯一约束及 `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` 原子计数。邮箱与来源 IP 使用单独密钥下的摘要而非原文作为限流主体。挑战校验锁行更新失败次数，并发请求不得越过上限或重复消费验证码。限流数据保留与清理不能提前解除有效限制。
+- 真实与假流程共同经过申请限流、流程建立和一致的公开响应。真实邮件在数据库事务提交后交由有界并发的进程内发送器执行，浏览器不等待 SMTP 结果，避免通过投递延迟稳定枚举账户。发送器容量饱和须在账户判定前作为全局服务故障处理，不能按邮箱选择性返回异常。该非持久队列在进程重启时可能丢信，内部试运行依赖限流后的人工重发；面向更大范围开放前须验证可靠性并决定是否采用 PostgreSQL Outbox 或可靠的邮件服务 API。
+- 生产 SMTP 采用飞书 `smtp.feishu.cn:465` 隐式 TLS，并验证证书、发件身份和第三方客户端专用密码。本地只连接 Mailpit。真实腾讯云服务器出口、发信额度、授权、备份、恢复和安全日志保留期在部署验收阶段确认。
+
+### 分批实现与测试门槛
+
+- 切片一只更新后端允许范围、接口定义、配置校验、Go API 最小骨架、本地依赖、跨平台命令与 Go CI；不修改 Intro。切片二实施五张表、迁移、邀请、OTP、数据库限流、SMTP 发送与 Mailpit 集成测试。切片三完成 Cookie、CSRF、身份恢复及终端 `AuthResult`、超时和取消。切片四验证真实 Go + PostgreSQL + Nuxt 代理链路并开展受控飞书邮箱试运行。每个切片只包含对应代码、测试与文档，未授权不得自行提交。
+- 数据访问优先采用 `pgxpool` 与参数化 SQL，不增加 ORM；迁移使用版本化 SQL 文件和单次受控执行入口，迁移工具在首批骨架时固定版本。Go 单元测试不依赖数据库，PostgreSQL 集成测试使用独立测试库检查迁移、唯一约束、事务、重放和并发。门户替身 E2E 维持现有 `system` 注册；真实服务 E2E 通过新的注册表选择条件独立运行，默认排除在无需数据库的八个浏览器分片外，不借用 `scene` 或 `snapshot` 标签。测试启动器检查占用、等待 `/readyz` 并只回收自己启动的进程。
+- 内部 1A 完成的标准是邀请激活、已有用户登录、刷新恢复、注销、停用与撤销均通过真实链路测试，同时覆盖未知邮箱、无效 OTP、限流及取消竞争。正式发布另须完成 HTTPS、生产 Cookie、飞书配额、腾讯云出站 SMTP、备份恢复和数据保留策略验收。
+
 ## 1A 实施步骤
 
 1. 确认内部试运行负责人、邮件与部署环境、安全参数、迁移负责人和对外推广门槛；尚未决定的首个业务不得由代码默认假设。开始实现时同步调整根工作规范的项目范围。
 2. 先写 `backend/api/openapi.yaml`、公开错误模型和响应示例，确定 TypeScript 类型生成、OpenAPI 语法验证和 Go 接口响应检查的统一方式；将接口变更纳入两端共同检查。
-3. 先修正现有三个工作流的测试执行器路径并验证 CI；再建立 Go API 进程、配置校验、数据库连接、迁移、存活与就绪探针、结构化日志，创建 Go 独立 CI 作业并核对 required checks。
-4. 建立四类 1A 数据表及事务测试，完成邀请管理命令与必要的并发唯一性校验。
+3. 建立 Go API 进程、跨平台开发依赖入口、配置校验、数据库连接、迁移、存活与就绪探针、结构化日志，创建 Go 独立 CI 作业并核对 required checks。旧工作流脚本路径已修复，不再重复治理。
+4. 建立五类 1A 数据表及事务测试，完成邀请管理命令与必要的并发唯一性校验。
 5. 实现邮件投递、OTP 申请与验证、邀请激活、受控 HMAC 存储和数据库原子限流，验证真实与假流程响应一致。
 6. 实现会话 Cookie、查询、注销、绝对过期、撤销和账户停用检查，完成同源与 CSRF 防护。
 7. 先完成门户侧前置改造并有独立单元测试：`Session` 分步期限、敏感命令的预期失败映射、身份操作版本和取消后的待核对状态；再实现 HTTP `AuthGateway`、身份恢复和双语文案。

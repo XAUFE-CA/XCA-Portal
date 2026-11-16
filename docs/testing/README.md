@@ -14,6 +14,8 @@ Status: adopted
 
 图片基线与完整入场场景属于 system 层级，分别用 `snapshot` 与 `scene` 元数据标记。
 
+Go 后端的单元测试与探针响应对 OpenAPI 的校验由 `backend/` 内的 `go test ./...` 执行，不由门户测试注册表发现或计入浏览器分片。后端独立检查入口与接口生成检查见 [Go 后端](../architecture/backend.md)。认证业务和真实浏览器链路测试尚未加入。
+
 ## 注册表
 
 Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定的执行器参数，当前没有按范围追加的参数。Metadata 为逗号分隔的属性，含义见下一节。

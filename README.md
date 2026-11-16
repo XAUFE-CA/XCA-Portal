@@ -30,7 +30,8 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 | 类别 | 技术 |
 | --- | --- |
 | 应用框架 | [Nuxt](https://nuxt.com)、[Vue](https://vuejs.org) |
-| 开发语言 | [TypeScript](https://www.typescriptlang.org) |
+| 开发语言 | [TypeScript](https://www.typescriptlang.org)、[Go](https://go.dev) |
+| 认证后端基础设施 | Go、[PostgreSQL](https://www.postgresql.org) |
 | 内容管理 | [Nuxt Content](https://content.nuxt.com) |
 | 界面组件 | [Neoverse-UI](https://github.com/SSJ-ZYJ/Neoverse-UI) |
 | 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、Prettier、Playwright |
@@ -43,6 +44,8 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 bun install
 bun run dev
 ```
+
+Go 后端的配置、本地依赖与独立运行方式见 [Go 后端](docs/architecture/backend.md)。当前仅提供健康探针，认证接口仍处于实施计划中。
 
 ## 检查与构建
 
