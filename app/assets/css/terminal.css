@@ -254,6 +254,29 @@
   flex-direction: column;
   gap: var(--neoverse-space-2);
 }
+/* Block ink abuts exactly, so a cell that lands off the pixel grid leaves a seam at every
+   boundary; the wordmark overlaps neighbours by one device pixel, which is a different CSS
+   length on each density tier.
+   方块字形的墨迹首尾相接，字符格落在非整数像素时每个边界都会留下缝隙；字标让相邻字符重叠
+   一个设备像素，而一个设备像素在每个密度档位对应不同的 CSS 长度。 */
+:root {
+  --xca-terminal-wordmark-join: 0.44px;
+}
+@media (max-resolution: 2.49dppx) {
+  :root {
+    --xca-terminal-wordmark-join: 0.55px;
+  }
+}
+@media (max-resolution: 1.99dppx) {
+  :root {
+    --xca-terminal-wordmark-join: 0.72px;
+  }
+}
+@media (max-resolution: 1.49dppx) {
+  :root {
+    --xca-terminal-wordmark-join: 1.1px;
+  }
+}
 .xca-terminal-banner,
 .xca-terminal-brand-probe,
 .xca-terminal-welcome__lead {
@@ -274,9 +297,11 @@
   font-feature-settings:
     "liga" 0,
     "calt" 0;
-  /* Block glyphs leave a subpixel seam at every cell edge; a slight overlap closes it.
-     方块字形在每个单元格边界留下亚像素缝隙，轻微重叠即可消除。 */
-  letter-spacing: -0.03em;
+  /* Block ink fills its whole advance, so a cell that lands off the pixel grid leaves an
+     antialiased seam at every boundary; the join above overlaps neighbours enough to cover it.
+     方块字形的墨迹占满整个字符宽度，字符格落在非整数像素时每个边界都留下抗锯齿缝隙；
+     上面的重叠量让相邻字符覆盖该缝隙。 */
+  letter-spacing: calc(-1 * var(--xca-terminal-wordmark-join));
   color: var(--neoverse-color-accent-primary);
 }
 /* Theme accents keep the light wordmark gradient between blue and mint.
@@ -361,11 +386,18 @@
 }
 .xca-terminal-welcome__lead {
   font-size: var(--neoverse-font-size-2xs);
+  /* The lead renders through a smaller scale transform, so its layout tracking is divided by that
+     scale to keep the same one-device-pixel join.
+     引导行经过更小的缩放，布局字距按该比例放大，才能保持同样的一个设备像素重叠。 */
+  letter-spacing: calc(-1 * var(--xca-terminal-wordmark-join) / var(--xca-welcome-lead-scale));
   transform: scale(var(--xca-welcome-lead-scale));
   transform-origin: top center;
 }
 .xca-terminal-banner.xca-terminal-banner--narrow {
   font-size: var(--neoverse-font-size-2xs);
+  /* The mark shares the lead's arrangement: the scale is part of the rendered cell size.
+     字标与引导行同理：缩放参与决定实际渲染的字符格尺寸。 */
+  letter-spacing: calc(-1 * var(--xca-terminal-wordmark-join) / var(--xca-welcome-mark-scale));
   transform: scale(var(--xca-welcome-mark-scale));
   transform-origin: top center;
 }

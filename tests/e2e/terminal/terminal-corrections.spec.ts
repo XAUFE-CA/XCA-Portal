@@ -147,10 +147,9 @@ test("INTRO replaces edited output with welcome before replay and after docking 
   await input.press("Enter");
   await expect(page.locator(".xca-terminal-hero--logo")).toHaveCount(1);
   await expect(page.locator(".xca-terminal-transcript")).not.toContainText("previous-output");
-  await expect(page.locator(".xca-terminal-transcript")).toContainText(
-    "XAUFE Computer Association",
-    { timeout: SCENE_TIMEOUT },
-  );
+  await expect(page.locator(".xca-terminal-welcome-hint")).toBeVisible({
+    timeout: SCENE_TIMEOUT,
+  });
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0, {
     timeout: SCENE_TIMEOUT,
   });

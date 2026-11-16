@@ -57,7 +57,6 @@
   "terminal.inputRunning": "Command in progress",
   "terminal.exitReader": "Exit reader",
   "terminal.welcomeLabel": "Welcome to XCA",
-  "terminal.brand": "{name} / Computer Association",
   "terminal.welcomeTagline": "Explore technology · Share knowledge · Build things",
   "terminal.welcomeHint": "Type help for commands, or use xca explore to get started.",
   "terminal.shell": "BROWSER SHELL",

@@ -15,7 +15,7 @@ export const TERMINAL = {
     platform: "XCA Browser/Linux",
   },
   limits: { history: 80, output: 300, commandTimeout: 30_000 },
-  welcome: ["terminal.welcomeTagline", "terminal.welcomeHint"] satisfies MessageKey[],
+  welcome: ["terminal.welcomeHint"] satisfies MessageKey[],
   routes: SITE.routes,
   layout: {
     initialSize: { columns: 80, rows: 24 },

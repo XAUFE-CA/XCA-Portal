@@ -92,12 +92,6 @@ export class TerminalSession {
     this.entries = [];
     this.append(
       { type: "banner" },
-      {
-        type: "line",
-        text: this.t("terminal.brand", { name: TERMINAL.brand.name }),
-        tone: "normal",
-        message: { key: "terminal.brand", params: { name: TERMINAL.brand.name } },
-      },
       ...TERMINAL.welcome.map((key) => ({
         type: "line" as const,
         text: this.t(key),

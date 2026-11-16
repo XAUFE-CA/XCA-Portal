@@ -85,7 +85,6 @@ function captionVisible(entry: TerminalEntry): boolean {
       v-else-if="entry.type === 'line' && captionVisible(entry)"
       class="xca-terminal-line"
       :class="{
-        'xca-terminal-welcome-brand': entry.message?.key === 'terminal.brand',
         'xca-terminal-welcome-hint': entry.message?.key === 'terminal.welcomeHint',
       }"
       :kind="entry.tone === 'accent' ? 'command' : 'text'"

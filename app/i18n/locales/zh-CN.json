@@ -57,7 +57,6 @@
   "terminal.inputRunning": "命令执行中",
   "terminal.exitReader": "退出阅读",
   "terminal.welcomeLabel": "欢迎来到 XCA",
-  "terminal.brand": "{name} / 计算机学社",
   "terminal.welcomeTagline": "探索技术 · 分享知识 · 动手实践",
   "terminal.welcomeHint": "输入 help 查看命令，或通过 xca explore 开始探索。",
   "terminal.shell": "网页终端",

@@ -381,17 +381,21 @@ test("ASCII wordmark remains aligned and unclipped on desktop, mobile and narrow
       .locator(".xca-terminal-banner")
       .first()
       .evaluate((element) => {
+        // A viewport-driven re-render can replace the line between locating and reading it.
+        // 视口变化触发的重渲染可能在定位与读取之间替换该行。
+        const node = element.isConnected ? element : document.querySelector(".xca-terminal-banner");
+        if (!node) throw new Error("The wordmark is missing from the document");
         // One equal-width cell is the smallest meaningful overflow unit for the banner.
         // 等宽字符画的最小有意义溢出单位是一个字符格。
         const probe = document.createElement("span");
         probe.textContent = "0";
         probe.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font:inherit";
-        element.append(probe);
+        node.append(probe);
         const cell = probe.getBoundingClientRect().width;
         probe.remove();
         return {
-          text: element.textContent ?? "",
-          overflow: element.scrollWidth - element.clientWidth,
+          text: node.textContent ?? "",
+          overflow: node.scrollWidth - node.clientWidth,
           cell,
         };
       });
@@ -399,7 +403,9 @@ test("ASCII wordmark remains aligned and unclipped on desktop, mobile and narrow
       .locator(".xca-terminal-banner")
       .first()
       .evaluate((element) => {
-        const style = getComputedStyle(element);
+        const node = element.isConnected ? element : document.querySelector(".xca-terminal-banner");
+        if (!node) throw new Error("The wordmark is missing from the document");
+        const style = getComputedStyle(node);
         const accentProbe = document.createElement("span");
         accentProbe.style.color = "var(--neoverse-color-accent-primary)";
         document.body.append(accentProbe);
@@ -461,11 +467,17 @@ test("immersive scrollbars keep a permanent terminal gutter and never scroll the
 
   for (const width of [1440, 1100, 800, 390, 320]) {
     await page.setViewportSize({ width, height: 850 });
-    // The banner is clipped on purpose, so the gutter assertion is about the document only.
-    // 字符画按设计裁切，因此这一项只检查文档不产生横向滚动。
+    // The wordmark is clipped on purpose: the wide banner clips itself, while the narrow welcome
+    // clips through its scaled frame. Either way the gutter assertion is about the document only.
+    // 字符画按设计裁切：宽屏字标自身裁切，窄屏欢迎经缩放的框体裁切；两种情况下滚动检查都只针对文档。
     await expect
-      .poll(() => banner.evaluate((node) => getComputedStyle(node).overflowX))
-      .toBe("clip");
+      .poll(() =>
+        banner.evaluate((node) => {
+          const frame = node.closest(".xca-terminal-welcome__mark-frame");
+          return getComputedStyle(frame ?? node).overflowX;
+        }),
+      )
+      .not.toBe("visible");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );

@@ -204,9 +204,6 @@ body:has(.xca-terminal-hero--intro) {
   font-variant-numeric: tabular-nums;
   color: var(--neoverse-color-accent-primary);
 }
-.xca-terminal-welcome-brand {
-  color: var(--neoverse-color-text-primary);
-}
 .xca-terminal-welcome-hint {
   color: var(--neoverse-color-accent-primary);
 }

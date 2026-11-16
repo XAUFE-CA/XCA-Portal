@@ -25,7 +25,7 @@ test("language switching preserves the terminal and persists through SSR and rel
   await expect(page).toHaveTitle("XCA · Computer Association");
   await expect(input).toHaveValue("echo pending");
   await expect(page.locator(".xca-terminal-history")).toContainText(
-    "Explore technology · Share knowledge · Build things",
+    "Type help for commands, or use xca explore to get started.",
   );
   await input.fill("pwd");
   await input.press("Enter");
