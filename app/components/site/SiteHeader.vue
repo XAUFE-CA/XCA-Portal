@@ -22,16 +22,20 @@ function updateResponsiveLayout() {
 const floating = ref(false);
 const mobileMenuOpen = ref(false);
 const headerWrap = ref<HTMLElement | null>(null);
-// Measure every grid contributor together so one resizing group cannot push
-// the navigation past its destination before the other groups catch up.
-// 同时测量所有网格占宽区域，避免某组先变宽，把导航推过终点后再由其他组拉回。
+// The brand shares the bar with the menu trigger. Animating its width in the compact header
+// moves the popover anchor frame by frame, which reads as jitter over the open menu.
+// 标识与菜单触发按钮同处一行。紧凑页头下动画其宽度会逐帧移动浮层锚点，在展开的菜单上表现为抖动。
 useLayoutWidthMotion({
-  // The compact header keeps only the brand and the menu trigger. Animating the trigger width
-  // moves the popover anchor frame by frame, which reads as a jitter over the open menu.
-  // 紧凑页头只有标识与菜单触发按钮。逐帧动画触发按钮宽度会带动浮层锚点，在展开的菜单上表现为抖动。
   root: computed(() => (compactHeader.value ? null : headerWrap.value)),
-  targets:
-    ".site-header__brand, .site-navigation > [data-surface], .site-preference-group > [data-surface]",
+  targets: ".site-header__brand",
+  trigger: () => [locale.value, theme.value],
+});
+// Navigation and preference surfaces reconcile their widths at every breakpoint. In the compact
+// header they live inside the popover, away from its anchor, so animating them is jitter-free.
+// 导航与偏好表面在所有断点都协调宽度。紧凑页头下它们位于浮层内部、远离锚点，动画不会产生抖动。
+useLayoutWidthMotion({
+  root: headerWrap,
+  targets: ".site-navigation > [data-surface], .site-preference-group > [data-surface]",
   trigger: () => [locale.value, theme.value],
 });
 watch(
