@@ -14,7 +14,13 @@ export const TERMINAL = {
     shell: "xca-sh",
     platform: "XCA Browser/Linux",
   },
-  limits: { history: 80, output: 300, commandTimeout: 30_000 },
+  limits: {
+    history: 80,
+    output: 300,
+    commandTimeout: 30_000,
+    loginTimeout: 12 * 60_000,
+    otpInputTimeout: 8 * 60_000,
+  },
   welcome: ["terminal.welcomeHint"] satisfies MessageKey[],
   routes: SITE.routes,
   layout: {

@@ -93,6 +93,7 @@ func TestRejectsInvalidConfigurationWithoutLeakingValues(t *testing.T) {
 		{"origin with empty fragment", "PUBLIC_ORIGIN", "http://example.org#"},
 		{"invalid proxy", "TRUSTED_PROXY_CIDRS", "192.0.2.1/24"},
 		{"invalid duration", "API_READ_TIMEOUT", "0s"},
+		{"subsecond session", "SESSION_TTL", "500ms"},
 		{"excessive timeout", "API_SHUTDOWN_TIMEOUT", "1h"},
 		{"invalid body limit", "API_MAX_BODY_BYTES", "-1"},
 	}

@@ -4,7 +4,7 @@ import ts from "typescript";
 export const REGISTRY_PATH = "docs/testing/README.md";
 export const LEVELS = ["unit", "module", "system"] as const;
 export const RUNNERS = ["bun-test", "playwright"] as const;
-export const METADATA = ["browser", "isolated", "scene", "snapshot"] as const;
+export const METADATA = ["browser", "isolated", "scene", "snapshot", "live"] as const;
 
 export type TestLevel = (typeof LEVELS)[number];
 export type TestRunner = (typeof RUNNERS)[number];
@@ -152,14 +152,14 @@ function hasCall(file: string, source: string, name: string): boolean {
   return found;
 }
 
-function hasCinematicTitle(file: string, source: string): boolean {
+function hasTaggedTitle(file: string, source: string, tag: string): boolean {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   let found = false;
   const visit = (node: ts.Node) => {
     if (found) return;
     const text =
       ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node) ? node.getText() : "";
-    if (text.includes("@cinematic")) {
+    if (text.includes(tag)) {
       let parent = node.parent;
       if (parent && ts.isTemplateExpression(parent)) parent = parent.parent;
       if (
@@ -181,7 +181,16 @@ export function metadataIssues(scope: TestScope, sources: Map<string, string>): 
   const issues: string[] = [];
   const evidence: [TestMetadata, boolean, string][] = [
     ["browser", scope.runner === "playwright", "playwright runner"],
-    ["scene", [...sources].some(([file, text]) => hasCinematicTitle(file, text)), "@cinematic tag"],
+    [
+      "scene",
+      [...sources].some(([file, text]) => hasTaggedTitle(file, text, "@cinematic")),
+      "@cinematic tag",
+    ],
+    [
+      "live",
+      [...sources].some(([file, text]) => hasTaggedTitle(file, text, "@live-auth")),
+      "@live-auth tag",
+    ],
     [
       "snapshot",
       [...sources].some(([file, text]) => hasCall(file, text, "toHaveScreenshot")),

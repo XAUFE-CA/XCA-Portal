@@ -524,7 +524,7 @@ test("forced colors keeps the system separator and focus ring", async ({ page })
   const styles = await panel(page).evaluate((element) => {
     // System colors resolve to real values in every mode, so probing them proves the
     // forced palette replaced the tokens instead of assuming a specific browser palette.
-    // 系统色在各模式下都会解析为实际值，用探针读出它们即可证明强制调色板替换了样式变量。
+    // 系统色在各模式下都会解析为实际值，用临时元素读出它们即可证明强制调色板替换了样式变量。
     const probe = document.createElement("span");
     probe.style.cssText = "position: absolute; visibility: hidden";
     document.body.append(probe);
@@ -557,8 +557,8 @@ test("forced colors keeps the system separator and focus ring", async ({ page })
   expect(styles.outlineColor).toBe(styles.colors.highlight);
   expect(styles.separatorColor).toBe(styles.colors.canvasText);
   // The glass surface keeps its transparency under forced colors, so only the colour
-  // channels are comparable with the Canvas probe.
-  // 玻璃表面在强制配色下保留透明度，因此只能把颜色通道与 Canvas 探针比较。
+  // channels are comparable with the Canvas sample.
+  // 玻璃表面在强制配色下保留透明度，因此只能把颜色通道与 Canvas 采样比较。
   const rgb = (value: string) =>
     value
       .replace(/^rgba?\(([^)]+)\)$/, "$1")

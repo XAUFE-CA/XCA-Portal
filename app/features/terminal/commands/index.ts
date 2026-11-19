@@ -1,6 +1,14 @@
 import type { CommandDefinition } from "../core/types";
 import { fileCommands } from "./files";
-import { commandDetails, completeHelp, line, listHelp, resolveCommand, usage } from "./helpers";
+import {
+  authError,
+  commandDetails,
+  completeHelp,
+  line,
+  listHelp,
+  resolveCommand,
+  usage,
+} from "./helpers";
 import { interactiveCommands } from "./interactive";
 import { searchCommands } from "./search";
 import { xcaCommand } from "./site";
@@ -50,14 +58,15 @@ export const terminalCommands: CommandDefinition[] = [
     usage: "whoami",
     execute: async (args, ctx, signal) => {
       if (args.length) return usage(ctx, "whoami");
-      const identity = await ctx.services.auth?.getSession(signal);
-      ctx.setIdentity(identity ?? null);
+      if (!ctx.services.auth)
+        return [line(ctx.t("command.guestIdentity", { user: ctx.identity().user }), "accent")];
+      const result = await ctx.services.auth.getSession(signal);
+      if (!result.ok) return [authError(result, ctx)];
+      const identity = result.value;
+      if (!ctx.setIdentity(identity)) return [];
       return identity
         ? [line(`${identity.user}  /  ${identity.label}`, "accent")]
-        : [
-            line(ctx.t("command.guestIdentity", { user: ctx.identity().user }), "accent"),
-            line(ctx.t("command.membersUnavailable"), "muted"),
-          ];
+        : [line(ctx.t("command.guestIdentity", { user: ctx.identity().user }), "accent")];
     },
   },
   ...fileCommands,

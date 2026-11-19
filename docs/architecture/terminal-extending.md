@@ -94,23 +94,30 @@ session.appearanceRegistry.registerBackground({
 session.setAppearance({ background: "custom-image" });
 ```
 
-背景支持站内绝对路径、HTTP(S) 和指定格式的图片 data URL。CSS 配置由受信任的宿主注册，终端用户只能选择已注册项。图片的配色及文字可读性由宿主负责。
+背景支持站内绝对路径、HTTP(S) 和指定格式的图片 data URL。CSS 配置由受信任的门户页面注册，终端用户只能选择已注册项。图片的配色及文字可读性由门户页面负责。
 
 ## 多步交互与登录
 
 `ctx.choose(title, items)` 返回菜单选择；`ctx.ask({ label, kind })` 返回单次输入，kind 为 `text`、`secret` 或 `otp`。回答直接交给等待中的命令，不进入历史、普通输入草稿或 Transcript。Esc、Ctrl+C 和取消按钮释放等待状态。
 
-`TerminalServices.auth` 为可选 AuthGateway，当前未注入后端，`login` 只说明尚未开放。
+`TerminalServices.auth` 注入终端交互适配器。应用级客户端位于 `app/features/auth/`，不依赖终端或门户组件，普通页面可直接使用。客户端按服务端会话维护 `unknown`、`checking`、`guest`、`authenticated` 与 `error` 状态；网络故障不是游客。首页挂载后订阅身份并恢复会话，卸载时释放订阅和请求，不重建客户端。
 
 ```ts
 interface AuthGateway {
-  getSession(signal: AbortSignal): Promise<AuthIdentity | null>;
-  login(context: Pick<CommandContext, "ask" | "write">, signal: AbortSignal): Promise<AuthIdentity>;
-  logout(signal: AbortSignal): Promise<void>;
+  getSession(signal: AbortSignal): Promise<AuthResult<AuthIdentity | null>>;
+  login(
+    context: Pick<CommandContext, "ask" | "choose" | "write" | "t">,
+    signal: AbortSignal,
+  ): Promise<AuthResult<AuthIdentity>>;
+  logout(signal: AbortSignal): Promise<AuthResult<null>>;
 }
 ```
 
-认证结果须来自后端，界面身份不代表授权。适配器负责服务端验证、HttpOnly 会话、OAuth/Passkey 和请求取消。login 标为 sensitive，不保存原命令。验证码和密码经独立表单提交。默认超时在 `TERMINAL.limits.commandTimeout` 配置。接入时优先 Passkey 等免输密码的方式。OAuth/Passkey 触发浏览器原生弹层或授权跳转时，不为了“全在终端内”而绕开。会话 Cookie 使用 Secure、HttpOnly、SameSite，并配套 CSRF 防护。原始凭据不进入命令历史、输出、截图或遥测。
+`AuthResult` 用判别联合区分成功和公开错误。`login` 选择已有账户或邀请激活，经敏感输入提交邀请及 OTP，仅验证成功时更新身份。`logout` 在服务端确认后清除身份；`whoami` 仅在成功查询得到空身份时显示游客。验证或注销响应不确定时标记待核对，通过新的会话查询恢复，不自动重试 OTP 或重放欢迎消息。
+
+命令可用 `timeoutMs` 声明总期限；普通命令仍为 30 秒，登录为 12 分钟。OTP 输入等待最多 8 分钟，各次网络请求最多 15 秒。取消、超时和卸载中止本地等待与请求，但不承诺服务端事务回滚。邀请、OTP 和会话凭证不进入历史、输出、补全或日志。
+
+同源标签页只广播身份可能变化的通知；接收方重新查询服务端，不直接采信广播身份。聚焦和页面重新可见时也会查询。SSR 不共享可变用户状态。跨应用认证和注销边界见 [统一身份决策](../adr/0002-unified-identity.md)。
 
 ## TUI
 
@@ -120,7 +127,7 @@ interface AuthGateway {
 
 组件卸载会取消执行中的命令和关闭 TUI，保留公开历史、目录、草稿及外观。
 
-## 宿主展示与生命周期
+## 终端组件与生命周期
 
 当前终端嵌入首页，支持原位展开到视口。展开不等于跨页呼出。入场、展开和重播共用一组 Host 与会话，主题、语言和视口变化保留会话。跨页呼出与认证专注布局没有对应的独立模式接口，不作为当前扩展功能。
 

@@ -41,8 +41,8 @@ function recordIntroGlassMaterial() {
   }).observe(document, { subtree: true, attributes: true, childList: true });
 }
 
-// The probe runs in the page, so it stays a standalone function without outer references.
-// 探针在页面内执行，因此保持独立函数，不引用外部变量。
+// The measurement runs in the page, so it stays a standalone function without outer references.
+// 测量函数在页面内执行，因此保持独立函数，不引用外部变量。
 async function sampleDockingFrames(): Promise<DockingSample[]> {
   const result: DockingSample[] = [];
   const terminal = document.querySelector(".xca-terminal-window");

@@ -4,7 +4,7 @@ XCA Portal 是 [XAUFE-CA](https://github.com/XAUFE-CA) 官方门户。改代码�
 
 - [工程质量规则](docs/architecture/engineering-quality.md)：门禁、规模阈值与分级。
 - [测试注册表](docs/testing/README.md)：测试层级、执行计划与注册表核对。
-- [Go 后端](docs/architecture/backend.md)：配置、探针、接口定义与本地依赖。
+- [Go 后端](docs/architecture/backend.md)：配置、健康检查、接口定义与本地依赖。
 - [终端扩展接口](docs/architecture/terminal-extending.md)：修改 `app/features/terminal/` 前必读。
 - [首页入场](docs/architecture/home-intro.md)、[入场场景](docs/architecture/intro-scene.md) 与 [站点框架](docs/architecture/site-shell/README.md)：首页动画、场景绘制与站点框架。
 - [docs/AGENTS.md](docs/AGENTS.md)：文档写法。
@@ -32,6 +32,8 @@ app/                    门户应用（Nuxt 4 srcDir）
   pages/                路由，只做组合
   plugins/              客户端插件
   utils/                共享工具函数
+server/                 Nitro 服务端路由，只转发门户 API
+  api/v1/               /api/v1/ 到 Go 上游的代理
 backend/                Go 认证后端、接口定义和独立检查入口
 content/                可直接编辑的 Markdown 正文与页面元信息
 docs/                   架构说明、测试策略、ADR、术语与写作规范
@@ -45,7 +47,7 @@ public/                 静态资产
 
 根目录配置、依赖与命令以清单和配置文件为准。环境准备、端口与共享依赖见 [工程质量规则](docs/architecture/engineering-quality.md)。
 
-扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景进 `app/components/<场景>/`。新交互特性进 `app/features/<特性>/`，按职责分层。Go API 与认证能力进 `backend/`。新检查脚本进 `scripts/gates/` 并接入门禁。静态资产进 `public/`，结构化正文进 `content/`。Agent 过程材料进 `.agents/notes/`。
+扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景进 `app/components/<场景>/`。新交互特性进 `app/features/<特性>/`，按职责分层。Nuxt 服务端路由进 `server/`，只转发门户 API。Go API 与认证能力进 `backend/`。新检查脚本进 `scripts/gates/` 并接入门禁。静态资产进 `public/`，结构化正文进 `content/`。Agent 过程材料进 `.agents/notes/`。
 
 子文件职责不在本文件展开，按修改范围读取目录级说明。改 `scripts/` 先读 [scripts/AGENTS.md](scripts/AGENTS.md)。测试相关改动读 [测试注册表](docs/testing/README.md)。入场、终端与站点框架改动读对应架构文档。
 
@@ -74,9 +76,11 @@ public/                 静态资产
 - **工具链**：前端使用 Nuxt 4、Vue 3、严格 TypeScript 和 Nuxt Content 3。后端使用独立 Go 模块，版本与检查入口见 [Go 后端](docs/architecture/backend.md)。使用 Bun 和现有锁文件，不混入其他包管理器。早期开发使用 Neoverse-UI 本地 `file:` 接入与 `ui:sync`，不直接修补 node_modules、dist 或锁文件复制产物。正式发布改用 npm 精确版本，移除本地别名、同步与 CI 联合检出。不擅改 Nuxt 别名、SSR、PostCSS、端口和共享依赖版本，CI 联合检出决策见工程质量规则。
 - **分层职责**：页面负责组合，站点组件负责展示，composables/config 负责公共能力，首页轮播语句由独立数据文件维护。终端 Core 保持纯逻辑，不依赖 Vue、DOM、展示层或命令集合。
 
-  命令通过上下文能力访问服务，不直接操作 DOM、路由或宿主 Shell。`client-session.ts` 是命令和 Session 的组装入口，components 负责终端适配，执行与展示生命周期分离。
+  命令通过上下文能力访问服务，不直接操作 DOM、路由或操作系统 Shell。`client-session.ts` 是命令和 Session 的组装入口，components 负责终端适配，执行与展示生命周期分离。
 
   首页入场的展示编排位于 `app/features/intro/`，由该模块的 presentation 负责 Boot/Dock/Reveal，终端只保留展开、系统识别与字宽测量。入场模块可以依赖终端，终端不得反向依赖入场，两侧共用的能力下沉到 `app/utils/`。
+
+  `server/` 只把 `/api/v1/` 转发到 `NUXT_BACKEND_API`，不承载业务逻辑、认证判断或会话状态。接口行为以 OpenAPI 与 Go 服务为准。
 
 - **共享 UI**：优先级为现有 Neoverse-UI 组件 → 公开 token/API → XCA 页面布局与标识表达。不复制共享 CSS、依赖私有 class/DOM/变量，不在门户建立第二套基础 UI、token、极光玻璃或光标系统。导航、分段控件、输入框及滚动条使用共享默认尺寸和材质，不在消费端放大。颜色、文字、间距、圆角、边框、阴影和动画沿用现有 token，页面几何、图片比例、ASCII 字形可用有依据的局部常量。极光玻璃边缘和毛玻璃由共享运行时负责，先查接入、层级、生命周期和公开 API。通用缺口登记到共享库 `contracts/component-requests/`，不擅改兄弟仓库。
 - **终端安全与会话**：浏览器白名单解释器，不执行用户系统命令、子进程、eval、动态脚本或读取主机文件，虚拟路径限制在虚拟工作区。单一 Host / Session，入场、展开、重播不得创建多个同步实例。刷新、路由返回、跳过、resize 都有确定终态，不重放副作用。认证必须来自未来真实服务端，前端可用性不是授权。敏感回答不进历史、草稿、输出或日志。

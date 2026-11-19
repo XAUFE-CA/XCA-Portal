@@ -5,7 +5,10 @@
   "scripts": {
     "api:generate": "bun tools/contract.mjs generate",
     "api:check": "redocly lint api/openapi.yaml && bun tools/contract.mjs check && tsc -p api/tsconfig.json",
-    "test:integration": "bun tools/integration.mjs"
+    "dev": "bun tools/dev.mjs",
+    "down": "bun tools/dev.mjs down",
+    "test:integration": "bun tools/integration.mjs",
+    "test:browser": "bun tools/browser.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

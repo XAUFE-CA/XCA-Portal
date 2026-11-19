@@ -28,9 +28,9 @@ import sys
 from fontTools import subset
 from fontTools.ttLib import TTFont
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 TARGET_DIR = os.path.join(ROOT, "app", "assets", "fonts")
-MANIFEST = os.path.join(ROOT, "scripts", "fonts", "glyph-coverage.json")
+MANIFEST = os.path.join(ROOT, "scripts", "build", "fonts", "glyph-coverage.json")
 
 SOURCES = {
     "regular": "maple-mono-nf-cn-regular.woff",

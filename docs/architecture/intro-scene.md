@@ -148,7 +148,7 @@ CA 与前段道路阶段不绘制报告厅内部及其宽地面，不让远处�
 几何与网格单元测试位于入场模块的 `core/` 与 `rendering/`。
 
 - [配色回归](../../app/features/intro/rendering/intro-scene-palette.test.ts) 检查独立日夜天空、材料明度差异、中性主光、夜间照明衰减与建筑哑光材质。
-- [报告厅回归](../../app/features/intro/core/intro-auditorium.test.ts) 检查入口、屏幕净空、阶梯高差、联排支撑及舞台和台阶落地。
+- [报告厅回归](../../app/features/intro/core/intro-auditorium.test.ts) 检查入口、屏幕净空、阶梯高差、联排支撑及舞台和台阶与地面的衔接。
 - [场景回归](../../app/features/intro/rendering/intro-scene.test.ts) 检查主灯阴影视锥覆盖中央通道并排除屋顶。
 - [网格回归](../../app/features/intro/rendering/intro-mark-mesh.test.ts) 检查桥面、入口及阶梯中央通道的连续承托。
 - [轨迹回归](../../app/features/intro/core/intro-journey.test.ts) 检查道路前视、门洞净空、机位上升的单调性与速度、终点高度及屏幕中心投影，以及上升与缩屏的重叠。

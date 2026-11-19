@@ -33,8 +33,8 @@ func TestMigrationUpDown(t *testing.T) {
 	}
 	conn := connect(t, dsn)
 	var count int
-	if err := conn.QueryRow(context.Background(), `SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name IN ('users', 'invitations', 'email_challenges', 'sessions', 'auth_rate_limits')`).Scan(&count); err != nil || count != 5 {
-		t.Fatalf("expected five auth tables, got %d: %v", count, err)
+	if err := conn.QueryRow(context.Background(), `SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name IN ('users', 'invitations', 'email_challenges', 'sessions', 'auth_rate_limits', 'auth_operations')`).Scan(&count); err != nil || count != 6 {
+		t.Fatalf("expected six auth tables, got %d: %v", count, err)
 	}
 	var version int
 	var dirty bool
@@ -47,7 +47,7 @@ func TestMigrationUpDown(t *testing.T) {
 	if err := migrations.Down(dsn); err != nil {
 		t.Fatalf("repeated down: %v", err)
 	}
-	if err := conn.QueryRow(context.Background(), `SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name IN ('users', 'invitations', 'email_challenges', 'sessions', 'auth_rate_limits')`).Scan(&count); err != nil || count != 0 {
+	if err := conn.QueryRow(context.Background(), `SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name IN ('users', 'invitations', 'email_challenges', 'sessions', 'auth_rate_limits', 'auth_operations')`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("expected no auth tables, got %d: %v", count, err)
 	}
 	if err := migrations.Up(dsn); err != nil {

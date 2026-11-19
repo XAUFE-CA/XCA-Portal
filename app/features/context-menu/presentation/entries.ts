@@ -27,7 +27,7 @@ export function linkMenuEntries(
  * Rows every region shares, assembled in one order: the pressed element's own actions, then
  * the image rows it owns, then the rows shared by every menu of this kind, then the browser
  * menu. Keeping the order here stops a region from splitting its own actions across groups.
- * 各区域共享的菜单行，按同一顺序装配：按下元素自己的操作、它自带的图像行、同类菜单共用的行，
+ * 各区域共享的菜单行，按同一顺序组装：按下元素自己的操作、它自带的图像行、同类菜单共用的行，
  * 最后是浏览器菜单。顺序集中在此，区域不会把自己的操作拆到不同分组。
  */
 export function regionMenuEntries(

@@ -49,8 +49,8 @@ type Service struct {
 	slots      chan struct{}
 }
 
-// New creates an internal service and refuses to discard keys needed by live challenges.
-// New 创建内部服务，并拒绝缺少有效验证码流程所需的密钥。
+// New creates an internal service and refuses to start when a live challenge key is missing.
+// New 创建内部服务，缺少有效验证码流程所需密钥时拒绝启动。
 func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, sender mail.Sender, logger *slog.Logger, capacity int) (*Service, error) {
 	if pool == nil || sender == nil || capacity < 1 || cfg.OTPKeyVersion < 1 || len(cfg.OTPHMACKey) < 32 || len(cfg.RateLimitHMACKey) < 32 {
 		return nil, ErrUnavailable
@@ -119,8 +119,8 @@ func (s *Service) Close() {
 	s.work.Wait()
 }
 
-// Request creates an opaque flow without exposing eligibility or waiting for SMTP.
-// Request 创建不暴露账户资格的流程，并且不等待 SMTP。
+// Request creates an opaque flow without revealing whether the account or invitation is eligible or waiting for SMTP.
+// Request 创建不暴露账户与邀请是否可用的流程，并且不等待 SMTP。
 func (s *Service) Request(ctx context.Context, email, invitationToken string, ip netip.Addr) (Challenge, error) {
 	email, err := invitation.NormalizeEmail(email)
 	if err != nil || !ip.IsValid() || len(invitationToken) > 512 {

@@ -62,9 +62,9 @@ test("the panel and its submenu keep the browser menu out", async ({ page }) => 
   await page.evaluate(() => {
     const prevented: boolean[] = [];
     Object.assign(window, { xcaContextMenuPrevented: prevented });
-    // The guard is a document capture listener registered before this probe, so the same
+    // The guard is a document capture listener registered before this measurement, so the same
     // phase reports the prevented state synchronously.
-    // 守卫是比本探针更早注册的文档捕获监听，因此同一阶段即可同步读到阻止状态。
+    // 守卫是比本次测量更早注册的文档捕获监听，因此同一阶段即可同步读到阻止状态。
     document.addEventListener(
       "contextmenu",
       (event) => {

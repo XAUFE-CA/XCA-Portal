@@ -35,6 +35,7 @@ export class TerminalSession {
   private listeners = new Set<() => void>();
   private aborter: AbortController | null = null;
   private authIdentity: AuthIdentity | null = null;
+  private identityRevision = 0;
   constructor(private services: TerminalServices) {}
   setServices(services: TerminalServices): void {
     this.services = services;
@@ -55,6 +56,11 @@ export class TerminalSession {
       directory: cwd === home || cwd.startsWith(`${home}/`) ? `~${cwd.slice(home.length)}` : cwd,
       status: this.status,
     };
+  }
+  syncIdentity(identity: AuthIdentity | null): void {
+    this.identityRevision++;
+    this.authIdentity = identity;
+    this.refresh();
   }
   setAppearance(value: Partial<TerminalAppearance>): void {
     const next = { ...this.appearance, ...value };
@@ -110,12 +116,16 @@ export class TerminalSession {
     this.closeApplication();
   }
   private context(signal: AbortSignal): CommandContext {
+    const identityRevision = this.identityRevision;
     const waitForInput = <T>(
       create: (resolve: (value: T) => void) => TerminalInteraction,
+      timeoutMs?: number,
     ): Promise<T> =>
       new Promise((resolve, reject) => {
         signal.throwIfAborted();
+        let timer: ReturnType<typeof setTimeout> | undefined;
         const cleanup = () => {
+          clearTimeout(timer);
           signal.removeEventListener("abort", abort);
           this.interaction = null;
           this.refresh();
@@ -129,6 +139,7 @@ export class TerminalSession {
           resolve(value);
         });
         signal.addEventListener("abort", abort, { once: true });
+        if (timeoutMs !== undefined) timer = setTimeout(abort, timeoutMs);
         this.refresh();
       });
     return {
@@ -183,10 +194,17 @@ export class TerminalSession {
       },
       setIdentity: (identity) => {
         signal.throwIfAborted();
-        this.authIdentity = identity;
-        this.refresh();
+        if (identityRevision !== this.identityRevision) {
+          return (
+            identity?.user === this.authIdentity?.user &&
+            identity?.label === this.authIdentity?.label
+          );
+        }
+        this.syncIdentity(identity);
+        return true;
       },
-      ask: (request) => waitForInput<string>((submit) => ({ type: "prompt", ...request, submit })),
+      ask: ({ timeoutMs, ...request }) =>
+        waitForInput<string>((submit) => ({ type: "prompt", ...request, submit }), timeoutMs),
       choose: (title, items) =>
         waitForInput<string>((select) => ({ type: "menu", title, items, select })),
       openApplication: (application) => {
@@ -198,7 +216,10 @@ export class TerminalSession {
     };
   }
   complete(source: string): string[] {
-    if (!source.includes(" ")) return this.registry.complete(source);
+    if (!source.includes(" "))
+      return this.registry
+        .complete(source)
+        .filter((name) => !this.registry.resolve(name)?.sensitive);
     try {
       const [name = "", ...args] = parseCommandLine(source);
       if (source.endsWith(" ")) args.push("");
@@ -277,7 +298,10 @@ export class TerminalSession {
       const interrupted = new Promise<never>((_, reject) => {
         abort = () => reject(new DOMException("Aborted", "AbortError"));
         controller.signal.addEventListener("abort", abort, { once: true });
-        timer = setTimeout(() => controller.abort(), TERMINAL.limits.commandTimeout);
+        timer = setTimeout(
+          () => controller.abort(),
+          command.timeoutMs ?? TERMINAL.limits.commandTimeout,
+        );
       });
       const result = await Promise.race([
         command.execute(args, this.context(controller.signal), controller.signal),

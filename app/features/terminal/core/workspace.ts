@@ -50,8 +50,8 @@ export class VirtualWorkspace {
     );
   }
   /**
-   * Lists every descendant of a directory in path order without touching the host.
-   * 按路径顺序列出目录的全部后代节点，不访问宿主。
+   * Lists every descendant of a directory in path order without touching the host file system.
+   * 按路径顺序列出目录的全部后代节点，不访问主机文件系统。
    */
   walk(root = "."): VirtualNode[] {
     const node = this.node(root);

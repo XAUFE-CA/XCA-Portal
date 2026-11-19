@@ -213,8 +213,8 @@ function compareTokenStyles() {
   }
   return issues;
 }
-// The chrome comparison runs in the page, so it stays a standalone function like the other probes.
-// 外观比对在页面内执行，因此与其他探针一样保持独立函数。
+// The chrome comparison runs in the page, so it stays a standalone function like the other page-side measurements.
+// 外观比对在页面内执行，因此与其他页面内测量一样保持独立函数。
 function comparePromptChrome(): string[] {
   const recorded = document.querySelectorAll(".xca-terminal-command")[1];
   const live = document.querySelector(".xca-terminal-prompt");

@@ -188,8 +188,8 @@ function neonCrown(vertices: number[], tower: Volume, roof: number) {
 }
 
 /**
- * Four grounded landmarks retain distinct roles without repeated roof caps or glowing ribs.
- * 四处落地地标保留不同轮廓职责，不重复金属顶帽或发光肋条。
+ * Four ground-level landmarks retain distinct roles without repeated roof caps or glowing ribs.
+ * 四处地面地标保留不同轮廓职责，不重复金属顶帽或发光肋条。
  */
 function landmark(vertices: number[], x: number, z: number, height: number, profile: number) {
   const width = profile === 1 ? 840 : 1000;

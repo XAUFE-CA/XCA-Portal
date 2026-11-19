@@ -58,9 +58,9 @@ for (const width of [1440, 390]) {
       const hanText = han.textContent;
       if (hanText === null) throw new Error("The preceding Han glyph must contain text");
       const hanGlyph = context.measureText(hanText);
-      // A zero-width probe lands on the previous line when the title wraps, so the glyph box
+      // A zero-width measurement element lands on the previous line when the title wraps, so the glyph box
       // plus the font ascent is the only baseline that follows the cursor's own line.
-      // 标题折行时零宽探针会落到上一行；只有字符盒加字体上伸部能跟随光标所在行。
+      // 标题折行时零宽测量元素会落到上一行；只有字符盒加字体上伸部能跟随光标所在行。
       const glyphCenter =
         letter.getBoundingClientRect().top +
         hanGlyph.fontBoundingBoxAscent +

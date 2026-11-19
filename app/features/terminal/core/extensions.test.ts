@@ -77,13 +77,13 @@ test("terminal background is configurable while its font is fixed", async () => 
 test("secure multi-step input is isolated from transcript, history and drafts", async () => {
   const session = makeSession({
     auth: {
-      getSession: async () => null,
+      getSession: async () => ({ ok: true, value: null }),
       login: async (ctx) => {
         const secret = await ctx.ask({ label: "验证码", kind: "otp" });
         expect(secret).toBe("private-otp");
-        return { user: "member", label: "测试成员" };
+        return { ok: true, value: { user: "member", label: "测试成员" } };
       },
-      logout: async () => {},
+      logout: async () => ({ ok: true, value: null }),
     },
   });
   const execution = session.execute("login");
@@ -137,8 +137,8 @@ test("interactive cancellation immediately releases session and rejects late eff
 test("authentication provider errors cannot echo private input", async () => {
   const session = makeSession({
     auth: {
-      getSession: async () => null,
-      logout: async () => {},
+      getSession: async () => ({ ok: true, value: null }),
+      logout: async () => ({ ok: true, value: null }),
       login: async (ctx) => {
         const secret = await ctx.ask({ label: "验证", kind: "secret" });
         throw new Error(`Rejected credential ${secret}`);

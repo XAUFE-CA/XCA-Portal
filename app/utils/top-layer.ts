@@ -9,8 +9,8 @@
  */
 export function hasOpenTopLayerSurface(): boolean {
   if (typeof document === "undefined") return false;
-  // Unsupported :popover-open makes the whole selector list invalid, so probe support first.
-  // 不支持的 :popover-open 会使整条选择器列表失效，因此先探测支持情况。
+  // Unsupported :popover-open makes the whole selector list invalid, so check support first.
+  // 不支持的 :popover-open 会使整条选择器列表失效，因此先检查支持情况。
   const popover =
     typeof CSS !== "undefined" && typeof CSS.supports === "function"
       ? CSS.supports("selector(:popover-open)")

@@ -2,7 +2,7 @@ import { checkRegistry, LEVELS, type TestLevel, type TestScope } from "./test-re
 
 const USAGE =
   "usage: bun scripts/tests/test-plan.ts <list|run> <unit,module|system> " +
-  "[--scene] [--snapshot] [--no-snapshot] [--shard=N/M] [--ignore-snapshots] [--update-snapshots]";
+  "[--scene] [--snapshot] [--no-snapshot] [--live] [--shard=N/M] [--ignore-snapshots] [--update-snapshots]";
 
 function reject(message: string): never {
   console.error(`${message}\n${USAGE}`);
@@ -11,6 +11,7 @@ function reject(message: string): never {
 
 interface PlanFlags {
   scene: boolean;
+  live: boolean;
   snapshot: boolean;
   noSnapshot: boolean;
   shard?: string;
@@ -21,6 +22,7 @@ interface PlanFlags {
 function parseFlags(values: string[]): PlanFlags {
   const flags: PlanFlags = {
     scene: false,
+    live: false,
     snapshot: false,
     noSnapshot: false,
     ignoreSnapshots: false,
@@ -28,6 +30,7 @@ function parseFlags(values: string[]): PlanFlags {
   };
   for (const value of values) {
     if (value === "--scene") flags.scene = true;
+    else if (value === "--live") flags.live = true;
     else if (value === "--snapshot") flags.snapshot = true;
     else if (value === "--no-snapshot") flags.noSnapshot = true;
     else if (value === "--ignore-snapshots") flags.ignoreSnapshots = true;
@@ -39,6 +42,8 @@ function parseFlags(values: string[]): PlanFlags {
     } else reject(`unknown flag ${value}`);
   }
   if (flags.snapshot && flags.noSnapshot) reject("--snapshot and --no-snapshot conflict");
+  if (flags.live && (flags.scene || flags.snapshot || flags.noSnapshot || flags.shard))
+    reject("--live must be run independently of browser shards and other selections");
   if (flags.ignoreSnapshots && flags.updateSnapshots)
     reject("--ignore-snapshots and --update-snapshots conflict");
   return flags;
@@ -47,6 +52,7 @@ function parseFlags(values: string[]): PlanFlags {
 function selectScopes(scopes: TestScope[], levels: TestLevel[], flags: PlanFlags): TestScope[] {
   return scopes.filter((scope) => {
     if (!levels.includes(scope.level)) return false;
+    if (flags.live !== scope.metadata.includes("live")) return false;
     if (flags.scene && !scope.metadata.includes("scene")) return false;
     if (flags.snapshot && !scope.metadata.includes("snapshot")) return false;
     if (flags.noSnapshot && scope.metadata.includes("snapshot")) return false;
@@ -61,8 +67,8 @@ function runnerCommand(
   extra: string[],
 ): string[] {
   if (runner === "bun-test") {
-    if (flags.scene || flags.snapshot || flags.noSnapshot)
-      reject("scene and snapshot selection apply to playwright only");
+    if (flags.scene || flags.snapshot || flags.noSnapshot || flags.live)
+      reject("browser selections apply to playwright only");
     return ["bun", "test", ...files, ...extra];
   }
   return [
@@ -71,7 +77,11 @@ function runnerCommand(
     "test",
     ...files,
     ...extra,
-    flags.scene ? "--grep=@cinematic" : "--grep-invert=@cinematic",
+    flags.live
+      ? "--grep=@live-auth"
+      : flags.scene
+        ? "--grep=@cinematic"
+        : "--grep-invert=@cinematic",
     ...(flags.shard ? [`--shard=${flags.shard}`] : []),
     ...(flags.ignoreSnapshots ? ["--ignore-snapshots"] : []),
     ...(flags.updateSnapshots ? ["--update-snapshots"] : []),

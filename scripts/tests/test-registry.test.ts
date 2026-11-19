@@ -95,6 +95,23 @@ test("requires metadata evidence in both directions", () => {
   ]);
 });
 
+test("keeps live browser tests out of ordinary system scopes", () => {
+  const live = new Map([
+    ["tests/e2e/live/auth.spec.ts", 'test("@live-auth through real services", async () => {});'],
+  ]);
+  const liveScope = scope({
+    scope: "tests/e2e/live/*.spec.ts",
+    level: "system",
+    runner: "playwright",
+    metadata: ["browser", "live"],
+    files: ["tests/e2e/live/auth.spec.ts"],
+  });
+  expect(metadataIssues(liveScope, live)).toEqual([]);
+  expect(metadataIssues({ ...liveScope, metadata: ["browser"] }, live)).toEqual([
+    "tests/e2e/live/*.spec.ts: @live-auth tag needs metadata live",
+  ]);
+});
+
 test("reports unregistered and doubly registered test files", () => {
   expect(
     coverageIssues(

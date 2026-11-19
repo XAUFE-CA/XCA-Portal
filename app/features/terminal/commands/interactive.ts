@@ -1,5 +1,6 @@
+import { TERMINAL } from "../config";
 import type { CommandDefinition } from "../core/types";
-import { completePath, executionError, line, listHelp, usage } from "./helpers";
+import { authError, completePath, executionError, line, listHelp, usage } from "./helpers";
 
 export const exploreCommand: CommandDefinition = {
   name: "explore",
@@ -81,12 +82,17 @@ export const interactiveCommands: CommandDefinition[] = [
     summaryKey: "summary.login",
     usage: "login",
     sensitive: true,
+    timeoutMs: TERMINAL.limits.loginTimeout,
     execute: async (args, ctx, signal) => {
       if (args.length) return usage(ctx, "login");
-      if (!ctx.services.auth) return [line(ctx.t("command.loginUnavailable"), "muted")];
-      const identity = await ctx.services.auth.login(ctx, signal);
-      ctx.setIdentity(identity);
-      return [line(ctx.t("command.welcomeMember", { name: identity.label }), "success")];
+      if (!ctx.services.auth) return [line(ctx.t("auth.unavailable"), "error")];
+      const previous = ctx.identity().user;
+      const result = await ctx.services.auth.login(ctx, signal);
+      if (!result.ok) return [authError(result, ctx)];
+      if (!ctx.setIdentity(result.value)) return [];
+      return previous === result.value.user
+        ? []
+        : [line(ctx.t("command.welcomeMember", { name: result.value.label }), "success")];
     },
   },
   {
@@ -98,8 +104,9 @@ export const interactiveCommands: CommandDefinition[] = [
     execute: async (args, ctx, signal) => {
       if (args.length) return usage(ctx, "logout");
       if (!ctx.services.auth) return [line(ctx.t("command.guest"), "muted")];
-      await ctx.services.auth.logout(signal);
-      ctx.setIdentity(null);
+      const result = await ctx.services.auth.logout(signal);
+      if (!result.ok) return [authError(result, ctx)];
+      if (!ctx.setIdentity(null)) return [];
       ctx.clear();
       return [line(ctx.t("command.loggedOut"), "success")];
     },

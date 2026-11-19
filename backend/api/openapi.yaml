@@ -6,11 +6,10 @@ info:
     name: MIT
     url: https://opensource.org/license/mit
   description: >-
-    Contract for 1A authentication. Only the health probes are implemented in the
-    initial infrastructure batch. Browsers use the same origin as the portal;
-    deployment controls the exposure of health probes. Authentication responses,
-    including errors and cookies, must use Cache-Control: no-store. Network errors
-    are failures, never a successful guest session.
+    Contract for 1A authentication owned by the portal. Browsers use the same origin as
+    the portal; deployment controls the exposure of health check endpoints. Authentication
+    responses, including errors and cookies, use Cache-Control: no-store. Network
+    errors are failures, never a successful guest session. OIDC is not implemented.
 servers:
   - url: /
 paths:
@@ -59,12 +58,13 @@ paths:
       operationId: verifyEmailCode
       summary: Verify a flow and establish a session
       description: >-
-        Only successful verification establishes a session. Unknown, incorrect,
-        expired, consumed or otherwise ineligible flows all use the same
-        invalid_or_expired_code response. The flow is not automatically retried.
+        Only successful verification establishes a session. A unique operation
+        identifier permits a durable server-side cancellation barrier before any
+        subsequent identity write. The flow is not automatically retried.
       security: []
       parameters:
         - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/OperationID"
       requestBody:
         required: true
         content:
@@ -102,6 +102,40 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "503":
           $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/operations/abandon:
+    post:
+      operationId: abandonAuthOperation
+      summary: Fence an interrupted identity write
+      description: >-
+        A durable database barrier prevents a previous verification or logout
+        from committing after this response. If the verification already
+        committed, its session is revoked atomically with the barrier. The
+        client must await 204 before beginning a new identity write.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbandonOperationRequest"
+      responses:
+        "204":
+          description: Interrupted operation is fenced; no response body.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "403":
+          $ref: "#/components/responses/InvalidOrigin"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/InvalidRequest"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /api/v1/auth/session:
     get:
       operationId: getSession
@@ -131,14 +165,14 @@ paths:
       operationId: logout
       summary: Revoke the current session
       description: >-
-        Idempotent for a missing or expired session. The client only clears its
-        identity after 204; an interrupted or uncertain result requires a new
-        session query. The request is a same-origin JSON object.
+        Idempotent for a missing or expired session. Interrupted writes require
+        the durable operation-abandon barrier before a newer identity write.
       security:
         - sessionCookie: []
         - {}
       parameters:
         - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/OperationID"
       requestBody:
         required: true
         content:
@@ -213,6 +247,14 @@ components:
         cookie name with HttpOnly, Path=/ and SameSite=Lax. Cookie credentials
         are never returned in JSON. Cross-origin credentialed CORS is not enabled.
   parameters:
+    OperationID:
+      name: X-XCA-Auth-Operation
+      in: header
+      required: true
+      description: Fresh random UUID per verification or logout; used only to order interrupted writes.
+      schema:
+        type: string
+        format: uuid
     Origin:
       name: Origin
       in: header
@@ -228,7 +270,7 @@ components:
   headers:
     NoStore:
       required: true
-      description: Authentication and probe responses must not be cached.
+      description: Authentication and health check responses must not be cached.
       schema:
         type: string
         enum: [no-store]
@@ -285,6 +327,14 @@ components:
       maxLength: 128
       pattern: "^[A-Za-z0-9_-]+$"
       description: Unpredictable opaque identifier for the current email challenge.
+    AbandonOperationRequest:
+      type: object
+      additionalProperties: false
+      required: [operation_id]
+      properties:
+        operation_id:
+          type: string
+          format: uuid
     EmailVerifyRequest:
       type: object
       additionalProperties: false
@@ -308,7 +358,7 @@ components:
           type: string
           minLength: 1
           maxLength: 128
-          description: Stable unique login name.
+          description: Unique login name for display; not an immutable subject identifier.
         label:
           type: string
           minLength: 1

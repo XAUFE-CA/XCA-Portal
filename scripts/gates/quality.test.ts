@@ -232,6 +232,22 @@ test("terminal core and commands reject framework, host and reverse dependencies
   expect(boundaryViolation(command, "app/features/terminal/core/types.ts")).toBe(false);
 });
 
+test("application authentication does not depend on terminal or portal UI", () => {
+  const auth = "app/features/auth/client.ts";
+  for (const target of [
+    "vue",
+    "@vue/runtime-core",
+    "@neoverse-ui/vue",
+    "#app",
+    "app/features/terminal/core/types.ts",
+    "app/components/home/HeroSection.vue",
+    "app/pages/index.vue",
+  ])
+    expect(boundaryViolation(auth, target)).toBe(true);
+  expect(boundaryViolation(auth, "app/features/auth/types.ts")).toBe(false);
+  expect(boundaryViolation("app/features/terminal/client-auth.ts", auth)).toBe(false);
+});
+
 test("terminal rejects intro dependencies while intro and shared utils stay importable", () => {
   const terminalExpansion = "app/features/terminal/presentation/useTerminalExpansion.ts";
   const introPresentation = "app/features/intro/presentation/useIntroPresentation.ts";

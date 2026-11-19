@@ -39,7 +39,10 @@ export default defineNuxtConfig({
   // The footer links the exact commit that produced this build, not the runtime HEAD; an
   // absent commit is omitted so the footer hides that row instead of inventing one.
   // 页脚链接的是产出本次构建的提交，而不是运行时的 HEAD；无提交信息时省略该值，页脚隐藏该行。
-  runtimeConfig: { public: { buildInfo: readBuildInfo() ?? undefined } },
+  runtimeConfig: {
+    backendApi: "http://127.0.0.1:8080",
+    public: { buildInfo: readBuildInfo() ?? undefined },
+  },
   modules: ["@nuxt/content"],
   devServer: { port: 4100 },
   // Neoverse-UI CSS is already prefixed; Nuxt Autoprefixer misparses its @supports clause.

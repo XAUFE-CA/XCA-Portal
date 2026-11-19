@@ -21,7 +21,7 @@ test("xca intro is discoverable and explicitly replays, including with reduced m
   const input = page.locator("#xca-command-input");
   await input.fill("man xca intro");
   await input.press("Enter");
-  await expect(page.locator(".xca-terminal-transcript")).toContainText("重新播放首页启动演出");
+  await expect(page.locator(".xca-terminal-transcript")).toContainText("重新播放首页入场动画");
   await input.fill("xca intro");
   await input.press("Enter");
   await expect(page.locator(".xca-terminal-hero--boot")).toHaveCount(1);
@@ -135,7 +135,7 @@ test("INTRO replaces edited output with welcome before replay and after docking 
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(1);
   await page.keyboard.press("Escape");
   // The host stays inert until skipping settles; commands typed into it are silently dropped.
-  // 跳过收尾前宿主仍为 inert，此时提交的命令会被静默丢弃。
+  // 跳过收尾前宿主元素仍为 inert，此时提交的命令会被静默丢弃。
   await expect(page.locator(".xca-terminal-window")).not.toHaveAttribute("inert", {
     timeout: SETTLE_TIMEOUT,
   });

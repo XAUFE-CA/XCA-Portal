@@ -154,7 +154,9 @@ Go 源码不在上述 TypeScript AST 规模与架构扫描范围。Go 使用独�
 
 `check:architecture` 构建 app 生产模块的导入图，检查静态 import、export-from、字面量 import()/require()，支持相对路径与 `~/`、`@/`，检查循环和无法解析的本地导入（包括类型导入）。Vue 仅提取 script，资源查询参数被移除后验证文件。
 
-Core 仅允许 Core、branding、终端 config、i18n 与站点 config 的本地依赖，禁止 Vue、Nuxt 自动导入入口、共享视图、Node/Bun 和反向命令/展示依赖。命令不得依赖页面、站点组件、composables、终端视图/动画和宿主运行时，需要能力时通过注入的上下文获取。Core/commands 中直接引用 window/document/eval/Function/Bun/process 会让检查失败。Session 组装位于终端根 `client-session.ts`。
+Core 仅允许 Core、branding、终端 config、i18n 与站点 config 的本地依赖，禁止 Vue、Nuxt 自动导入入口、共享视图、Node/Bun 和反向命令/展示依赖。命令不得依赖页面、站点组件、composables、终端视图/动画和 Nuxt 运行时，需要能力时通过注入的上下文获取。Core/commands 中直接引用 window/document/eval/Function/Bun/process 会让检查失败。Session 组装位于终端根 `client-session.ts`。
+
+应用级认证模块不得导入终端、页面、布局、组件或 Vue；终端适配器可以调用认证客户端。该规则检查导入方向，不验证服务端会话安全，也不替代 PostgreSQL、HTTP 和浏览器测试。Go 身份用例不依赖 Nuxt 或终端，跨应用身份与协议的约束见 [统一身份决策](../adr/0002-unified-identity.md)。
 
 它不是安全沙箱，也不是完整的类型解析器：Nuxt 自动导入、运行时拼接的路径、间接全局访问都不在导入图里，检查不到。动态能力、共享 UI 私有接口、DOM 生命周期与重复状态仍须审查和运行时测试。浏览器终端的安全性继续依赖显式 Registry、Parser 和 Session 的能力边界。
 

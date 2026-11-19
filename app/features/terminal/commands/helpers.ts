@@ -1,5 +1,6 @@
 import type { MessageKey } from "../../../i18n";
 import type {
+  AuthResult,
   CommandContext,
   CommandDefinition,
   CommandGroup,
@@ -11,6 +12,18 @@ export const line = (text: string, tone: TerminalTone = "normal"): EntryInput =>
   text,
   tone,
 });
+export function authError(
+  result: Extract<AuthResult<unknown>, { ok: false }>,
+  ctx: CommandContext,
+): EntryInput {
+  const keys = {
+    invalid_request: "auth.invalidRequest",
+    invalid_or_expired_code: "auth.invalidCode",
+    rate_limited: "auth.rateLimited",
+    service_unavailable: "auth.unavailable",
+  } as const;
+  return line(ctx.t(keys[result.code], { seconds: result.retryAfterSeconds ?? 0 }), "error");
+}
 function findCommand(commands: CommandDefinition[], name: string): CommandDefinition | undefined {
   for (const command of commands) {
     if (command.name === name || command.aliases?.includes(name)) return command;

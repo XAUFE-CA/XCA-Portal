@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/XAUFE-CA/XCA-Portal/backend/internal/auth"
 	"github.com/XAUFE-CA/XCA-Portal/backend/internal/config"
 	"github.com/XAUFE-CA/XCA-Portal/backend/internal/httpapi"
+	"github.com/XAUFE-CA/XCA-Portal/backend/internal/mail"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,10 +37,20 @@ func run(logger *slog.Logger) error {
 	}
 	defer pool.Close()
 
+	sender, err := mail.NewSMTP(cfg)
+	if err != nil {
+		return err
+	}
+	service, err := auth.New(context.Background(), pool, cfg, sender, logger, 64)
+	if err != nil {
+		return err
+	}
+	defer service.Close()
+
 	readHeaderTimeout := min(cfg.ReadTimeout, 5*time.Second)
 	server := &http.Server{
 		Addr:              cfg.ListenAddr,
-		Handler:           httpapi.NewHandler(pool.Ping, cfg.DependencyTimeout, cfg.MaxBodyBytes),
+		Handler:           httpapi.NewAuthHandler(pool, service, cfg),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       cfg.ReadTimeout,
 		WriteTimeout:      cfg.WriteTimeout,

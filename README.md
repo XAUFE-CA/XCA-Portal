@@ -31,21 +31,41 @@ XCA-Portal 是西安财经大学计算机学社的门户项目，为了解学社
 | --- | --- |
 | 应用框架 | [Nuxt](https://nuxt.com)、[Vue](https://vuejs.org) |
 | 开发语言 | [TypeScript](https://www.typescriptlang.org)、[Go](https://go.dev) |
-| 认证后端基础设施 | Go、[PostgreSQL](https://www.postgresql.org) |
+| 认证后端基础设施 | [Go](https://go.dev)、[PostgreSQL](https://www.postgresql.org) |
 | 内容管理 | [Nuxt Content](https://content.nuxt.com) |
 | 界面组件 | [Neoverse-UI](https://github.com/SSJ-ZYJ/Neoverse-UI) |
-| 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、Prettier、Playwright |
+| 开发工具 | [Bun](https://bun.sh)、[Biome](https://biomejs.dev)、[Prettier](https://prettier.io)、[Playwright](https://playwright.dev) |
 
 ## 开发
 
-安装 [Bun](https://bun.sh)，并按 [工程说明](docs/architecture/engineering-quality.md#本地开发与共享依赖) 完成环境准备后运行：
+安装 [Bun](https://bun.sh) 和 [Go](https://go.dev)，按 [工程说明](docs/architecture/engineering-quality.md#本地开发与共享依赖) 准备环境。
+
+启动门户前端服务：
 
 ```sh
 bun install
 bun run dev
 ```
 
-Go 后端的配置、本地依赖与独立运行方式见 [Go 后端](docs/architecture/backend.md)。当前仅提供健康探针，认证接口仍处于实施计划中。
+启动门户后端服务：
+
+> 请先配置好环境变量：
+>
+> 1. 进入 `backend/` 目录：`cd ./backend`
+> 2. 复制 `.env.example` 为 `.env`：`cp .env.example .env`（PowerShell 执行 `Copy-Item .env.example .env`）
+> 3. 编辑 `.env` 文件，填写数据库密码、密钥和其他配置项。
+
+```sh
+bun run backend:dev
+```
+
+停止本地 PostgreSQL 与 Mailpit 容器（数据卷将保留）：
+
+```sh
+bun run backend:down
+```
+
+配置项、密钥生成与检查命令见 [Go 后端](docs/architecture/backend.md)。生产部署步骤见 [Go 后端部署](docs/architecture/backend-deployment.md)。
 
 ## 检查与构建
 

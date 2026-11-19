@@ -2,6 +2,7 @@
 import type { VNodeRef } from "vue";
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import heroSentences from "~/data/hero-sentences.json";
+import { type AuthSnapshot, getAuthClient } from "~/features/auth/client";
 import {
   applyPreferenceRow,
   ContextMenuHost,
@@ -21,6 +22,7 @@ import {
   IntroSkipHint,
   useIntroPresentation,
 } from "~/features/intro";
+import { createTerminalAuth } from "~/features/terminal/client-auth";
 import { useTerminalSession } from "~/features/terminal/client-session";
 import TerminalFocusBackdrop from "~/features/terminal/components/TerminalFocusBackdrop.vue";
 import TerminalHost from "~/features/terminal/components/TerminalHost.vue";
@@ -227,6 +229,8 @@ const services: TerminalServices = {
   },
 };
 const session = markRaw(useTerminalSession(services));
+let stopAuth: (() => void) | undefined;
+let unsubscribeAuth: (() => void) | undefined;
 watch(locale, () => {
   title.value = sentences.value[0] ?? "";
   restartTyping();
@@ -248,6 +252,15 @@ function restartTyping() {
 }
 
 onMounted(() => {
+  const auth = getAuthClient();
+  services.auth = createTerminalAuth(auth);
+  const syncAuth = (snapshot: AuthSnapshot) => {
+    if (snapshot.status === "authenticated" || snapshot.status === "guest")
+      session.syncIdentity(snapshot.identity);
+  };
+  unsubscribeAuth = auth.subscribe(syncAuth);
+  syncAuth(auth.getSnapshot());
+  stopAuth = auth.start();
   motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
   motionPreference.addEventListener("change", restartTyping);
   document.addEventListener("pointerdown", resumeTitleOutsideTerminal);
@@ -256,6 +269,8 @@ onMounted(() => {
   });
 });
 onBeforeUnmount(() => {
+  unsubscribeAuth?.();
+  stopAuth?.();
   stopTitleWatch?.();
   stopTyping();
   document.removeEventListener("pointerdown", resumeTitleOutsideTerminal);

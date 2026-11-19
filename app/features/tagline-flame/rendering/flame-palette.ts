@@ -31,8 +31,8 @@ export interface FlamePalette {
 }
 
 /**
- * Resolve a color token through a probe so var() chains and light-dark() land on real channels.
- * 通过探针解析颜色 token，使 var() 链与 light-dark() 落到真实通道值。
+ * Resolve a color token through a temporary element so var() chains and light-dark() land on real channels.
+ * 通过临时元素解析颜色 token，使 var() 链与 light-dark() 落到真实通道值。
  */
 export function resolveRgb(host: HTMLElement, token: string): Rgb {
   const probe = document.createElement("span");

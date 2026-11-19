@@ -1,8 +1,8 @@
 import type { MessageParams } from "~/i18n";
 
 /**
- * Presentation stages a host reports while the terminal settles into the page.
- * 终端进入页面时宿主上报的展示阶段。
+ * Presentation stages the terminal component reports while it settles into the page.
+ * 终端组件进入页面后上报的展示阶段。
  */
 export type TerminalPresentationStage =
   | "logo"

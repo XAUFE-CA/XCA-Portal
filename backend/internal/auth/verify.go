@@ -77,7 +77,13 @@ func (s *Service) WithVerifiedChallenge(ctx context.Context, flow, code string, 
 	if _, err := tx.Exec(ctx, `UPDATE email_challenges SET used_at = clock_timestamp() WHERE flow_id = $1`, flow); err != nil {
 		return ErrUnavailable
 	}
-	if finish(ctx, tx, identity) != nil || tx.Commit(ctx) != nil {
+	if err := finish(ctx, tx, identity); err != nil {
+		if errors.Is(err, ErrOperationAbandoned) {
+			return err
+		}
+		return ErrUnavailable
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return ErrUnavailable
 	}
 	return nil

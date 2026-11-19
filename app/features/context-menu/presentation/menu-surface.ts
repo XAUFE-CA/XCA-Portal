@@ -20,8 +20,8 @@ function onContextMenu(event: MouseEvent) {
 
 /**
  * Keep the browser menu away from every custom menu surface mounted in this document. Each
- * host takes one reference so several hosts share a single document listener.
- * 让浏览器菜单不落在文档内的任何自定义菜单表面上。每个宿主持有一个引用，多个宿主因此共用一个文档监听。
+ * menu component takes one reference so several components share a single document listener.
+ * 让浏览器菜单不落在文档内的任何自定义菜单表面上。每个菜单组件持有一个引用，多个组件因此共用一个文档监听。
  */
 export function guardMenuSurface(document: Document): () => void {
   if (guards === 0) {

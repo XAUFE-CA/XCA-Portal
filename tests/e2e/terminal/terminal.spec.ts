@@ -78,6 +78,9 @@ test("entrance can be skipped, home navigation preserves history, and refresh us
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("**/api/v1/auth/session", (route) =>
+    route.fulfill({ status: 200, json: { identity: null } }),
+  );
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-terminal-hero--intro")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -92,6 +95,17 @@ test("entrance can be skipped, home navigation preserves history, and refresh us
   await expect(page.locator(".xca-terminal-hero--intro")).toHaveCount(0);
   await expect(page.locator(".xca-ca-intro")).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test("an unavailable session service is not reported as guest", async ({ page }) => {
+  await page.route("**/api/v1/auth/session", (route) => route.abort("failed"));
+  await page.goto("/");
+  await skipAnimation(page);
+  const input = page.locator("#xca-command-input");
+  await input.fill("whoami");
+  await input.press("Enter");
+  await expect(page.getByText(zh["auth.unavailable"], { exact: true })).toBeVisible();
+  await expect(page.getByText("guest  /  访客模式")).toHaveCount(0);
 });
 
 test("registered commands, virtual files, completion, and themes work", async ({ page }) => {

@@ -51,7 +51,7 @@ CREATE INDEX email_challenges_user ON email_challenges (user_id) WHERE user_id I
 
 CREATE TABLE sessions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_digest bytea NOT NULL UNIQUE CHECK (octet_length(session_digest) > 0),
+    session_digest bytea NOT NULL UNIQUE CHECK (octet_length(session_digest) = 32),
     user_id uuid NOT NULL REFERENCES users(id),
     created_at timestamptz NOT NULL DEFAULT now(),
     last_used_at timestamptz NOT NULL DEFAULT now(),
@@ -72,3 +72,15 @@ CREATE TABLE auth_rate_limits (
     CHECK (expires_at > window_start)
 );
 CREATE INDEX auth_rate_limits_expiry ON auth_rate_limits (expires_at);
+
+-- An abandoned operation is a durable fence: a late handler cannot commit after its barrier.
+-- 已取消的操作作为持久屏障，阻止晚到请求在确认后提交。
+CREATE TABLE auth_operations (
+    id uuid PRIMARY KEY,
+    kind text NOT NULL CHECK (kind IN ('verify', 'logout', 'abandon')),
+    state text NOT NULL CHECK (state IN ('completed', 'abandoned')),
+    session_digest bytea CHECK (session_digest IS NULL OR octet_length(session_digest) = 32),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    CHECK (kind = 'verify' OR session_digest IS NULL)
+);
+CREATE INDEX auth_operations_created ON auth_operations (created_at);

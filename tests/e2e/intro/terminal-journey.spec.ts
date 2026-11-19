@@ -44,7 +44,7 @@ test("repeated intro replay preserves host, directory, appearance and history @c
     await expect(page.locator(".xca-ca-intro")).toHaveAttribute("data-journey", "draw");
     await page.keyboard.press("Escape");
     // Skipping settles asynchronously; an inert host silently drops the next keys on fast renderers.
-    // 跳过的收尾是异步的；快渲染器上仍为 inert 的宿主会静默丢弃后续按键。
+    // 跳过的收尾是异步的；快渲染器上仍为 inert 的宿主元素会静默丢弃后续按键。
     await expect(terminal).not.toHaveAttribute("inert", { timeout: SETTLE_TIMEOUT });
     await expect(input).toBeEnabled();
     await expect(terminal).toHaveAttribute("data-session-host", "retained");

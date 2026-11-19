@@ -12,7 +12,8 @@ docs/
     browser-regression.md       浏览器回归观测、运行要求与结果记录
   terminology/                  术语体系：术语、用词与翻译规则（入口 terminology/README.md）
   architecture/                 架构说明与现行接口，只描述当前真实情况
-    backend.md                  Go 后端配置、探针、接口定义与本地依赖
+    backend.md                  Go 后端配置、健康检查、接口定义与本地依赖
+    backend-deployment.md       生产部署步骤、环境注入、发布与回滚
     engineering-quality.md      环境与依赖维护、门禁分级、代码与文档规模阈值、CI 决策
     fonts.md                    字体角色、资源许可、加载与子集生成
     terminal-extending.md       终端命令、会话、外观与交互扩展接口
@@ -27,6 +28,7 @@ docs/
       about.md                  关于学社正文、MDC 容器、横幅与加载骨架
   adr/                          采用的独立架构决策，现行实现细节仍归 architecture/
     0001-three-intro-rendering.md  首页使用 Three.js，保留 DOM、WAAPI 与唯一终端
+    0002-unified-identity.md      统一身份、应用会话与未来 OIDC 边界
 ```
 
 过程材料（审计快照、实施计划）归 `.agents/notes/`，不进 `docs/`。新增专题文档先在本节登记条目和职责，再写作。
@@ -38,6 +40,8 @@ docs/
 | 全局约束与入口 | 根 `AGENTS.md` |
 | 项目定位、主要技术、常用命令与贡献入口 | `README.md` |
 | 环境准备、共享依赖、门禁分级、规模阈值、CI 决策 | `docs/architecture/engineering-quality.md` |
+| Go 后端配置、健康检查与本地依赖 | `docs/architecture/backend.md` |
+| 生产部署步骤、环境注入、发布与回滚 | `docs/architecture/backend-deployment.md` |
 | 测试层级、注册表与执行计划 | `docs/testing/README.md` |
 | 浏览器回归观测、运行要求与结果记录 | `docs/testing/browser-regression.md` |
 | 终端现行接口 | `docs/architecture/terminal-extending.md` |

@@ -12,7 +12,7 @@ async function ready(page: Page) {
     timeout: SETTLE_TIMEOUT,
   });
   // An inert host silently drops keys after skipping; toBeEnabled does not check inert.
-  // 跳过后仍为 inert 的宿主会静默丢弃按键；toBeEnabled 不检查 inert。
+  // 跳过后仍为 inert 的宿主元素会静默丢弃按键；toBeEnabled 不检查 inert。
   await expect(page.locator(".xca-terminal-window")).not.toHaveAttribute("inert", {
     timeout: SETTLE_TIMEOUT,
   });

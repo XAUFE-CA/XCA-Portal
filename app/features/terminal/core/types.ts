@@ -52,10 +52,20 @@ export interface AuthIdentity {
   user: string;
   label: string;
 }
+export type AuthResult<T> =
+  | { ok: true; value: T }
+  | {
+      ok: false;
+      code: "invalid_request" | "invalid_or_expired_code" | "rate_limited" | "service_unavailable";
+      retryAfterSeconds?: number;
+    };
 export interface AuthGateway {
-  getSession(signal: AbortSignal): Promise<AuthIdentity | null>;
-  login(context: Pick<CommandContext, "ask" | "write">, signal: AbortSignal): Promise<AuthIdentity>;
-  logout(signal: AbortSignal): Promise<void>;
+  getSession(signal: AbortSignal): Promise<AuthResult<AuthIdentity | null>>;
+  login(
+    context: Pick<CommandContext, "ask" | "choose" | "write" | "t">,
+    signal: AbortSignal,
+  ): Promise<AuthResult<AuthIdentity>>;
+  logout(signal: AbortSignal): Promise<AuthResult<null>>;
 }
 export interface TerminalServices {
   getLocale?(): SiteLocale;
@@ -81,9 +91,13 @@ export interface CommandContext {
   getAppearance(): import("./appearance").TerminalAppearance;
   setAppearance(value: Partial<import("./appearance").TerminalAppearance>): void;
   identity(): PromptIdentity;
-  setIdentity(identity: AuthIdentity | null): void;
+  setIdentity(identity: AuthIdentity | null): boolean;
   write(...entries: EntryInput[]): void;
-  ask(request: { label: string; kind: "text" | "secret" | "otp" }): Promise<string>;
+  ask(request: {
+    label: string;
+    kind: "text" | "secret" | "otp";
+    timeoutMs?: number;
+  }): Promise<string>;
   choose(title: string, items: readonly TerminalMenuItem[]): Promise<string>;
   openApplication(application: TerminalApplication): void;
   closeApplication(): void;
@@ -103,6 +117,7 @@ export interface CommandDefinition {
   subcommands?: CommandDefinition[];
   complete?(args: string[], context: CommandContext): string[];
   sensitive?: boolean;
+  timeoutMs?: number;
   execute(
     args: string[],
     context: CommandContext,

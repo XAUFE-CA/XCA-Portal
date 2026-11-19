@@ -280,7 +280,7 @@ func loadLimits(c *Config, lookup func(string) (string, bool)) error {
 	}
 	for _, limit := range limits {
 		d, err := time.ParseDuration(value(lookup, limit.name, limit.fallback))
-		if err != nil || d <= 0 || d > limit.max {
+		if err != nil || d <= 0 || d > limit.max || limit.name == "SESSION_TTL" && d < time.Second {
 			return invalid(limit.name)
 		}
 		*limit.target = d

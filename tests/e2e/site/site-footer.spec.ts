@@ -228,7 +228,7 @@ test("language switching swaps footer copy without changing the build link", asy
     .click();
   await expect(tagline).toHaveText(TAGLINE_ZH);
   await expect(footer.getByRole("link", { name: "Neoverse-UI", exact: true })).toBeVisible();
-  await expect(footer.locator(".site-footer__shared-ui")).toContainText("Proudly powered by");
+  await expect(footer.locator(".site-footer__shared-ui")).toContainText("Powered by");
   await expect(footer.locator(".site-footer__licenses")).toContainText("Code is under the");
   await expect(footer.locator(".site-footer__build-status")).toHaveText("open source");
   await expect(

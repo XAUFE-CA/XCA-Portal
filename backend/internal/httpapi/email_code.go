@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"mime"
-	"net"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -18,6 +17,7 @@ type emailCodeHandler struct {
 	service *auth.Service
 	origin  string
 	maxBody int64
+	trusted []netip.Prefix
 }
 
 // NewEmailCodeHandler builds an adapter without registering it on the public server.
@@ -71,9 +71,8 @@ func (h *emailCodeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	ip, parseErr := netip.ParseAddr(host)
-	if err != nil || parseErr != nil || h.service == nil {
+	ip, err := sourceIP(r, h.trusted)
+	if err != nil || h.service == nil {
 		writeError(w, http.StatusServiceUnavailable, "service_unavailable")
 		return
 	}

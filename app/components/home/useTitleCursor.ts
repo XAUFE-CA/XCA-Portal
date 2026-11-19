@@ -35,9 +35,9 @@ export function useTitleCursor(
     const stroke = Number.parseFloat(style.getPropertyValue("--neoverse-border-width-thin"));
     const textBox = text.getBoundingClientRect();
     const letterBox = letter.getBoundingClientRect();
-    // A zero-width baseline probe can be laid out at the previous line's end; the glyph's own
+    // A zero-width measurement element can be laid out at the previous line's end; the glyph's own
     // inline box plus the font ascent always reports the baseline of the line it wrapped onto.
-    // 零宽基线探针可能被排到上一行行末；字符自身的内联盒加字体上伸部始终给出其所在行的基线。
+    // 零宽测量元素可能被排到上一行行末；字符自身的内联盒加字体上伸部始终给出其所在行的基线。
     const baselineY = letterBox.top + ink.fontBoundingBoxAscent;
     const centerY =
       baselineY + (ink.actualBoundingBoxDescent - ink.actualBoundingBoxAscent) / 2 - textBox.top;

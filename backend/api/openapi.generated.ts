@@ -35,9 +35,29 @@ export interface paths {
     put?: never;
     /**
      * Verify a flow and establish a session
-     * @description Only successful verification establishes a session. Unknown, incorrect, expired, consumed or otherwise ineligible flows all use the same invalid_or_expired_code response. The flow is not automatically retried.
+     * @description Only successful verification establishes a session. A unique operation identifier permits a durable server-side cancellation barrier before any subsequent identity write. The flow is not automatically retried.
      */
     post: operations["verifyEmailCode"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/operations/abandon": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Fence an interrupted identity write
+     * @description A durable database barrier prevents a previous verification or logout from committing after this response. If the verification already committed, its session is revoked atomically with the barrier. The client must await 204 before beginning a new identity write.
+     */
+    post: operations["abandonAuthOperation"];
     delete?: never;
     options?: never;
     head?: never;
@@ -75,7 +95,7 @@ export interface paths {
     put?: never;
     /**
      * Revoke the current session
-     * @description Idempotent for a missing or expired session. The client only clears its identity after 204; an interrupted or uncertain result requires a new session query. The request is a same-origin JSON object.
+     * @description Idempotent for a missing or expired session. Interrupted writes require the durable operation-abandon barrier before a newer identity write.
      */
     post: operations["logout"];
     delete?: never;
@@ -149,6 +169,10 @@ export interface components {
     };
     /** @description Unpredictable opaque identifier for the current email challenge. */
     FlowId: string;
+    AbandonOperationRequest: {
+      /** Format: uuid */
+      operation_id: string;
+    };
     /**
      * @example {
      *       "flow_id": "abcdefghijklmnopqrstuvwxyz012345",
@@ -161,7 +185,7 @@ export interface components {
       code: string;
     };
     Identity: {
-      /** @description Stable unique login name. */
+      /** @description Unique login name for display; not an immutable subject identifier. */
       user: string;
       /** @description Display name. */
       label: string;
@@ -300,12 +324,14 @@ export interface components {
     };
   };
   parameters: {
+    /** @description Fresh random UUID per verification or logout; used only to order interrupted writes. */
+    OperationID: string;
     /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
     Origin: string;
   };
   requestBodies: never;
   headers: {
-    /** @description Authentication and probe responses must not be cached. */
+    /** @description Authentication and health check responses must not be cached. */
     NoStore: "no-store";
     /** @description A session cookie with the attributes described by sessionCookie. */
     SessionCookie: string;
@@ -358,6 +384,8 @@ export interface operations {
       header: {
         /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
         Origin: components["parameters"]["Origin"];
+        /** @description Fresh random UUID per verification or logout; used only to order interrupted writes. */
+        "X-XCA-Auth-Operation": components["parameters"]["OperationID"];
       };
       path?: never;
       cookie?: never;
@@ -396,6 +424,37 @@ export interface operations {
       503: components["responses"]["Unavailable"];
     };
   };
+  abandonAuthOperation: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
+        Origin: components["parameters"]["Origin"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AbandonOperationRequest"];
+      };
+    };
+    responses: {
+      /** @description Interrupted operation is fenced; no response body. */
+      204: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components["responses"]["InvalidRequest"];
+      403: components["responses"]["InvalidOrigin"];
+      413: components["responses"]["TooLarge"];
+      415: components["responses"]["InvalidRequest"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
   getSession: {
     parameters: {
       query?: never;
@@ -425,6 +484,8 @@ export interface operations {
       header: {
         /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
         Origin: components["parameters"]["Origin"];
+        /** @description Fresh random UUID per verification or logout; used only to order interrupted writes. */
+        "X-XCA-Auth-Operation": components["parameters"]["OperationID"];
       };
       path?: never;
       cookie?: never;

@@ -20,7 +20,11 @@ export default defineConfig({
   fullyParallel: false,
   // Full-scene cases are on demand only; the cinematic workflow opts in with XCA_CINEMATIC.
   // 完整场景用例仅按需运行；cinematic 工作流用 XCA_CINEMATIC 显式开启。
-  grepInvert: process.env.XCA_CINEMATIC ? undefined : /@cinematic/,
+  grepInvert: process.env.XCA_AUTH_LIVE
+    ? /@cinematic/
+    : process.env.XCA_CINEMATIC
+      ? /@live-auth/
+      : /@cinematic|@live-auth/,
   reporter: "list",
   use: {
     baseURL,

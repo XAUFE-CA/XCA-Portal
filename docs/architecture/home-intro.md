@@ -12,14 +12,14 @@ Status: adopted
 | [hero-title.ts](../../app/components/home/hero-title.ts) | 解析标题强调标注，生成纯文本与逐字序列 |
 | [useTitleCursor.ts](../../app/components/home/useTitleCursor.ts) | 依据字形度量定位唯一标题光标 |
 | [useIntroPresentation.ts](../../app/features/intro/presentation/useIntroPresentation.ts) | 组装运行时与生命周期，公开入场状态和方法 |
-| [intro-runtime.ts](../../app/features/intro/presentation/intro-runtime.ts) | 入场状态容器、共享服务装配与可暂停等待能力 |
+| [intro-runtime.ts](../../app/features/intro/presentation/intro-runtime.ts) | 入场状态容器、共享服务组装与可暂停等待能力 |
 | [intro-sequence.ts](../../app/features/intro/presentation/intro-sequence.ts) | 启动输出、逐行横幅、跳过、重播与清理的阶段编排 |
 | [IntroSkipHint.vue](../../app/features/intro/components/IntroSkipHint.vue) | CA 阶段的跳过提示条 |
 | [intro-entry.ts](../../app/features/intro/core/intro-entry.ts)、[intro-playback.ts](../../app/features/intro/core/intro-playback.ts) | 会话入口判定、快捷键、短入场及动画冻结、取消与暂停 |
 | [timing.ts](../../app/features/intro/core/timing.ts)、[boot-script.ts](../../app/features/intro/presentation/boot-script.ts) | 节奏倍率、交接进度与启动日志顺序 |
 | [intro-session.client.ts](../../app/plugins/intro-session.client.ts) | 在路由跳转前记录本次会话的入口地址 |
 
-场景尺度、节奏倍率和投影阈值由 [入场场景](intro-scene.md) 的源码维护，不在文档另设数值表。`intro-runtime` 直接引用 `CaIntroMark` 的组件类型，`HeroSection` 经入场模块公开入口与终端公开入口装配。入场模块依赖终端，终端不反向依赖入场模块，两侧共用的玻璃刷新与动效时长位于 `app/utils/`。当前不对外提供入场扩展插件接口。
+场景尺度、节奏倍率和投影阈值由 [入场场景](intro-scene.md) 的源码维护，不在文档另设数值表。`intro-runtime` 直接引用 `CaIntroMark` 的组件类型，`HeroSection` 经入场模块公开入口与终端公开入口组装。入场模块依赖终端，终端不反向依赖入场模块，两侧共用的玻璃刷新与动效时长位于 `app/utils/`。当前不对外提供入场扩展插件接口。
 
 ## 启动与会话
 
@@ -37,7 +37,7 @@ Status: adopted
 
 减少动画偏好下自动跳过空间入场，主动重播仍展示可读的启动消息与 ASCII，省略位移和缩放。文字阅读节奏独立于空间动画时长。`public/intro-gate.js` 在首帧前设置首页入场状态，避免正常布局提前闪现。入场状态仅在首页设置。
 
-首页标题从 `app/data/hero-sentences.json` 读取双语轮播内容，`**...**` 标注使用强调色的文字，由 `app/components/home/hero-title.ts` 解析成纯文本与逐字序列；逗号只影响打字节奏，不决定强调范围。字符显现与删除按共享动效时长淡入淡出，唯一光标按字形度量随每个字符平滑移动；基线取自当前字符的内联盒与字体上伸部，折行后仍对齐其所在行，不依赖会被排回上一行的零宽基线探针。减少动画偏好下不播放过渡并隐藏光标。终端交互开始后，标题完成当前文字单元再暂停并隐藏光标。点击终端外部恢复，不能仅靠 mouseleave 恢复。手机上位标题的行高与副标题高度按两种语言中较高的一侧占位，切换语言不改变标题区高度，也不推动下方终端。
+首页标题从 `app/data/hero-sentences.json` 读取双语轮播内容，`**...**` 标注使用强调色的文字，由 `app/components/home/hero-title.ts` 解析成纯文本与逐字序列；逗号只影响打字节奏，不决定强调范围。字符显现与删除按共享动效时长淡入淡出，唯一光标按字形度量随每个字符平滑移动；基线取自当前字符的内联盒与字体上伸部，折行后仍对齐其所在行，不依赖可能被排到上一行行末的零宽测量元素。减少动画偏好下不播放过渡并隐藏光标。终端交互开始后，标题完成当前文字单元再暂停并隐藏光标。点击终端外部恢复，不能仅靠 mouseleave 恢复。手机上位标题的行高与副标题高度按两种语言中较高的一侧占位，切换语言不改变标题区高度，也不推动下方终端。
 
 ## 启动输出
 

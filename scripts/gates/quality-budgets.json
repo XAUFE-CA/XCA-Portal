@@ -6,9 +6,13 @@
     "function": [60, 100]
   },
   "exceptions": {
+    "backend/api/openapi.generated.ts": {
+      "ceiling": 560,
+      "reason": "2026-11-17: Generated OpenAPI TypeScript declarations now include the durable auth write-abandon endpoint and operation header. Kept as a single generated source with exact reviewed line count; remove this exception if generation returns under the hard limit."
+    },
     "tests/e2e/visual/terminal-visual-acceptance.spec.ts:verifyTerminalThemes#1": {
-      "ceiling": 106,
-      "reason": "2026-10-25: A single named terminal theme regression covers draft, focus, scroll and all existing snapshots; shared screenshot and color probes keep the assertions together."
+      "ceiling": 111,
+      "reason": "2026-11-17: Retains the existing terminal theme regression and adds reviewed narrow-screen glyph-raster tolerance documentation; layout, scrolling and all desktop screenshots remain independently asserted."
     }
   }
 }
