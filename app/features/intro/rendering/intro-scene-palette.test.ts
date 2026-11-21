@@ -48,6 +48,10 @@ const read = (name: string) => {
   return new Color(value);
 };
 const luminance = (color: Color) => color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+// Stand-ins for the homepage clear colour the renderer reads from the page shell.
+// 渲染器从站点外壳读取的首页清屏色的替身。
+const NIGHT_CANVAS = new Color("#0b1220");
+const DAY_CANVAS = new Color("#f2f7fb");
 
 test("night and day are separate skies, with stars exclusive to night", () => {
   const night = selectIntroSky(read, 0);
@@ -76,8 +80,8 @@ test("night and day are separate skies, with stars exclusive to night", () => {
 });
 
 test("auditorium separates blue upholstery from silver finishes and dims lighting at night", () => {
-  const night = createAuditoriumPalette(read, 0, read("accent-primary"));
-  const day = createAuditoriumPalette(read, 1, read("accent-primary"));
+  const night = createAuditoriumPalette(read, 0, read("accent-primary"), NIGHT_CANVAS);
+  const day = createAuditoriumPalette(read, 1, read("accent-primary"), DAY_CANVAS);
   for (const room of [night, day]) {
     expect(luminance(room.alloy)).toBeGreaterThan(luminance(room.fabric) * 5);
     expect(luminance(room.panel)).toBeGreaterThan(luminance(room.carpet) * 4);
@@ -88,20 +92,26 @@ test("auditorium separates blue upholstery from silver finishes and dims lightin
   expect(luminance(night.alloy)).toBeGreaterThan(luminance(day.alloy) * 0.75);
 });
 
-test("auditorium backdrop is pale by day and retains its original structure color at night", () => {
-  const night = createAuditoriumPalette(read, 0, read("accent-primary"));
-  const day = createAuditoriumPalette(read, 1, read("accent-primary"));
+test("auditorium walls borrow the page canvas instead of turning pure white", () => {
+  const night = createAuditoriumPalette(read, 0, read("accent-primary"), NIGHT_CANVAS);
+  const day = createAuditoriumPalette(read, 1, read("accent-primary"), DAY_CANVAS);
+  // Night keeps one finish for structure and backdrop, now tinted by the dark canvas.
+  // 夜间后墙与结构共用同一饰面，现在带有深色画布色调。
   expect(night.backdrop.equals(night.structure)).toBe(true);
-  expect(luminance(day.backdrop)).toBeGreaterThan(0.85);
-  expect(luminance(day.backdrop)).toBeGreaterThan(luminance(day.structure) * 2);
+  expect(luminance(night.structure)).toBeLessThan(luminance(day.structure));
+  // Daylight stays bright enough to read as a projection wall, never as pure white.
+  // 日间仍足够明亮以读作投影墙，但不再是纯白。
+  expect(luminance(day.backdrop)).toBeGreaterThan(0.6);
+  expect(luminance(day.backdrop)).toBeLessThan(0.85);
+  expect(luminance(day.backdrop)).toBeGreaterThan(luminance(day.structure) * 1.15);
   expect(
     Math.max(day.backdrop.r, day.backdrop.g, day.backdrop.b) -
       Math.min(day.backdrop.r, day.backdrop.g, day.backdrop.b),
-  ).toBeLessThan(0.06);
+  ).toBeLessThan(0.12);
 });
 
 test("auditorium architecture stays matte and opaque without environment reflections", () => {
-  const room = createAuditoriumPalette(read, 0, read("accent-primary"));
+  const room = createAuditoriumPalette(read, 0, read("accent-primary"), NIGHT_CANVAS);
   for (const selector of [
     AUDITORIUM_MATERIAL.structure,
     AUDITORIUM_MATERIAL.ground,

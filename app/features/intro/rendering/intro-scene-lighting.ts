@@ -124,7 +124,9 @@ function colorLights(lights: SceneLights, palette: IntroPalette) {
     light.color.copy(room.keyLight).lerp(room.accentLight, 0.04);
     light.angle = 0.52 + daylight * 0.42;
     light.penumbra = 0.7 + daylight * 0.15;
-    light.intensity = 6_500_000 * room.lightIntensity * (1 + daylight * 6);
+    // Daylight no longer floods the backdrop: the walls carry the page canvas instead of clipping white.
+    // 日间不再把后墙洗到过曝：墙面采用页面画布色调，而不是削顶成纯白。
+    light.intensity = 6_500_000 * room.lightIntensity * (1 + daylight * 2.2);
   });
   lights.roomCeiling.forEach((light) => {
     light.color.copy(room.keyLight);

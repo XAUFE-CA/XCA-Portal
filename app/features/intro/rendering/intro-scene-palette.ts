@@ -128,27 +128,31 @@ export function selectIntroSky(read: ReadPrimitive, daylight: number): IntroSkyS
   };
 }
 
-/** The same neutral finishes use dimmed architectural lighting at night.
-    同一套中性饰面在夜间使用调暗的建筑照明。 */
+/** The same neutral finishes use dimmed architectural lighting at night, but every wall borrows
+    the homepage canvas so the room never reads as a white box against it.
+    同一套中性饰面在夜间使用调暗的建筑照明，但墙面统一掺入首页画布底色，
+    报告厅因此不会相对页面背景读成一个白盒子。 */
 export function createAuditoriumPalette(
   read: ReadPrimitive,
   daylight: number,
   accentPrimary: Color,
+  background: Color,
 ): AuditoriumPalette {
   const exposure = 0.86 + daylight * 0.14;
   const finish = (first: string, second: string, amount: number, scale: number) =>
     mix(read(first), read(second), amount).multiplyScalar(scale * exposure);
+  const wall = (color: Color, amount: number) => color.lerp(background, amount);
   return {
-    structure: finish("neutral-400", "neutral-200", 0.42, 0.58),
+    structure: wall(finish("neutral-400", "neutral-200", 0.42, 0.58), 0.24),
     backdrop:
       daylight < 0.5
-        ? finish("neutral-400", "neutral-200", 0.42, 0.58)
-        : mix(neutral(read, "neutral-100"), read("white"), 0.7).lerp(read("amber-50"), 0.04),
+        ? wall(finish("neutral-400", "neutral-200", 0.42, 0.58), 0.24)
+        : wall(finish("neutral-200", "neutral-100", 0.45, 0.72), 0.3),
     alloy: finish("neutral-200", "white", 0.4, 0.9),
     floor: finish("neutral-400", "neutral-200", 0.1, 0.26),
     fabric: finish("blue-900", "blue-800", 0.2, 0.7),
-    panel: finish("neutral-200", "white", 0.2, 0.75),
-    wallBand: finish("neutral-400", "neutral-200", 0.24, 0.48),
+    panel: wall(finish("neutral-200", "white", 0.2, 0.72), 0.2),
+    wallBand: wall(finish("neutral-400", "neutral-200", 0.24, 0.48), 0.18),
     carpet: finish("neutral-400", "blue-950", 0.32, 0.2),
     graphite: finish("neutral-400", "blue-950", 0.18, 0.12),
     keyLight: mix(read("white"), read("blue-50"), 0.05),
@@ -282,7 +286,7 @@ export function createIntroPalette(canvas: HTMLCanvasElement): IntroPalette {
     scene,
     daylight,
     sky,
-    auditorium: createAuditoriumPalette(read, daylight, read("accent-primary")),
+    auditorium: createAuditoriumPalette(read, daylight, read("accent-primary"), scene),
   };
   updateAura(canvas, palette);
   return palette;
