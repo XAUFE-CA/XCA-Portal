@@ -159,6 +159,7 @@ const {
   phase,
   revealing,
   spatialIntro,
+  markStage,
   bootLines,
   bootProgress,
   bannerRowsVisible,
@@ -177,6 +178,10 @@ const terminalActions = {
   expanded: () => expanded.value,
   insertText: (text: string) => terminalRef.value?.insertText(text),
 };
+// The page centre is empty until the mark draws, and the skip hint waits for the city.
+// 标识开始绘制前页面中央是空的，跳过提示则等到进入城市场景才出现。
+const caPreparing = computed(() => phase.value === "logo" && markStage.value === "preparing");
+const skipHintVisible = computed(() => phase.value === "logo" && markStage.value === "journey");
 // The terminal menu owns the command-line field: it offers paste, which is the browser
 // command a custom menu has to replace rather than drop.
 // 终端菜单接管命令行输入框：它提供粘贴，这正是自定义菜单必须替代而不能丢弃的浏览器命令。
@@ -294,8 +299,8 @@ onBeforeUnmount(() => {
     aria-labelledby="xca-terminal-title"
   >
     <div v-if="phase !== 'ready'" class="xca-terminal-hero__intro-backdrop" aria-hidden="true" />
-    <IntroSkipHint :visible="phase === 'logo'" @skip="skipIntro" />
-    <CaIntroMark v-if="spatialIntro" :ref="bindIntroMark" />
+    <IntroSkipHint :visible="skipHintVisible" @skip="skipIntro" />
+    <CaIntroMark v-if="spatialIntro" :ref="bindIntroMark" :preparing="caPreparing" />
     <TerminalFocusBackdrop
       :expanded="expanded"
       :shade-active="shadeActive"

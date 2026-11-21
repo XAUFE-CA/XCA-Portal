@@ -138,6 +138,27 @@ test("saved theme keeps its text and selection background aligned through reload
   }
 });
 
+test("the skip hint belongs to the city stage, not the CA drawing", async ({ page }) => {
+  // Hold the stroke animation so the scene stays in its drawing stage.
+  // 暂停描边动画，让场景停留在绘制阶段。
+  await page.addInitScript(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      const animation = animate.call(this, frames, options);
+      if (this instanceof SVGPathElement) animation.pause();
+      return animation;
+    };
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator('.xca-ca-intro[data-journey="draw"]')).toHaveCount(1, {
+    timeout: SCENE_TIMEOUT,
+  });
+  // The drawing owns no hint: its loading report has left and the city hint is not due yet.
+  // 绘制阶段不持有提示条：载入报告已退出，城市场景的提示条尚未到期。
+  await expect(page.locator(".xca-ca-intro__loading")).toHaveCount(0);
+  await expect(page.locator(".xca-intro-skip-hint")).toHaveCount(0);
+});
+
 test("three separate spaces smoothly skip the scene and retain the real terminal @cinematic", async ({
   page,
 }) => {
@@ -145,32 +166,45 @@ test("three separate spaces smoothly skip the scene and retain the real terminal
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".xca-ca-intro")).toBeVisible();
-  // The CA stage names the keyboard shortcuts; the header button only appears with the boot output.
-  // CA 阶段说明键盘快捷键；标题栏按钮要到启动输出才出现。
+  // The hint owns the city stage; the header button only appears with the boot output.
+  // 提示条属于城市场景；标题栏按钮要到启动输出才出现。
   const hint = page.locator(".xca-intro-skip-hint");
-  await expect(hint).toContainText("Esc");
+  await expect(hint).toContainText("Esc", { timeout: SCENE_TIMEOUT });
+  await expect(page.locator(".xca-ca-intro__loading")).toHaveCount(0);
   await page
     .locator(".xca-terminal-window")
     .evaluate((node) => node.setAttribute("data-host", "original"));
-  await page.keyboard.press("Space");
-  await page.keyboard.press("Space");
-  await expect(page.locator(".xca-terminal-screen--reveal")).toHaveCount(0);
   // Hold the skip fade at its midpoint: a slow renderer can drop the whole fade in one frame.
   // 把跳过淡出冻结在中点：慢速渲染器可能一帧就走完整个淡出。
   const faded = await page.evaluate(async () => {
-    document.body.dispatchEvent(
-      new KeyboardEvent("keydown", { code: "Space", key: " ", bubbles: true }),
-    );
-    const scene = document.querySelector(".xca-ca-intro");
-    if (!scene) return null;
-    const own = () =>
-      scene.getAnimations().filter((animation) => animation.constructor.name === "Animation");
-    let animations = own();
-    if (!animations.length) {
+    // Press in one task: once the city stage saturates the main thread, a per-key round trip
+    // exceeds the 700 ms shortcut window that a real keyboard fills in a few dozen.
+    // 在同一任务内按键：城市场景占满主线程后，逐键往返会超过 700 毫秒的快捷键窗口，
+    // 而真实键盘只需几十毫秒就能填满该窗口。
+    for (let press = 0; press < 3; press++)
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "Space", key: " ", bubbles: true }),
+      );
+    // A busy city frame delays the skip cue by about a second and the scene unmounts as soon
+    // as the fade ends, so every probe resolves the scene again instead of reusing one node.
+    // 繁忙的城市场景帧会把跳过提示推迟约一秒，且淡出结束即卸载场景，
+    // 因此每次探测都重新解析场景，而不是复用同一个节点。
+    const probe = () => {
+      const scene = document.querySelector<HTMLElement>(".xca-ca-intro");
+      if (!scene) return null;
+      const animations = scene
+        .getAnimations()
+        .filter((animation) => animation.constructor.name === "Animation");
+      return animations.length ? { scene, animations } : null;
+    };
+    let current = probe();
+    const deadline = performance.now() + 4000;
+    while (!current && performance.now() < deadline) {
       await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
-      animations = own();
+      current = probe();
     }
-    if (!animations.length) return null;
+    if (!current) return null;
+    const { scene, animations } = current;
     const span = Math.max(
       ...animations.map((animation) => Number(animation.effect?.getComputedTiming().duration ?? 0)),
     );

@@ -16,6 +16,8 @@ interface MarkContext {
   unit: number;
   signal: AbortSignal;
   animate: Animate;
+  /** Report each scene stage so the presentation can pace its own hints. */
+  onStage?: (stage: "drawing" | "journey") => void;
   onHandoff: (arrival: Promise<void>) => Promise<void>;
 }
 
@@ -24,12 +26,13 @@ interface MarkContext {
  * 绘制 CA 标识后，同时填充、挤出并启动相机。
  */
 export async function playIntroMark(context: MarkContext) {
-  const { root, terminal, centered, unit, signal, animate, onHandoff } = context;
+  const { root, terminal, centered, unit, signal, animate, onStage, onHandoff } = context;
   const paths = root.querySelectorAll<SVGPathElement>(".xca-ca-intro__front path");
   if (!paths.length || typeof terminal.animate !== "function") return;
   const journey = createIntroJourney(animate);
   const bounds = terminal.getBoundingClientRect();
   journey.prepare(root, bounds.height);
+  onStage?.("drawing");
   await Promise.all(
     [...paths].map((path, index) =>
       animate(
@@ -54,6 +57,7 @@ export async function playIntroMark(context: MarkContext) {
     centered,
     journeyPerspective(root.clientWidth),
   );
+  onStage?.("journey");
   const arrival = animate(terminal, [], { duration: duration * INTRO_HANDOFF.arrival }, signal);
   await Promise.all([
     journey.approach(root, bounds.height, unit, signal),

@@ -8,6 +8,7 @@ import mark from "../../../../public/brand/ca-mark.svg?raw";
 import { JOURNEY_STATIONS, roadBend } from "../core/intro-geometry";
 
 const { t } = useSiteLocale();
+defineProps<{ preparing: boolean }>();
 const front = ref<HTMLElement | null>(null);
 const scene = ref<HTMLElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
@@ -96,7 +97,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="scene" class="xca-ca-intro">
-    <span class="xca-terminal-sr-only" role="status">{{ t("terminal.starting") }}</span>
+    <!-- An empty stage reports loading in its own centre; the running scene reports through text.
+         空场景在自己的中央报告载入状态，运行中的场景改由文本报告。 -->
+    <div v-if="preparing" class="xca-ca-intro__loading" role="status">
+      {{ t("intro.preparing") }}
+    </div>
+    <span v-else class="xca-terminal-sr-only" role="status">{{ t("terminal.starting") }}</span>
     <div class="xca-ca-intro__aura" aria-hidden="true" />
     <canvas ref="canvas" class="xca-ca-intro__mesh" aria-hidden="true" />
     <div class="xca-ca-intro__viewport" aria-hidden="true">

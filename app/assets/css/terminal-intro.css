@@ -58,20 +58,22 @@ body:has(.xca-terminal-hero--focused) > .xca-document-scrollbar {
 .xca-intro-skip-hint {
   position: fixed;
   z-index: var(--neoverse-layout-layer-toast);
-  bottom: max(var(--neoverse-space-4), 4svh);
+  bottom: max(var(--neoverse-space-6), 6svh);
   left: 50%;
-  transform: translateX(-50%);
-  max-width: min(90vw, 28rem);
+  transform: translateX(-50%) scale(1);
+  max-width: min(90vw, 30rem);
   pointer-events: none;
   opacity: 1;
+  filter: blur(0);
 }
 .xca-intro-skip-hint__keys,
 .xca-intro-skip-hint__tap {
   margin: 0;
-  padding: var(--neoverse-space-3) var(--neoverse-space-4);
+  padding: var(--neoverse-space-3) var(--neoverse-space-6);
   border-radius: var(--neoverse-overlay-radius);
-  font-size: var(--neoverse-font-size-sm);
+  font-size: var(--neoverse-font-size-md);
   line-height: var(--neoverse-line-height-snug);
+  letter-spacing: var(--neoverse-letter-spacing-wide);
   text-align: center;
 }
 /* A touch screen has no keyboard shortcut, so the hint itself becomes the exit control.
@@ -91,14 +93,16 @@ body:has(.xca-terminal-hero--focused) > .xca-document-scrollbar {
     display: block;
   }
 }
-/* Only opacity animates: the intro compiles its renderer and uploads textures on the main
-   thread, and a filter transition would freeze the hint blurred until it yields.
-   只过渡透明度。入场会在主线程编译渲染器并上传纹理，滤镜过渡会让提示条一直停在模糊状态，
-   直到主线程让出。 */
+/* The hint arrives with the city, after the renderer has compiled, so it can resolve a blur and
+   a scale like every other viewport notice instead of fading opacity alone.
+   提示随城市场景出现，此时渲染器已完成编译，因此可以像其他视口提示一样收敛模糊与缩放，
+   不必只淡出透明度。 */
 .xca-intro-skip-hint-enter-active,
 .xca-intro-skip-hint-leave-active {
-  transition: opacity var(--neoverse-motion-duration-standard)
-    var(--neoverse-motion-easing-standard);
+  transition:
+    opacity var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-standard),
+    filter var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-standard),
+    transform var(--neoverse-motion-duration-standard) var(--neoverse-motion-easing-standard);
 }
 .xca-intro-skip-hint-leave-active {
   transition-timing-function: var(--neoverse-motion-easing-accelerate);
@@ -106,6 +110,8 @@ body:has(.xca-terminal-hero--focused) > .xca-document-scrollbar {
 .xca-intro-skip-hint-enter-from,
 .xca-intro-skip-hint-leave-to {
   opacity: 0;
+  filter: blur(var(--neoverse-space-2));
+  transform: translateX(-50%) scale(var(--neoverse-motion-scale-near));
 }
 @media (prefers-reduced-motion: reduce) {
   .xca-intro-skip-hint-enter-active,

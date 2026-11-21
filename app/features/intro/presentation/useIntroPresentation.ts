@@ -15,6 +15,7 @@ export function useIntroPresentation(getCommandCount: () => number) {
     phase: context.phase,
     revealing: context.revealing,
     spatialIntro: context.spatialIntro,
+    markStage: context.markStage,
     bootLines: context.bootLines,
     bootProgress: context.bootProgress,
     bannerRowsVisible: context.bannerRowsVisible,

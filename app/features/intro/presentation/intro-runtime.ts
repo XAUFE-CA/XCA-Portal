@@ -13,6 +13,12 @@ import { createIntroPlayback } from "../core/intro-playback";
 
 export const IDENTITY_TRANSFORM = "translateZ(0)";
 
+/**
+ * Scene stages the CA mark reports before the terminal takes over.
+ * CA 标识在终端接管前上报的场景阶段。
+ */
+export type IntroMarkStage = "preparing" | "drawing" | "journey";
+
 export function reducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -73,6 +79,7 @@ export function createIntroContext(getCommandCount: () => number) {
   const bannerCaptionLines = ref(0);
   const revealing = ref(false);
   const spatialIntro = ref(false);
+  const markStage = ref<IntroMarkStage>("preparing");
   const anchor = ref<HTMLElement | null>(null);
   const terminalRef = ref<InstanceType<typeof TerminalHost> | null>(null);
   const markRef = ref<InstanceType<typeof CaIntroMark> | null>(null);
@@ -104,6 +111,7 @@ export function createIntroContext(getCommandCount: () => number) {
     bannerCaptionLines,
     revealing,
     spatialIntro,
+    markStage,
     anchor,
     terminalRef,
     markRef,

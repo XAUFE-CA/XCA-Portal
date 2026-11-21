@@ -101,6 +101,41 @@
   pointer-events: none;
   color: var(--neoverse-color-text-primary);
 }
+/* The stage is empty until the renderer prepares, so its centre carries the loading report.
+   渲染器准备前场景是空的，载入状态因此显示在场景中央。 */
+.xca-ca-intro__loading {
+  --xca-loading-tracking: 0.16em;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--neoverse-space-6);
+  font-family: var(--neoverse-font-family-code-maple);
+  font-size: var(--neoverse-font-size-xl);
+  line-height: var(--neoverse-line-height-snug);
+  letter-spacing: var(--xca-loading-tracking);
+  /* Trailing tracking pushes the line off centre, so the block carries the same indent.
+     末尾字距会把整行推离中心，因此整块用等量缩进补回。 */
+  text-indent: var(--xca-loading-tracking);
+  white-space: nowrap;
+  color: var(--neoverse-color-text-primary);
+  animation: xca-ca-intro-loading calc(var(--neoverse-motion-duration-expressive) * 6)
+    var(--neoverse-motion-easing-standard) infinite alternate;
+}
+@keyframes xca-ca-intro-loading {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xca-ca-intro__loading {
+    animation: none;
+    opacity: 1;
+  }
+}
 .xca-ca-intro__aura {
   position: absolute;
   inset: -12%;

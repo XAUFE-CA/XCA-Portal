@@ -228,6 +228,9 @@ export async function playMark(
     unit,
     signal,
     animate: context.animateIntro,
+    onStage: (stage) => {
+      context.markStage.value = stage;
+    },
     onHandoff: async (arrival) => {
       await waitForVisible(signal);
       signal.throwIfAborted();
@@ -245,6 +248,7 @@ export function prepareIntro(context: IntroContext, element: HTMLElement, reduce
   context.phase.value = reduce ? "boot" : "logo";
   context.spatialIntro.value = !reduce;
   context.revealing.value = false;
+  context.markStage.value = "preparing";
   context.bootLines.value = [];
   context.bootProgress.value = 0;
   context.bannerRowsVisible.value = 0;
