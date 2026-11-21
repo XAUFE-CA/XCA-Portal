@@ -41,15 +41,17 @@ scripts/                门禁、测试计划、依赖同步与构建工具
 tests/e2e/              Playwright 用例、图片基线与测试辅助
 public/                 静态资产
   intro/                入场日夜天空全景纹理
-.agents/notes/          未解决事项、计划与必要过程记录
+.agents/                 Agent 资源与过程材料
+  notes/                 未解决事项、计划与必要过程记录
+  skills/                可复用的方法与模板
 .github/                CI 工作流与 PR 模板
 ```
 
 根目录配置、依赖与命令以清单和配置文件为准。环境准备、端口与共享依赖见 [工程质量规则](docs/architecture/engineering-quality.md)。
 
-扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景进 `app/components/<场景>/`。新交互特性进 `app/features/<特性>/`，按职责分层。Nuxt 服务端路由进 `server/`，只转发门户 API。Go API 与认证能力进 `backend/`。新检查脚本进 `scripts/gates/` 并接入门禁。静态资产进 `public/`，结构化正文进 `content/`。Agent 过程材料进 `.agents/notes/`。
+扩展去向：新路由进 `app/pages/`，只做组合。新展示组件按场景进 `app/components/<场景>/`。新交互特性进 `app/features/<特性>/`，按职责分层。Nuxt 服务端路由进 `server/`，只转发门户 API。Go API 与认证能力进 `backend/`。新检查脚本进 `scripts/gates/` 并接入门禁。静态资产进 `public/`，结构化正文进 `content/`。Agent 过程材料进 `.agents/notes/`，可复用能力进 `.agents/skills/`。
 
-子文件职责不在本文件展开，按修改范围读取目录级说明。改 `scripts/` 先读 [scripts/AGENTS.md](scripts/AGENTS.md)。测试相关改动读 [测试注册表](docs/testing/README.md)。入场、终端与站点框架改动读对应架构文档。
+子文件职责不在本文件展开，按修改范围读取目录级说明。改 `scripts/` 先读 [scripts/AGENTS.md](scripts/AGENTS.md)，改 `.agents/` 先读 [.agents/AGENTS.md](.agents/AGENTS.md)。测试相关改动读 [测试注册表](docs/testing/README.md)。入场、终端与站点框架改动读对应架构文档。
 
 ## 运行入口
 
@@ -131,7 +133,7 @@ public/                 静态资产
 - 修改本文件时保持条目自包含，细节链接到专题文档。内容增长先压缩或迁移，仍超出阈值才按工程质量规则登记带原因的精确上限。
 - 公共接口和架构决策同步专题文档，历史文档标明状态。文档修改者负责核对事实与入口，审查者审核阈值例外和职责。
 - `docs/AGENTS.md` 的空格标点与行文规则、[docs/terminology/](docs/terminology/README.md) 的术语、用词与翻译规则适用于全仓库 Markdown 与产品文案，含根 AGENTS、README 与过程材料。其结构规则仅约束 `docs/` 子树，术语与缩写的全称只在对照表维护。
-- `docs/` 只放当前架构、现行接口、采用的 ADR 及写作规范。审计快照与实施计划归 `.agents/notes/`，命名、更新与归档规则见工程质量规则。`.agents/` 其余子目录预留给 skills、commands 等 Agent 资源，不放过程材料。
+- `docs/` 只放当前架构、现行接口、采用的 ADR 及写作规范。审计快照与实施计划归 `.agents/notes/`，命名、更新与归档规则见工程质量规则。`.agents/skills/` 放可复用的方法与模板，其余子目录预留给 commands 等 Agent 资源，不放过程材料。
 - 完成前核对 Diff/status，交付修改原因、文件、实际验证结果、失败和遗留风险。
 - 只有明确请求才提交，提交信息按 [组织协作规范](https://github.com/XAUFE-CA/.github/blob/main/COLLABORATION.md#4-git-commit-message-规范) 使用 Conventional Commits。多 Agent 如被授权，先按模块协调文件所有权，不相互覆盖。
 
