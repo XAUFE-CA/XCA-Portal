@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 // Command entries must resolve to a file; documentation quotes paths as examples.
 // 命令入口必须指向存在的文件，文档中的路径是叙述性引用。
-const REFERENCE = /(?:^|[\s"'(=])(scripts\/[\w./-]+\.ts)\b/g;
+const REFERENCE = /(?:^|[\s"'(=])(scripts\/[\w./-]+\.(?:ts|mjs))\b/g;
 
 // Only executable entry points are scanned, so quoted counterexamples stay out of scope.
 // 只扫描实际执行的入口，避免把反例引用纳入范围。
@@ -12,7 +12,8 @@ export function isEntryFile(path: string): boolean {
   return (
     normalized === "package.json" ||
     normalized === "scripts/gates/run-gates.ts" ||
-    /^\.github\/workflows\/[^/]+\.ya?ml$/.test(normalized)
+    /^\.github\/workflows\/[^/]+\.ya?ml$/.test(normalized) ||
+    /^\.github\/actions\/[^/]+\/action\.ya?ml$/.test(normalized)
   );
 }
 

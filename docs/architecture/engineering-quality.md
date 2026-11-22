@@ -8,17 +8,15 @@ Status: adopted
 
 检查使用 Biome、Prettier、TypeScript、Bun Test、Playwright 和 TypeScript AST，分别执行格式、Lint、类型、单元测试、浏览器回归及源码分析，不引入第二套 Linter 或依赖图框架。
 
-CI 联合检出共享库时固定到具体提交，同一 SHA 必须同步维护在 `quality.yml`（门禁与浏览器作业）、`cinematic.yml`、`images.yml` 中。浮动分支无法保证检出一致，门禁结果也就不可复现。
+CI 的 [门户安装入口](../../.github/actions/setup-portal/action.yml) 是 Neoverse-UI 提交的唯一配置处。工作流在运行器内检出该提交，不依赖构建人员的共享库工作区。共享库工作区领先固定提交时，即使本地通过，组件接口或过渡断言也可能与 CI 不同。更新固定提交前核对两份锁文件的冻结安装、组件接口、构建与浏览器回归。
 
-本地允许修改共享库工作区，所以本地通过不等于固定版本的 CI 通过。共享库工作区领先固定 SHA 时，菜单变体、视图过渡与终端外观等跨模块断言会确定性失败。更新固定 SHA 前先用 `bun install --frozen-lockfile --dry-run` 核对锁文件，再复验包接口、冻结安装、构建和浏览器回归。
+联合检出用于构建候选产物，不代替正式发布所需的 npm 版本。切换条件见 [本地开发与共享依赖](#本地开发与共享依赖)。
 
-这是早期开发阶段的依赖准备。正式发布改用 npm 精确版本后，联合检出、`ui:sync`、本地 `file:` 依赖与别名一并移除，锁文件成为唯一依赖依据。接入方式见 [本地开发与共享依赖](#本地开发与共享依赖)。
+运行时依赖必须显式声明并进入锁文件，不依赖工作区残留副本（Nuxt Content 依赖的 `better-sqlite3` 已显式声明）。正式发布必须使用 Neoverse-UI 的 npm 精确版本并重新生成锁文件。门户的 Node 版本见 [版本文件](../../.node-version)，Bun 版本见 [清单](../../package.json)。
 
-运行时依赖必须显式声明并进入锁文件，不依赖工作区残留副本（Nuxt Content 依赖的 `better-sqlite3` 已显式声明）。早期开发阶段 Neoverse-UI 可使用 `file:` 依赖。正式发布必须改为 npm 精确版本并重新生成锁文件。CI 固定 Node 24，满足该连接器的 Node 22+ 要求。
+门户 CI 缓存 Bun 下载目录与 Playwright 浏览器二进制，不缓存 `node_modules` 和构建输出。快速门禁运行静态检查与单元、模块测试。Windows 和 Linux 各自构建 Nitro 候选产物，再由不安装门户依赖的同平台作业解包并启动。功能回归分片复用 Linux 产物。
 
-门户 CI 只缓存 Bun 的下载目录与 Playwright 浏览器二进制（按锁文件哈希，供各分片复用），不缓存 node_modules 和构建输出。门禁与生产构建在一个作业内完成并上传产物，浏览器作业下载同一产物后只跑测试，避免每个分片重复构建。
-
-`quality.yml` 的 `backend` 作业与门户和八个浏览器分片独立，检查 Go 格式、静态分析、测试、构建、Linux 竞争检测及 OpenAPI 生成结果，并在隔离的 PostgreSQL 和 Mailpit 中运行集成测试。Go 版本由 `backend/go.mod` 指定。工作流的路径过滤同样适用于该作业，新增作业不会自动成为 required check；管理员须核对分支保护与仅文档改动的跳过策略。后端检查入口见 [Go 后端](backend.md)。
+Go 静态检查、单元测试、竞争检测与 OpenAPI 校验在 `backend` 作业中执行；PostgreSQL 与 Mailpit 集成测试使用独立 `integration` 作业。Windows 和 Linux 分别生成 `api`、`migrate`、`xcactl`，Linux 候选产物与同次生成的 Nitro 产物进入独立的 1A 和 Passkey 浏览器作业，不在用例中再次构建。新增作业不会自动成为 required check；管理员须核对分支规则与仅文档改动的跳过策略。
 
 `quality.yml` 对 `push`（`main`）与 `pull_request` 都设置 `paths-ignore`，全部使用目录或通配模式而不逐文件列举：`.agents/**`、`docs/adr/**`、`docs/architecture/**`、`docs/terminology/**`、`docs/*.md`、`*.md` 与 `LICENSE*` 的单独改动不触发完整工作流，这些路径既不参与构建也不是门禁输入。`docs/testing/**` 保持触发，因为其中的 `README.md` 是测试注册表、属于门禁输入；同目录的叙述文档因此也会触发，属保留该目录的代价。`.github/**`、`content/**`、运行时源码和所有清单配置同样不受忽略。被排除文档的格式、链接与用词检查由本地 `check:fast` 承担。`cinematic.yml` 与 `images.yml` 只有手动触发；需要核验仅含文档的推送时用 `workflow_dispatch`，该入口不受路径过滤影响。若启用 required checks，须为被路径过滤跳过的提交配置对应的跳过规则，否则 PR 会一直等待必需检查。
 
@@ -26,7 +24,7 @@ CI 联合检出共享库时固定到具体提交，同一 SHA 必须同步维护
 
 需要完整场景或依赖首页入场时序的用例标注 `@cinematic`，推送门禁与默认测试配置都排除该标签。完整场景回归在有 GPU 的本地环境通过 `bun run test:scene` 执行；`--scene` 计划设置 `XCA_CINEMATIC=1` 后才运行。`cinematic` 工作流仍为按需触发，但托管运行器没有 GPU，其结果不作为验收依据，没有自托管 GPU 运行器时不应触发。图片基线只有 Windows 一份，由 `images` 工作流按需比对。
 
-共享运行器偶尔在单帧内跳过某个阶段，CI 允许一次重试，重试后仍失败照常阻断。早期开发阶段每个平台同步一次共享 UI，再构建一次门户并复用该产物运行测试。发布版本改用 npm 精确版本后只安装一次依赖。
+普通浏览器回归允许一次重试，重试后仍失败照常阻断。图片与完整场景各自构建，不复用其他平台的产物。
 
 图片基线只保留 Windows 一份。Linux 的功能执行计划排除 `snapshot` 范围，不把 Windows 图片当作 Linux 基线。Linux 的图片验收要单独建立并人工审核基线，不能自动生成后宣称通过。
 
@@ -100,7 +98,7 @@ bun audit --registry https://registry.npmjs.org
 | MUST | 类型、单测、终端 UI 与架构边界 | `check:fast`，CI 阻断 |
 | MUST | 测试文件与注册表一致，新增测试必须被登记 | `check:tests`，CI 阻断 |
 | MUST | 新增超出硬上限的项或存量超限增长须说明 | `check:budgets`，未登记精确上限及原因则阻断 |
-| MUST | 生产构建、现有功能 E2E | CI 构建一次并在 Linux 分片执行功能断言；`@cinematic` 与图片基线按需运行 |
+| MUST | 生产构建、现有功能 E2E | Windows 与 Linux 分别构建，Linux 产物复用进功能分片和独立认证套件；`@cinematic` 与图片基线按需运行 |
 | SHOULD | 软阈值、认知复杂度 >25、深层嵌套、模块职责变化、重复实现与状态竞争 | Biome/阈值检查输出 + 人工审查 |
 | MUST | 例外、提高阈值、抑制误报、跨仓库公共接口 | 审查者核实依据，不以消除诊断为理由 |
 | MAY | 有证据的重构、额外平台或性能验证 | 按收益与风险选择，不为了指标制造工作 |
@@ -162,7 +160,7 @@ Core 仅允许 Core、branding、终端 config、i18n 与站点 config 的本地
 
 [文档链接检查](../../scripts/gates/check-docs.ts) 跳过围栏、行内代码、外部协议和片段，只核对文件目标存在，不检查片段有效性或外链连通性。片段和正文事实仍由人工核对。
 
-[命令入口检查](../../scripts/gates/check-references.ts) 核对 `package.json`、门禁聚合与工作流中的脚本路径是否存在，并校验 `bun run` 引用的脚本名已在清单声明；不检查参数、文档叙述性引用或跨仓库路径。CI 通过 `test:ci`、`test:scene:ci` 与 `test:visual:ci` 复用同一执行计划，参数与执行语义仍由对应测试和 CI 运行验证。
+[命令入口检查](../../scripts/gates/check-references.ts) 核对 `package.json`、门禁聚合、工作流及本地复合操作中的脚本路径，校验 `bun run` 引用的脚本名已在清单声明。不检查参数、文档叙述性引用或跨仓库路径。参数与执行语义由对应测试和 CI 运行验证。
 
 ## 修改与验证
 

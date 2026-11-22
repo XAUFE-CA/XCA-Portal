@@ -178,7 +178,7 @@ Phase D 已接入隔离测试环境的浏览器入口，生产仍禁止访问该
 
 Passkey 登录经既有 `AuthClient` 的 Web Locks、操作标识、状态通知和待核对标记更新应用级身份。管理写入在同一把 Web Lock 内执行，并使用独立的 Passkey 管理操作标识；响应丢失后，下一次管理写入先调用取消屏障。浏览器取消只终止认证窗口，不提交验证；提交阶段不再允许取消按钮，已发出的请求通过持久化屏障核对。多标签页通过既有身份通知重新查询 Session。
 
-隔离浏览器入口 `backend/tools/browser-passkey.mjs` 使用 `http://localhost:4112`、独立 PostgreSQL/Mailpit、Go API `127.0.0.1:18080` 和 Playwright 虚拟认证器，只回收本次创建的进程与容器。1A 链路继续使用 `http://127.0.0.1:4102` 并保持两个 Passkey 开关关闭。虚拟认证器不能替代 Windows Hello、Android、硬件密钥或正式 HTTPS 验收。
+隔离浏览器入口 `backend/tools/browser-passkey.mjs` 使用 `http://localhost:4112`、独立 PostgreSQL/Mailpit、Go API `127.0.0.1:18080` 和 Playwright 虚拟认证器，只回收本次创建的进程与容器。1A 链路使用 `http://127.0.0.1:4102` 和 Go API `127.0.0.1:18081`，两个 Passkey 开关均关闭。虚拟认证器不能替代 Windows Hello、Android、硬件密钥或正式 HTTPS 验收。
 
 ## 内部验证码与投递
 

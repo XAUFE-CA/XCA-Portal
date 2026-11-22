@@ -36,7 +36,7 @@ Compose 只用于本地开发，不用于生产部署。
 
 ## 部署前准备
 
-1. 准备 Linux 主机、Node 24、PostgreSQL 与可终止 TLS 的反向代理。构建主机与运行主机的操作系统和 CPU 架构保持一致，Nuxt Content 的原生模块随该平台构建。
+1. 准备 Linux 主机、[门户指定的 Node 版本](../../.node-version)、PostgreSQL 与可终止 TLS 的反向代理。构建主机与运行主机的操作系统和 CPU 架构保持一致，Nuxt Content 的原生模块随该平台构建。
 2. 创建数据库与专用角色。角色只授予业务所需的表读写权限，迁移可使用单独的高权限连接，不在运行进程中长期保留建表权限。
 3. 为数据库启用 TLS，取得 CA 证书，并把证书安装到运行主机。`DATABASE_URL` 的密码含 URL 特殊字符时必须编码。
 4. 准备 SMTP 服务的提交端口、TLS 模式与凭据，确认发件地址和域名配置可以投递验证码邮件。
@@ -109,27 +109,23 @@ API_MAX_BODY_BYTES=1048576
 
 ## 构建产物
 
-在发布提交上构建，构建产物与运行环境使用同一平台：
+门户与 Go 从同一发布提交分别构建。工具链版本和冻结安装规则见 [工程质量规则](engineering-quality.md#本地开发与共享依赖)。Go 产物用以下命令生成，CI 设置 `CGO_ENABLED=0` 和 `GOTOOLCHAIN=local`：
 
 ```sh
 cd backend
-go build -o bin/api ./cmd/api
-go build -o bin/migrate ./cmd/migrate
-go build -o bin/xcactl ./cmd/xcactl
-```
-
-门户使用 Bun 构建：
-
-```sh
-bun install --frozen-lockfile
 bun run build
 ```
 
-产物为 `.output/`。生产运行 `.output/server/index.mjs`，使用 Node 24，不执行 `bun run generate`，服务端代理需要 Node 服务进程。
+产物为 `backend/bin/` 下的 `api`、`migrate`、`xcactl`，Windows 文件带 `.exe` 后缀。门户从仓库根目录构建：
 
-当前早期开发使用同级 `../Neoverse-UI` 的 `file:` 依赖，构建主机需要检出该仓库并先执行 `bun run ui:sync`。正式发布改用 npm 精确版本后移除该步骤，依赖来源规则见 [工程质量规则](engineering-quality.md#本地开发与共享依赖)。
+```sh
+bun install --frozen-lockfile --linker hoisted
+bun run build
+```
 
-将 `backend/bin/` 中的 `api`、`migrate`、`xcactl` 安装到运行主机的固定目录，例如 `/opt/xca/bin/`。
+门户产物为 `.output/`。用指定的 Node 版本运行 `node .output/server/index.mjs`，不使用 `bun run generate` 代替服务端代理。CI 的 Windows 与 Linux 候选包在同平台解包后执行 [产物检查](../../scripts/build/smoke-nitro.mjs)，验证服务端正文、构建样式、默认关闭的 QA 路由与上游不可用响应。不得跨平台混用 `.output/`。仍依赖 Git 固定提交的 Neoverse-UI 候选包不进入生产发布，须完成 [npm 发布包切换](engineering-quality.md#切换到发布包)。
+
+构建只使用源码、锁定依赖和 Git 构建信息。`APP_ENV`、`DATABASE_URL`、`PUBLIC_ORIGIN`、SMTP、HMAC 密钥与 Passkey 开关由 Go 进程启动时读取。`NUXT_BACKEND_API`、`NUXT_PASSKEY_QA` 与 Nitro 监听地址由 Node 进程启动时注入，不写入构建环境或归档。生产运行不设置 `NUXT_PASSKEY_QA`。
 
 ## 数据库迁移
 

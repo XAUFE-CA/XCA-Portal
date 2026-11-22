@@ -45,6 +45,8 @@ public/                 静态资产
   notes/                 未解决事项、计划与必要过程记录
   skills/                可复用的方法与模板
 .github/                CI 工作流与 PR 模板
+  actions/             CI 复用的门户依赖准备
+  workflows/           门禁、候选构建与专项浏览器回归
 ```
 
 根目录配置、依赖与命令以清单和配置文件为准。环境准备、端口与共享依赖见 [工程质量规则](docs/architecture/engineering-quality.md)。

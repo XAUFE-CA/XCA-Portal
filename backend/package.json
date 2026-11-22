@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "go build -mod=readonly -trimpath -o bin/ ./cmd/api ./cmd/migrate ./cmd/xcactl",
     "api:generate": "bun tools/contract.mjs generate",
     "api:check": "redocly lint api/openapi.yaml && bun tools/contract.mjs check && tsc -p api/tsconfig.json",
     "dev": "bun tools/dev.mjs",

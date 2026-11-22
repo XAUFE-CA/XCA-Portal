@@ -53,22 +53,69 @@ jobs:
           cache-dependency-path: backend/go.sum
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: .node-version
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
       - name: Go checks and race tests
         run: bun tools/check.mjs -race
-      - name: Backend integration tests
-        run: bun tools/integration.mjs
       - name: Install contract tools
         run: bun install --frozen-lockfile
       - name: Validate API contract and generated types
         working-directory: .
         run: bun run backend:api:check
 
-  # Gates and the production build run once; browser jobs reuse the artifact.
-  # 门禁与生产构建只运行一次，浏览器作业复用其产物。
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: PostgreSQL and Mailpit integration tests
+        run: bun --cwd=backend test:integration
+
+  backend-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Build API, migration and invitation binaries
+        run: bun --cwd=backend run build
+        env:
+          CGO_ENABLED: "0"
+          GOTOOLCHAIN: local
+      - name: Archive Go candidate binaries
+        run: tar -czf backend.tar.gz -C backend bin
+      - uses: actions/upload-artifact@v7
+        with:
+          name: backend-candidate-${{ runner.os }}
+          path: backend.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  # Frontend gates include type checks and isolated unit/module tests without building Nitro.
+  # 前端门禁包含类型检查与隔离的单元及模块测试，不构建 Nitro。
   gates:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -80,45 +127,106 @@ jobs:
         with:
           path: XCA-Portal
           persist-credentials: false
-      # Early development only: published dependencies need no sibling checkout.
-      # 仅早期开发需要：发布版本无需联合检出。
+      - uses: ./XCA-Portal/.github/actions/setup-portal
+      - name: Fast gates
+        run: bun run check:fast
+
+  portal-build:
+    needs: gates
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: XCA-Portal
+    steps:
       - uses: actions/checkout@v7
         with:
-          repository: SSJ-ZYJ/Neoverse-UI
-          ref: c993f56c972073c85392c010b6a8f8199d442784
-          path: Neoverse-UI
+          path: XCA-Portal
+          persist-credentials: false
+      - uses: ./XCA-Portal/.github/actions/setup-portal
+      - name: Build Node production output
+        run: bun run build
+      - name: Archive Nitro candidate
+        run: tar -czf portal.tar.gz .output
+      - uses: actions/upload-artifact@v7
+        with:
+          name: portal-candidate-${{ runner.os }}
+          path: XCA-Portal/portal.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  portal-smoke:
+    needs: portal-build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
-      - uses: oven-sh/setup-bun@v2
+          node-version-file: .node-version
+      - uses: actions/download-artifact@v7
         with:
-          bun-version: 1.4.4
-      - uses: actions/cache@v6
+          name: portal-candidate-${{ runner.os }}
+          path: ${{ runner.temp }}
+      - name: Extract candidate without installing dependencies
+        working-directory: ${{ runner.temp }}
+        run: tar -xzf portal.tar.gz
+      - name: Check standalone Nitro runtime
+        shell: bash
+        run: node scripts/build/smoke-nitro.mjs "$RUNNER_TEMP/.output"
+
+  auth-browser:
+    needs: [portal-smoke, backend-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [browser, "browser:passkey"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: XCA-Portal
+    steps:
+      - uses: actions/checkout@v7
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('XCA-Portal/bun.lock', 'Neoverse-UI/bun.lock') }}
-      - name: Install shared workspace
-        working-directory: Neoverse-UI
-        run: bun install --frozen-lockfile --linker hoisted
-      - name: Install portal
-        run: bun install --frozen-lockfile --linker hoisted
-      # Early development only; published dependencies need no sync.
-      # 仅早期开发需要；发布版本无需同步。
-      - name: Sync shared UI
-        run: bun run ui:sync
-      - name: Fast gates
-        run: bun run check:fast
-      - name: Production build
-        run: bunx nuxt build
+          path: XCA-Portal
+          persist-credentials: false
+      - uses: ./XCA-Portal/.github/actions/setup-portal
+      - uses: actions/download-artifact@v7
+        with:
+          name: portal-candidate-Linux
+          path: XCA-Portal
+      - uses: actions/download-artifact@v7
+        with:
+          name: backend-candidate-Linux
+          path: XCA-Portal
+      - name: Extract release candidates
+        run: |
+          tar -xzf portal.tar.gz
+          tar -xzf backend.tar.gz -C backend
+      - name: Install Chromium and system dependencies
+        run: bunx --no-install playwright install --with-deps chromium
+      - name: Isolated auth browser suite
+        env:
+          AUTH_SUITE: ${{ matrix.suite }}
+        run: bun --cwd=backend "test:$AUTH_SUITE" --artifacts
       - uses: actions/upload-artifact@v7
+        if: failure()
         with:
-          name: portal-build
-          # The build output is a dot-directory, which the action excludes by default.
-          # 构建产物是点开头的目录，该动作默认会跳过隐藏文件。
-          path: XCA-Portal/.output
-          include-hidden-files: true
-          retention-days: 1
+          name: auth-browser-${{ strategy.job-index }}
+          path: XCA-Portal/test-results
+          if-no-files-found: ignore
+          retention-days: 3
 
   # The push gate runs only GPU-independent functional assertions; @cinematic cases need
   # WebGL and are verified locally on a GPU machine. Coverage is split across shards.
@@ -127,7 +235,7 @@ jobs:
   # 推送门禁只运行不依赖 GPU 的功能断言；@cinematic 用例需要 WebGL，由具备 GPU 的本地环境验收。
   # 功能覆盖按分片切分。图片基线取决于其所在机器的光栅器，改在独立的 images 工作流运行。
   browser:
-    needs: gates
+    needs: portal-smoke
     strategy:
       fail-fast: false
       matrix:
@@ -158,37 +266,13 @@ jobs:
         with:
           path: XCA-Portal
           persist-credentials: false
-      # Early development only: published dependencies need no sibling checkout.
-      # 仅早期开发需要：发布版本无需联合检出。
-      - uses: actions/checkout@v7
-        with:
-          repository: SSJ-ZYJ/Neoverse-UI
-          ref: c993f56c972073c85392c010b6a8f8199d442784
-          path: Neoverse-UI
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('XCA-Portal/bun.lock', 'Neoverse-UI/bun.lock') }}
-      - name: Install shared workspace
-        working-directory: Neoverse-UI
-        run: bun install --frozen-lockfile --linker hoisted
-      - name: Install portal
-        run: bun install --frozen-lockfile --linker hoisted
-      # Early development only; published dependencies need no sync.
-      # 仅早期开发需要；发布版本无需同步。
-      - name: Sync shared UI
-        run: bun run ui:sync
+      - uses: ./XCA-Portal/.github/actions/setup-portal
       - uses: actions/download-artifact@v7
         with:
-          name: portal-build
-          path: XCA-Portal/.output
+          name: portal-candidate-Linux
+          path: XCA-Portal
+      - name: Extract Nitro candidate
+        run: tar -xzf portal.tar.gz
       # Browser binaries do not depend on the portal build, so every shard reuses one cache.
       # 浏览器二进制不依赖门户构建，各分片复用同一缓存。
       - uses: actions/cache@v6
@@ -197,7 +281,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('XCA-Portal/bun.lock') }}
       - name: Install Chromium (Linux)
         if: runner.os == 'Linux'
-        run: bunx playwright install --with-deps chromium
+        run: bunx --no-install playwright install --with-deps chromium
       - name: Functional browser regression (Linux)
         if: runner.os == 'Linux'
         # Snapshot baselines stay in the separate images workflow; the functional plan excludes that scope.
@@ -211,3 +295,4 @@ jobs:
           name: playwright-${{ runner.os }}-${{ matrix.shard }}
           path: XCA-Portal/test-results
           if-no-files-found: ignore
+          retention-days: 3

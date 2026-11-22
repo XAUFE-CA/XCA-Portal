@@ -50,6 +50,7 @@ scripts/
 | --- | --- |
 | build-info.ts | 读取 Git 提交并生成构建信息 |
 | build-info.test.ts | 记录解析与缺失时间戳测试 |
+| smoke-nitro.mjs | 用 Node 启动独立解包的 Nitro 产物，验证正文、样式和默认关闭行为 |
 | stamp-terminal-texts.ts | 重新生成终端正文基线 |
 | fonts/build-font-subsets.py | 字体子集生成 |
 | fonts/glyph-coverage.json | 字形覆盖清单 |

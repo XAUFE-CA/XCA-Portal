@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { once } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -8,9 +9,14 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const backend = resolve(root, "backend");
+const args = process.argv.slice(2);
+const useArtifacts = args.length === 1 && args[0] === "--artifacts";
+if (args.length && !useArtifacts)
+  throw new Error("Usage: bun tools/browser-passkey.mjs [--artifacts]");
 const project = `xca-passkey-browser-${randomBytes(8).toString("hex")}`;
 const directory = mkdtempSync(join(tmpdir(), "xca-passkey-browser-"));
-const binary = join(directory, process.platform === "win32" ? "api.exe" : "api");
+const binDir = useArtifacts ? resolve(backend, "bin") : directory;
+const binary = (name) => join(binDir, process.platform === "win32" ? `${name}.exe` : name);
 const encodeKey = () => randomBytes(32).toString("base64");
 const label = randomBytes(5).toString("hex");
 const apiPort = 18080;
@@ -40,6 +46,7 @@ const env = {
   WEBAUTHN_RP_NAME: "XCA Passkey QA",
   SESSION_TTL: "24h",
   NUXT_BACKEND_API: `http://127.0.0.1:${apiPort}`,
+  XCA_PASSKEY_PORT: String(previewPort),
   XCA_TEST_MAILPIT_URL: "http://127.0.0.1:18026",
   COMPOSE_DISABLE_ENV_FILE: "1",
 };
@@ -115,33 +122,22 @@ function startPreview(port, qa) {
       NITRO_PORT: String(port),
       NUXT_PASSKEY_QA: qa ? "true" : "false",
     },
-    stdio: "ignore",
+    stdio: "inherit",
     windowsHide: true,
   });
 }
 
-async function stopPreview() {
-  if (preview && preview.exitCode === null) {
-    preview.kill();
-    await delay(500);
-  }
-  preview = undefined;
+async function stopProcess(child) {
+  if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return;
+  const exited = once(child, "exit");
+  child.kill();
+  await exited;
 }
 
 function invitation(email, login) {
   const output = run(
-    "go",
-    [
-      "run",
-      "./cmd/xcactl",
-      "create",
-      "--email",
-      email,
-      "--login",
-      login,
-      "--display-name",
-      "Passkey QA",
-    ],
+    binary("xcactl"),
+    ["create", "--email", email, "--login", login, "--display-name", "Passkey QA"],
     backend,
     true,
   );
@@ -179,9 +175,13 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 let failed = false;
 try {
   await preflight();
+  if (!useArtifacts) {
+    run("go", ["build", "-mod=readonly", "-trimpath", "-o", `${binDir}/`, "./cmd/..."]);
+    run("bun", ["run", "build"], root);
+  }
   started = true;
   run("docker", [...compose, "up", "-d", "--wait", "--wait-timeout", "90"]);
-  run("go", ["run", "./cmd/migrate", "up"]);
+  run(binary("migrate"), ["up"]);
   const email = `passkey-${label}@example.invalid`;
   const alternateEmail = `passkey-alt-${label}@example.invalid`;
   const thirdEmail = `passkey-third-${label}@example.invalid`;
@@ -203,13 +203,11 @@ try {
   env.XCA_PASSKEY_DB_CONTAINER = await postgresContainer();
   env.XCA_PASSKEY_DB_NAME = "xca_test_admin";
 
-  run("go", ["build", "-o", binary, "./cmd/api"]);
-  api = spawn(binary, [], { cwd: backend, env, stdio: "ignore", windowsHide: true });
+  api = spawn(binary("api"), [], { cwd: backend, env, stdio: "inherit", windowsHide: true });
   api.on("error", () => {
     interrupted = true;
   });
   await awaitURL(`http://127.0.0.1:${apiPort}/readyz`);
-  run("bun", ["run", "build"], root);
 
   preview = startPreview(probePort, false);
   const denied = await awaitURL(`http://localhost:${probePort}/`);
@@ -218,7 +216,7 @@ try {
   const probeDenied = await fetch(`http://localhost:${probePort}/api/passkey-qa`);
   if (pageDenied.status !== 404 || probeDenied.status !== 404)
     throw new Error("Passkey QA route leaked without the server flag");
-  await stopPreview();
+  await stopProcess(preview);
 
   preview = startPreview(previewPort, true);
   await awaitURL(origin);
@@ -229,8 +227,8 @@ try {
   console.error(error instanceof Error ? error.message : "Unknown Passkey browser failure");
 } finally {
   cleaning = true;
-  await stopPreview();
-  if (api && api.exitCode === null) api.kill();
+  await stopProcess(preview);
+  await stopProcess(api);
   if (started) {
     try {
       run("docker", [...compose, "down", "--volumes", "--remove-orphans"]);

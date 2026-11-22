@@ -150,14 +150,17 @@ test("script reference scan covers command entries and skips sibling-workspace p
     "run: bun scripts/tests/test-plan.ts run system",
     "uses: Neoverse-UI/scripts/check.ts",
     'cmd: ["bun", "scripts/gates/check-docs.ts"] and scripts/legacy.ts',
+    'run: node scripts/build/smoke-nitro.mjs "$stage/.output"',
   ].join("\n");
   expect(scriptReferences(source)).toEqual([
     { target: "scripts/tests/test-plan.ts", line: 1 },
     { target: "scripts/gates/check-docs.ts", line: 3 },
     { target: "scripts/legacy.ts", line: 3 },
+    { target: "scripts/build/smoke-nitro.mjs", line: 4 },
   ]);
   expect(isEntryFile("package.json")).toBe(true);
   expect(isEntryFile(".github/workflows/quality.yml")).toBe(true);
+  expect(isEntryFile(".github/actions/setup-portal/action.yml")).toBe(true);
   expect(isEntryFile("scripts/gates/run-gates.ts")).toBe(true);
   expect(isEntryFile("docs/testing/README.md")).toBe(false);
 });

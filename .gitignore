@@ -5,6 +5,7 @@
 .nitro
 .cache
 dist
+/backend/bin/
 
 # Node dependencies
 node_modules

@@ -446,6 +446,27 @@ type AuthResult<T> =
 
 2026-11-22 新增 `app/features/auth/passkey.ts` 浏览器适配、`app/features/auth/passkeys.ts` 业务流程、测试环境 `/auth/passkey` 页面及其服务端开关。Playwright 1.64.1 虚拟认证器链路使用独立 `localhost` 来源与临时认证器材料；1A 链路继续使用 `127.0.0.1` 且保持 Passkey 关闭。隔离 Passkey 套件 10 项通过，覆盖真实注册与登录、Cookie 与会话恢复、OTP 权限隔离、撤销、取消、响应丢失与取消屏障、跨标签页和负面输入。1A 真实链路 5 项通过，其中新增关闭状态下六个 Passkey 接口均返回 404。虚拟认证器通过不等同于 Windows Hello、Android、硬件密钥或正式 HTTPS 验收，生产开关保持关闭。
 
+### Phase E1：构建与发布准入
+
+2026-11-22 的验收基于门户 `fb4e2c2` 及 E1 未提交改动。起始 `main` 工作区干净，领先跟踪分支 2 个提交。此前 1A 的 5 项与 Phase D 的 10 项为历史记录，不计入本批复测。
+
+| 级别 | 事项 | 准入动作 |
+| --- | --- | --- |
+| P0 | 正式 npm 依赖不兼容。六个候选版本为 Glass Runtime/Motion `0.2.2`、Overlay Runtime/Tailwind/Tokens `0.3.1`、Vue `0.4.0`。隔离安装后类型检查报告 12 项错误，Vue 包缺少 `UiContextMenu`、`useLayoutWidthMotion`、`ContextMenuEntry` 和 `ContextMenuItem`。`UiTerminalEcho` 已发布。 | 由共享库维护者发布兼容版本，再冻结 npm 依赖，移除 `file:`、本地解析、同步和联合检出。不得用候选产物替代正式发布。 |
+| P0 | 未验收独立 HTTPS、实际 RP ID、TLS、真实 SMTP、设备兼容性和备份恢复。未执行生产开放。 | 维护者提供隔离环境、真实设备与恢复演练条件。生产 Passkey 管理、登录与 QA 页继续关闭。 |
+| P1 | [最近一次远端 Quality](https://github.com/XAUFE-CA/XCA-Portal/actions/runs/44918127790) 对应 `5c328cf`，在 `backend/tools/dev.mjs` 的格式检查失败。本批基线已按格式器要求换行，新工作流没有远端运行证据。分支保护端点返回 `Branch not protected`，当次规则查询没有 required status check。 | 提交后的候选版本必须有全部作业结果，再按仓库管理权限登记并核对 required checks，不用本地结果替代。 |
+| P2 | 构建有前端包大小提示，Windows 另有 Nitro 缓存驱动的解析警告。 | 保留警告，使用独立作业验证归档，不能用解包检查替代预发布的运行验证。 |
+
+候选构建通过 [复合操作](../../../.github/actions/setup-portal/action.yml) 检出共享库 `63a4878`，其 Motion 和 Vue 包清单与现有 `bun.lock` 匹配。旧固定提交 `c993f56` 在冻结安装中对这两个包发出依赖变更警告。候选流程不等同于只依赖 npm 的正式发布，也不承诺不同构建主机上的产物逐字节一致。
+
+本地 Windows 与 Linux（WSL）使用 Bun `1.4.4`、Node `24.22.3` 构建，`bun run check` 各 12 项通过。两平台都构建了 `api`、`migrate`、`xcactl`，Go 静态检查、竞争检测与 PostgreSQL/Mailpit 集成测试通过。两平台 Nitro 归档解包后均返回正文、样式、默认关闭的 QA 路由，以及禁止缓存的上游不可用响应。OpenAPI 校验与 `actionlint` 本地检查通过。
+
+Windows 使用解包产物复测，1A 认证 E2E 5 项通过。Passkey 首轮 9 项通过、1 项失败。Trace 显示请求返回 `202` 后，测试读取了之前已存在的同邮箱 Mailpit 邮件，随后验证码验证返回 `400 invalid_or_expired_code`。测试改为在请求前记录邮件 ID，仅接受新邮件，并对实际 HTTP 状态断言。未修改产品认证实现。复测 10 项通过，首次 Trace 与录像保留在隔离工作区。Windows 图片基线比对通过，未改写快照。
+
+Linux 同样使用解包产物复测，1A 认证 E2E 5 项与 Passkey 虚拟认证器 E2E 10 项通过。两套测试使用隔离的回环 HTTP、PostgreSQL 和 Mailpit，不验证正式 HTTPS、登录域名、真实邮件服务或实际认证器。
+
+Linux 普通浏览器计划共有 194 项，单进程执行在第 147 次尝试后达到本地命令超时。首段 145 项通过，其中菜单图片复制和主题过渡各在一次重试后通过。停止超时后留存的本次预览进程，再从被中断的文件继续，50 项通过，与首段重叠 1 项。两段覆盖全部 194 项，不是一次完整的远端 CI 运行。未扩大忽略范围或修改截图基线。
+
 ## 1C：学校统一身份认证
 
 学校公开入口为 [西安财经大学统一身份认证](https://cas.xaufe.edu.cn/login)。公开页面可见账号登录和扫码登录，但票据校验端点、返回属性和应用接入要求尚未验证。

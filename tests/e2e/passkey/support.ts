@@ -82,29 +82,32 @@ export function account(name: "primary" | "alternate" | "third"): Account {
   };
 }
 
-async function mailpitCode(request: APIRequestContext, email: string): Promise<string> {
+async function mailpitMessages(request: APIRequestContext, email: string): Promise<string[]> {
+  const response = await request.get(`${env("XCA_PASSKEY_MAILPIT_URL")}/api/v1/messages`);
+  expect(response.ok(), "Mailpit inbox must be readable").toBe(true);
+  const data = await response.json();
+  const messages: unknown[] = Array.isArray(data.messages) ? data.messages : [];
+  return messages.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const record = item as Record<string, unknown>;
+    return typeof record.ID === "string" && JSON.stringify(record.To).includes(email)
+      ? [record.ID]
+      : [];
+  });
+}
+
+async function mailpitCode(
+  request: APIRequestContext,
+  email: string,
+  previous: ReadonlySet<string>,
+): Promise<string> {
   const mailpit = env("XCA_PASSKEY_MAILPIT_URL");
   let code = "";
   await expect
     .poll(
       async () => {
-        const response = await request.get(`${mailpit}/api/v1/messages`);
-        if (!response.ok()) return "";
-        const data = await response.json();
-        const messages = Array.isArray(data.messages) ? data.messages : [];
-        const matching = messages
-          .filter((item: unknown) => {
-            if (typeof item !== "object" || item === null) return false;
-            const record = item as Record<string, unknown>;
-            return typeof record.ID === "string" && JSON.stringify(record.To).includes(email);
-          })
-          .sort((a: unknown, b: unknown) => {
-            const first = (a as Record<string, unknown>).Created;
-            const second = (b as Record<string, unknown>).Created;
-            return String(second).localeCompare(String(first));
-          });
-        for (const item of matching) {
-          const id = (item as Record<string, unknown>).ID as string;
+        for (const id of await mailpitMessages(request, email)) {
+          if (previous.has(id)) continue;
           const detail = await request.get(`${mailpit}/api/v1/message/${encodeURIComponent(id)}`);
           if (!detail.ok()) continue;
           const message = await detail.json();
@@ -136,18 +139,19 @@ export async function otpLogin(
   await page
     .getByTestId("qa-invitation")
     .fill(invitation && !active ? (target.invitation ?? "") : "");
-  const accepted = page.waitForResponse(
-    (response) => response.url().endsWith("/api/v1/auth/email/code") && response.status() === 202,
+  const previous = new Set(await mailpitMessages(request, target.email));
+  const accepted = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/auth/email/code"),
   );
   await page.getByTestId("qa-request-code").click();
-  await accepted;
-  const code = await mailpitCode(request, target.email);
+  expect((await accepted).status()).toBe(202);
+  const code = await mailpitCode(request, target.email, previous);
   await page.getByTestId("qa-code").fill(code);
-  const verified = page.waitForResponse(
-    (response) => response.url().endsWith("/api/v1/auth/email/verify") && response.status() === 200,
+  const verified = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/auth/email/verify"),
   );
   await page.getByTestId("qa-verify-code").click();
-  await verified;
+  expect((await verified).status()).toBe(200);
   await expect(page.getByTestId("qa-status")).toHaveAttribute("data-status", "authenticated");
 }
 

@@ -20,6 +20,8 @@ Passkey 服务端测试使用受控认证器数据，由正式 WebAuthn 库解�
 
 Passkey 浏览器用例归入 `tests/e2e/passkey/*.spec.ts`，使用 `playwright.passkey.config.ts` 与 `--passkey` 选择，入口 `bun run test:browser:passkey` 在 `backend/` 中执行。该入口准备 `localhost` 来源、隔离 PostgreSQL/Mailpit、Go API 与 Nuxt 生产预览，并通过 Playwright 虚拟认证器执行真实 `navigator.credentials.create()`/`get()`。测试失败时保留 `test-results/passkey` 的 Trace 与录像；每次用例重置隔离库中的认证状态，不清理开发数据库。虚拟认证器结果不代表真实平台认证器验收。
 
+两个认证入口默认自行构建。加 `--artifacts` 时直接使用同平台解包后的 `.output/` 与 `backend/bin/`，运行产物中的迁移、邀请和 API 命令，不重新构建。CI 在独立运行器执行每个套件，只有失败时上传 Playwright 证据，保留 3 天。证据可能包含本次运行的短时测试值，不使用生产数据、凭据或邮箱。
+
 ## 注册表
 
 Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定的执行器参数，当前没有按范围追加的参数。Metadata 为逗号分隔的属性，含义见下一节。
@@ -83,7 +85,7 @@ Scope 为仓库相对路径，可含 `*` 通配符。Args 记录该范围固定�
 | `bun run test:browser`（在 `backend/` 中执行） | 隔离启动真实依赖与 Go API，执行 `--live` 范围并回收自身资源 |
 | `bun run test:browser:passkey`（在 `backend/` 中执行） | 使用独立 `localhost` 来源、虚拟认证器与隔离数据库执行 `--passkey` 范围，并回收自身资源 |
 
-`bun scripts/tests/test-plan.ts list <层级>` 只打印文件与命令，`run <层级>` 执行。`--shard=N/M` 传给 Playwright，用于 CI 分片；`--ignore-snapshots` 与 `--update-snapshots` 原样传给 Playwright。`--scene` 只选择带 `scene` 元数据的范围，`--snapshot` 只选择带 `snapshot` 元数据的范围，`--no-snapshot` 排除该范围。`--live` 只选择独立的真实认证链路用例，默认计划和八个普通浏览器分片均排除 `live` 范围，运行入口负责创建和回收临时依赖。`--passkey` 只选择 Passkey 虚拟认证器用例，与 `live`、场景、图片和分片互斥；普通分片、1A 链路和远端推送门禁均不运行该范围。
+`bun scripts/tests/test-plan.ts list <层级>` 只打印文件与命令，`run <层级>` 执行。`--shard=N/M` 传给 Playwright，用于 CI 分片；`--ignore-snapshots` 与 `--update-snapshots` 原样传给 Playwright。`--scene` 只选择带 `scene` 元数据的范围，`--snapshot` 只选择带 `snapshot` 元数据的范围，`--no-snapshot` 排除该范围。`--live` 只选择独立的真实认证链路用例。`--passkey` 只选择 Passkey 虚拟认证器用例，与 `live`、场景、图片和分片互斥。两个范围都不进入普通浏览器分片；各自的入口负责创建和回收临时依赖。
 
 CI 工作流不单独书写计划路径，通过 `bun run test:ci`、`bun run test:scene:ci` 与 `bun run test:visual:ci` 调用同一入口，用 `--` 追加分片与基线参数。推送门禁只执行不依赖 GPU 的用例；`@cinematic` 用例由本地 `bun run test:scene` 在具备 GPU 的环境验收，托管运行器的结果不作为依据。
 
