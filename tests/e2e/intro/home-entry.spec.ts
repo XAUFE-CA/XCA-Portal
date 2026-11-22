@@ -138,7 +138,7 @@ test("saved theme keeps its text and selection background aligned through reload
   }
 });
 
-test("the skip hint belongs to the city stage, not the CA drawing", async ({ page }) => {
+test("the skip hint belongs to the city stage, not the CA drawing @cinematic", async ({ page }) => {
   // Hold the stroke animation so the scene stays in its drawing stage.
   // 暂停描边动画，让场景停留在绘制阶段。
   await page.addInitScript(() => {

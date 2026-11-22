@@ -158,7 +158,7 @@ const { theme, setTheme } = useSiteTheme();
 const {
   phase,
   revealing,
-  spatialIntro,
+  introScene,
   markStage,
   bootLines,
   bootProgress,
@@ -178,10 +178,12 @@ const terminalActions = {
   expanded: () => expanded.value,
   insertText: (text: string) => terminalRef.value?.insertText(text),
 };
-// The page centre is empty until the mark draws, and the skip hint waits for the city.
-// 标识开始绘制前页面中央是空的，跳过提示则等到进入城市场景才出现。
+// The page centre is empty until the mark draws, and the spatial hint waits for the city.
+// 标识开始绘制前页面中央是空的，空间入场的提示则等到进入城市场景才出现。
 const caPreparing = computed(() => phase.value === "logo" && markStage.value === "preparing");
-const skipHintVisible = computed(() => phase.value === "logo" && markStage.value === "journey");
+const skipHintVisible = computed(
+  () => phase.value === "logo" && (introScene.value === "flat" || markStage.value === "journey"),
+);
 // The terminal menu owns the command-line field: it offers paste, which is the browser
 // command a custom menu has to replace rather than drop.
 // 终端菜单接管命令行输入框：它提供粘贴，这正是自定义菜单必须替代而不能丢弃的浏览器命令。
@@ -300,7 +302,12 @@ onBeforeUnmount(() => {
   >
     <div v-if="phase !== 'ready'" class="xca-terminal-hero__intro-backdrop" aria-hidden="true" />
     <IntroSkipHint :visible="skipHintVisible" @skip="skipIntro" />
-    <CaIntroMark v-if="spatialIntro" :ref="bindIntroMark" :preparing="caPreparing" />
+    <CaIntroMark
+      v-if="introScene"
+      :ref="bindIntroMark"
+      :preparing="caPreparing"
+      :flat="introScene === 'flat'"
+    />
     <TerminalFocusBackdrop
       :expanded="expanded"
       :shade-active="shadeActive"
@@ -379,7 +386,7 @@ onBeforeUnmount(() => {
         :session="session"
         :intro="phase !== 'ready'"
         :intro-stage="phase"
-        :projected="spatialIntro && !revealing"
+        :projected="introScene === 'spatial' && !revealing"
         :boot-lines="bootLines"
         :boot-progress="bootProgress"
         :banner-rows-visible="bannerRowsVisible"

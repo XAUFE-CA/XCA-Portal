@@ -1,4 +1,4 @@
-import { type Ref, ref } from "vue";
+import { nextTick, type Ref, ref } from "vue";
 import type {
   BootLine,
   TerminalPresentationStage,
@@ -68,6 +68,38 @@ export async function waitForPaint(signal: AbortSignal): Promise<void> {
   signal.throwIfAborted();
 }
 
+export function bindShortcut(context: IntroContext): void {
+  context.state.introShortcut = createIntroShortcut(() => context.state.skip?.());
+}
+
+export function finishIntro(context: IntroContext): void {
+  const wasPlaying = context.phase.value !== "ready";
+  context.state.introAbort?.abort();
+  context.state.introAbort = null;
+  context.playback.cancel();
+  context.state.settling = false;
+  context.state.retreatPromise = null;
+  context.revealing.value = false;
+  context.introScene.value = null;
+  const element = frame(context.anchor);
+  // Keep the terminal's compositor layer after docking; dropping it snaps the Aurora Glass edge.
+  // 停靠后让终端保持独立合成层。移除变换会让极光玻璃边缘在重新栅格化时抖动。
+  if (element) element.style.transform = IDENTITY_TRANSFORM;
+  context.phase.value = "ready";
+  context.bootLines.value = [];
+  context.bootProgress.value = 0;
+  context.bannerRowsVisible.value = 0;
+  context.bannerCaptionLines.value = 0;
+  context.expansion.reset();
+  bindShortcut(context);
+  releaseIntroGate();
+  if (wasPlaying)
+    void nextTick().then(() => {
+      if (context.phase.value === "ready" && window.matchMedia("(pointer: fine)").matches)
+        context.terminalRef.value?.focusInput();
+    });
+}
+
 // The context owns every mutable intro state; sequence functions stay module-level.
 // 上下文持有全部可变入场状态，序列函数保持在模块级。
 export function createIntroContext(getCommandCount: () => number) {
@@ -78,7 +110,7 @@ export function createIntroContext(getCommandCount: () => number) {
   const bannerRowsVisible = ref(0);
   const bannerCaptionLines = ref(0);
   const revealing = ref(false);
-  const spatialIntro = ref(false);
+  const introScene = ref<"spatial" | "flat" | null>(null);
   const markStage = ref<IntroMarkStage>("preparing");
   const anchor = ref<HTMLElement | null>(null);
   const terminalRef = ref<InstanceType<typeof TerminalHost> | null>(null);
@@ -89,6 +121,7 @@ export function createIntroContext(getCommandCount: () => number) {
     retreatPromise: null as Promise<unknown> | null,
     introAbort: null as AbortController | null,
     introShortcut: createIntroShortcut(() => undefined),
+    skip: null as (() => void) | null,
     viewportSize: { width: 0, height: 0 },
   };
   const playback = createIntroPlayback(
@@ -110,7 +143,7 @@ export function createIntroContext(getCommandCount: () => number) {
     bannerRowsVisible,
     bannerCaptionLines,
     revealing,
-    spatialIntro,
+    introScene,
     markStage,
     anchor,
     terminalRef,

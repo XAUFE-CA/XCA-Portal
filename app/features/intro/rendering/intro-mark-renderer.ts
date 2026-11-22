@@ -47,8 +47,12 @@ interface Pipeline {
   dispose(): void;
 }
 
-function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
-  const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
+function createRenderer(
+  root: HTMLElement,
+  canvas: HTMLCanvasElement,
+  context: WebGL2RenderingContext,
+) {
+  const renderer = new WebGLRenderer({ canvas, context, alpha: true });
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
@@ -56,11 +60,13 @@ function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
   renderer.setClearColor(0, 0);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.autoUpdate = false;
+  // A software context can still pass the probe; keep its pixel ratio at 1 rather than 2.
+  // 软件上下文仍可能通过探测，因此把它的像素比保持在 1 而不是 2。
   const gl = renderer.getContext();
   const info = gl.getExtension("WEBGL_debug_renderer_info");
   const software =
     info &&
-    /swiftshader|llvmpipe|softpipe|software|basic render/i.test(
+    /swiftshader|llvmpipe|lavapipe|softpipe|software|basic render/i.test(
       String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)),
     );
   const width = Math.max(1, root.clientWidth);
@@ -80,9 +86,10 @@ function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
 function createPipeline(
   root: HTMLElement,
   canvas: HTMLCanvasElement,
+  context: WebGL2RenderingContext,
   paths: SVGPathElement[],
 ): Pipeline {
-  const renderer = createRenderer(root, canvas);
+  const renderer = createRenderer(root, canvas, context);
   const releases: (() => void)[] = [
     () => {
       renderer.dispose();
@@ -337,6 +344,7 @@ class MarkRenderer {
 export async function mountMarkRenderer(
   root: HTMLElement,
   canvas: HTMLCanvasElement,
+  context: WebGL2RenderingContext,
   paths: SVGPathElement[],
   unavailable: () => void,
   signal: AbortSignal,
@@ -348,7 +356,7 @@ export async function mountMarkRenderer(
   const aura = root.querySelector<HTMLElement>(".xca-ca-intro__aura");
   if (!camera || !front || !travel || !aura) return null;
   try {
-    const state = createPipeline(root, canvas, paths);
+    const state = createPipeline(root, canvas, context, paths);
     const elements = {
       root,
       canvas,

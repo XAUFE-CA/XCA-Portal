@@ -1,20 +1,15 @@
-import { createIntroContext } from "./intro-runtime";
-import {
-  bindShortcut,
-  registerLifecycle,
-  skipIntro,
-  startIntro,
-  toggleExpanded,
-} from "./intro-sequence";
+import { bindShortcut, createIntroContext } from "./intro-runtime";
+import { registerLifecycle, skipIntro, startIntro, toggleExpanded } from "./intro-sequence";
 
 export function useIntroPresentation(getCommandCount: () => number) {
   const context = createIntroContext(getCommandCount);
+  context.state.skip = () => skipIntro(context);
   bindShortcut(context);
   registerLifecycle(context);
   return {
     phase: context.phase,
     revealing: context.revealing,
-    spatialIntro: context.spatialIntro,
+    introScene: context.introScene,
     markStage: context.markStage,
     bootLines: context.bootLines,
     bootProgress: context.bootProgress,
