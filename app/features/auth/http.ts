@@ -8,6 +8,13 @@ export type AuthErrorCode =
   | "service_unavailable";
 export type AuthFailure = { ok: false; code: AuthErrorCode; retryAfterSeconds?: number };
 export type AuthResult<T> = { ok: true; value: T } | AuthFailure;
+export type PasskeyAuthErrorCode =
+  | AuthErrorCode
+  | "invalid_or_expired_authentication"
+  | "operation_abandoned";
+export type PasskeyAuthResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; code: PasskeyAuthErrorCode; retryAfterSeconds?: number };
 export type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
 export type HttpResponse = { response: Response; body: unknown } | null;
@@ -116,6 +123,26 @@ export function failure(
     status === 429 &&
     code === "rate_limited"
   ) {
+    const header = headers.get("Retry-After");
+    const seconds = header && /^[1-9]\d*$/.test(header) ? Number(header) : undefined;
+    return seconds && Number.isSafeInteger(seconds)
+      ? { ok: false, code, retryAfterSeconds: seconds }
+      : { ok: false, code };
+  }
+  return { ok: false, code: "service_unavailable" };
+}
+
+export function passkeyFailure(
+  result: HttpResponse,
+): Extract<PasskeyAuthResult<never>, { ok: false }> {
+  if (!result || !record(result.body) || !record(result.body.error))
+    return { ok: false, code: "service_unavailable" };
+  const { status, headers } = result.response;
+  const code = result.body.error.code;
+  if (status === 400 && code === "invalid_request") return { ok: false, code };
+  if (status === 400 && code === "invalid_or_expired_authentication") return { ok: false, code };
+  if (status === 409 && code === "operation_abandoned") return { ok: false, code };
+  if (status === 429 && code === "rate_limited") {
     const header = headers.get("Retry-After");
     const seconds = header && /^[1-9]\d*$/.test(header) ? Number(header) : undefined;
     return seconds && Number.isSafeInteger(seconds)

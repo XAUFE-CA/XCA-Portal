@@ -6,7 +6,7 @@ info:
     name: MIT
     url: https://opensource.org/license/mit
   description: >-
-    Contract for 1A authentication owned by the portal. Browsers use the same origin as
+    Contract for portal authentication and test-only Passkey management and sign-in. Browsers use the same origin as
     the portal; deployment controls the exposure of health check endpoints. Authentication
     responses, including errors and cookies, use Cache-Control: no-store. Network
     errors are failures, never a successful guest session. OIDC is not implemented.
@@ -105,12 +105,16 @@ paths:
   /api/v1/auth/operations/abandon:
     post:
       operationId: abandonAuthOperation
-      summary: Fence an interrupted identity write
+      summary: Fence an interrupted identity or Passkey management write
       description: >-
-        A durable database barrier prevents a previous verification or logout
-        from committing after this response. If the verification already
-        committed, its session is revoked atomically with the barrier. The
-        client must await 204 before beginning a new identity write.
+        A durable database barrier prevents the interrupted write from committing
+        after acknowledgment. If email or Passkey sign-in already committed, this
+        revokes the session it issued without requiring a session cookie. Only
+        an existing Passkey registration or revocation operation requires its
+        original session cookie and enabled Passkey management; otherwise the
+        request returns the same 404 as an unavailable credential. A committed
+        registration is revoked by this call; a committed revocation stays
+        revoked. Await 204 before starting a new write.
       security: []
       parameters:
         - $ref: "#/components/parameters/Origin"
@@ -126,14 +130,353 @@ paths:
           headers:
             Cache-Control:
               $ref: "#/components/headers/NoStore"
+            X-XCA-Passkey-Operation-Outcome:
+              description: Present only when confirming the effect of a committed Passkey registration or revocation.
+              schema:
+                type: string
+                enum: [registration_revoked, revocation_committed]
         "400":
           $ref: "#/components/responses/InvalidRequest"
         "403":
           $ref: "#/components/responses/InvalidOrigin"
+        "404":
+          $ref: "#/components/responses/CredentialNotFound"
         "413":
           $ref: "#/components/responses/TooLarge"
         "415":
           $ref: "#/components/responses/InvalidRequest"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/passkeys/authentication/options:
+    post:
+      operationId: getPasskeyAuthenticationOptions
+      summary: Start a discoverable Passkey sign-in
+      description: >-
+        Test-only; when Passkey sign-in is disabled, the route returns 404 before
+        request validation. Requires a single exact same-origin Origin and
+        unambiguous application/json. The challenge expires after two minutes
+        and is used once upon successful verification. No session, account
+        identifier, credential list, or extensions are required or disclosed.
+        Issuance is limited per source address, globally, and by the number of
+        active challenges. Invalid source resolution fails closed.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: Opaque sign-in flow and account-independent WebAuthn request options.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyAuthenticationOptions"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "403":
+          $ref: "#/components/responses/InvalidOrigin"
+        "404":
+          $ref: "#/components/responses/PasskeysDisabled"
+        "405":
+          $ref: "#/components/responses/PasskeyMethodNotAllowed"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/PasskeyUnsupportedMedia"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/passkeys/authentication/verify:
+    post:
+      operationId: verifyPasskeyAuthentication
+      summary: Verify a discoverable Passkey assertion and establish a session
+      description: >-
+        Test-only. Requires the same strict same-origin JSON as options and a new
+        operation UUID. User verification and a discoverable userHandle are
+        required. Invalid, expired, used, and ineligible assertions share the
+        same response. A successful verification sets a session cookie but does
+        not grant recent email OTP privileges. Verification is limited per source
+        address, globally, and per flow. Do not retry the submission; use
+        operation abandonment to reconcile interruptions.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/OperationID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyAuthenticationRequest"
+      responses:
+        "200":
+          description: Verified identity and newly issued session cookie.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSession"
+        "400":
+          description: Malformed request or invalid, expired, used, or ineligible authentication.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyAuthenticationVerifyError"
+        "403":
+          $ref: "#/components/responses/InvalidOrigin"
+        "404":
+          $ref: "#/components/responses/PasskeysDisabled"
+        "405":
+          $ref: "#/components/responses/PasskeyMethodNotAllowed"
+        "409":
+          description: The operation was previously abandoned.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyAbandonedError"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/PasskeyUnsupportedMedia"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/passkeys/registration/options:
+    post:
+      operationId: getPasskeyRegistrationOptions
+      summary: Start a Passkey registration using a recent email OTP session
+      description: >-
+        Test-only; disabled routes return 404 before request validation. Requires a
+        single exact same-origin Origin and unambiguous application/json. Duplicate
+        or unknown JSON fields and trailing data are rejected. No CORS is enabled.
+        The challenge is session-bound, expires after two minutes, and is used once.
+        No authenticator attachment or extensions are requested.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: Opaque registration flow and WebAuthn creation options for the browser.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyOptions"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/PasskeyAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PasskeyWriteForbidden"
+        "404":
+          $ref: "#/components/responses/PasskeysDisabled"
+        "405":
+          $ref: "#/components/responses/PasskeyMethodNotAllowed"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/PasskeyUnsupportedMedia"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/passkeys/registration/verify:
+    post:
+      operationId: verifyPasskeyRegistration
+      summary: Verify the browser registration result and save a Passkey
+      description: >-
+        Test-only. Requires the originating session with a recent email OTP, a
+        new operation UUID, and the same strict same-origin JSON as options. Do not
+        retry the submission; use operation abandonment to reconcile interruptions.
+        This does not log in, update the session cookie, or return key material.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/OperationID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyRegistrationRequest"
+      responses:
+        "201":
+          description: The saved Passkey's public management summary.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeySummary"
+        "400":
+          description: Malformed request or invalid, expired, or already used registration.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyVerifyError"
+        "401":
+          $ref: "#/components/responses/PasskeyAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PasskeyWriteForbidden"
+        "404":
+          $ref: "#/components/responses/PasskeysDisabled"
+        "405":
+          $ref: "#/components/responses/PasskeyMethodNotAllowed"
+        "409":
+          description: Credential ID already exists or the interrupted operation was abandoned.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyVerifyConflict"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/PasskeyUnsupportedMedia"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/passkeys:
+    get:
+      operationId: listPasskeys
+      summary: List the authenticated account's active Passkeys
+      description: >-
+        Test-only. Recent email OTP is not required. Same-origin browsers may
+        omit Origin; if supplied, it must exactly match the configured origin
+        and occur only once. No CORS is enabled.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: Origin
+          in: header
+          schema:
+            type: string
+            format: uri
+      responses:
+        "200":
+          description: Active Passkey summaries, or an empty array.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [credentials]
+                properties:
+                  credentials:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PasskeySummary"
+        "401":
+          $ref: "#/components/responses/PasskeyAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/InvalidOrigin"
+        "404":
+          $ref: "#/components/responses/PasskeysDisabled"
+        "405":
+          $ref: "#/components/responses/PasskeyMethodNotAllowed"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/passkeys/revoke:
+    post:
+      operationId: revokePasskey
+      summary: Revoke an active Passkey using a recent email OTP session
+      description: >-
+        Test-only. Requires a new operation UUID and the same strict same-origin
+        JSON as options. Unknown, revoked, and other accounts' credential records
+        are indistinguishable. Revocation does not log out the current session.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/OperationID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [credential_id]
+              properties:
+                credential_id:
+                  type: string
+                  format: uuid
+                  description: Management record UUID, not a browser credential ID.
+      responses:
+        "204":
+          description: Revoked; no response body.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/PasskeyAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PasskeyWriteForbidden"
+        "404":
+          description: Passkey management is disabled or the credential record is unavailable.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyRevokeNotFound"
+        "405":
+          $ref: "#/components/responses/PasskeyMethodNotAllowed"
+        "409":
+          description: The interrupted operation was abandoned.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyAbandonedError"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "415":
+          $ref: "#/components/responses/PasskeyUnsupportedMedia"
         "503":
           $ref: "#/components/responses/Unavailable"
   /api/v1/auth/session:
@@ -251,7 +594,7 @@ components:
       name: X-XCA-Auth-Operation
       in: header
       required: true
-      description: Fresh random UUID per verification or logout; used only to order interrupted writes.
+      description: Fresh random UUID per verification, logout, or Passkey revocation; orders interrupted writes.
       schema:
         type: string
         format: uuid
@@ -291,6 +634,270 @@ components:
         type: integer
         minimum: 1
   schemas:
+    PasskeyBase64url:
+      type: string
+      pattern: "^[A-Za-z0-9_-]+$"
+      description: Unpadded base64url.
+    PasskeyAuthenticationOptions:
+      type: object
+      additionalProperties: false
+      required: [flow_id, publicKey]
+      properties:
+        flow_id:
+          $ref: "#/components/schemas/PasskeyBase64url"
+        publicKey:
+          type: object
+          additionalProperties: false
+          required: [challenge, rpId, userVerification]
+          properties:
+            challenge:
+              $ref: "#/components/schemas/PasskeyBase64url"
+            rpId: { type: string }
+            timeout: { type: integer, description: Browser timeout in milliseconds. }
+            userVerification: { type: string, enum: [required] }
+    PasskeyAuthenticationRequest:
+      type: object
+      additionalProperties: false
+      required: [flow_id, credential]
+      properties:
+        flow_id:
+          $ref: "#/components/schemas/PasskeyBase64url"
+        credential:
+          type: object
+          additionalProperties: false
+          required: [id, rawId, type, response]
+          properties:
+            id:
+              $ref: "#/components/schemas/PasskeyBase64url"
+            rawId:
+              $ref: "#/components/schemas/PasskeyBase64url"
+            type: { type: string, enum: [public-key] }
+            authenticatorAttachment:
+              { type: [string, "null"], enum: [platform, cross-platform, null] }
+            clientExtensionResults:
+              description: May only be empty because this ceremony requests no extensions.
+              type: object
+              additionalProperties: false
+            response:
+              type: object
+              additionalProperties: false
+              required: [authenticatorData, clientDataJSON, signature]
+              properties:
+                authenticatorData:
+                  $ref: "#/components/schemas/PasskeyBase64url"
+                clientDataJSON:
+                  $ref: "#/components/schemas/PasskeyBase64url"
+                signature:
+                  $ref: "#/components/schemas/PasskeyBase64url"
+                userHandle:
+                  description: The discoverable account handle. Null or absent is invalid for sign-in.
+                  oneOf:
+                    - $ref: "#/components/schemas/PasskeyBase64url"
+                    - type: "null"
+    PasskeyAuthenticationVerifyError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [invalid_request, invalid_or_expired_authentication] }
+    PasskeyOptions:
+      type: object
+      additionalProperties: false
+      required: [flow_id, publicKey]
+      properties:
+        flow_id:
+          $ref: "#/components/schemas/PasskeyBase64url"
+        publicKey:
+          type: object
+          additionalProperties: false
+          required: [rp, user, challenge, pubKeyCredParams]
+          properties:
+            rp:
+              type: object
+              additionalProperties: false
+              required: [id, name]
+              properties:
+                id: { type: string }
+                name: { type: string }
+            user:
+              type: object
+              additionalProperties: false
+              required: [id, name, displayName]
+              properties:
+                id:
+                  $ref: "#/components/schemas/PasskeyBase64url"
+                name: { type: string }
+                displayName: { type: string }
+            challenge:
+              $ref: "#/components/schemas/PasskeyBase64url"
+            pubKeyCredParams:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [type, alg]
+                properties:
+                  type: { type: string, enum: [public-key] }
+                  alg: { type: integer, description: COSE algorithm identifier. }
+            timeout: { type: integer, description: Browser timeout in milliseconds. }
+            excludeCredentials:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [type, id]
+                properties:
+                  type: { type: string, enum: [public-key] }
+                  id:
+                    $ref: "#/components/schemas/PasskeyBase64url"
+                  transports:
+                    type: array
+                    items: { type: string }
+            authenticatorSelection:
+              type: object
+              additionalProperties: false
+              properties:
+                requireResidentKey: { type: boolean }
+                residentKey: { type: string, enum: [discouraged, preferred, required] }
+                userVerification: { type: string, enum: [discouraged, preferred, required] }
+            attestation: { type: string, enum: [none] }
+    PasskeyRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [flow_id, credential]
+      properties:
+        flow_id:
+          $ref: "#/components/schemas/PasskeyBase64url"
+        credential:
+          type: object
+          additionalProperties: false
+          required: [id, rawId, type, response]
+          properties:
+            id:
+              $ref: "#/components/schemas/PasskeyBase64url"
+            rawId:
+              $ref: "#/components/schemas/PasskeyBase64url"
+            type: { type: string, enum: [public-key] }
+            authenticatorAttachment:
+              { type: [string, "null"], enum: [platform, cross-platform, null] }
+            clientExtensionResults:
+              description: May only be empty because this ceremony requests no extensions.
+              type: object
+              additionalProperties: false
+            response:
+              type: object
+              additionalProperties: false
+              required: [clientDataJSON, attestationObject]
+              properties:
+                clientDataJSON:
+                  $ref: "#/components/schemas/PasskeyBase64url"
+                attestationObject:
+                  $ref: "#/components/schemas/PasskeyBase64url"
+                authenticatorData:
+                  oneOf:
+                    - $ref: "#/components/schemas/PasskeyBase64url"
+                    - type: "null"
+                publicKey:
+                  oneOf:
+                    - $ref: "#/components/schemas/PasskeyBase64url"
+                    - type: "null"
+                publicKeyAlgorithm: { type: integer }
+                transports:
+                  type: array
+                  items: { type: string }
+    PasskeySummary:
+      type: object
+      additionalProperties: false
+      required: [id, label, created_at, last_used_at, backup_eligible, backup_state]
+      properties:
+        id: { type: string, format: uuid, description: Opaque management record ID. }
+        label: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+        backup_eligible: { type: boolean }
+        backup_state: { type: boolean }
+    PasskeyAuthenticationError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [authentication_required] }
+    PasskeyWriteForbiddenError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [invalid_request, recent_otp_required] }
+    PasskeyVerifyError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [invalid_request, invalid_or_expired_registration] }
+    PasskeyVerifyConflict:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [credential_exists, operation_abandoned] }
+    PasskeyAbandonedError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [operation_abandoned] }
+    PasskeyRevokeNotFound:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [invalid_request, credential_not_found] }
+    CredentialNotFoundError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code]
+          properties:
+            code: { type: string, enum: [credential_not_found] }
     EmailCodeRequest:
       type: object
       additionalProperties: false
@@ -495,7 +1102,7 @@ components:
           schema:
             $ref: "#/components/schemas/InvalidRequestError"
     RateLimited:
-      description: The requester or email address has reached a rate limit.
+      description: A rate limit prevents another request now.
       headers:
         Cache-Control:
           $ref: "#/components/headers/NoStore"
@@ -514,3 +1121,60 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/UnavailableError"
+    PasskeyAuthenticationRequired:
+      description: No authenticated session.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PasskeyAuthenticationError"
+    PasskeyWriteForbidden:
+      description: Origin is invalid or the session lacks a recent email OTP.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PasskeyWriteForbiddenError"
+    PasskeysDisabled:
+      description: The requested Passkey capability is disabled.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidRequestError"
+    CredentialNotFound:
+      description: The request cannot access the credential or Passkey operation.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CredentialNotFoundError"
+    PasskeyMethodNotAllowed:
+      description: Request used a method unsupported by the route.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+        Allow:
+          required: true
+          schema: { type: string, enum: [GET, POST] }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidRequestError"
+    PasskeyUnsupportedMedia:
+      description: Request must specify a single application/json Content-Type.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/NoStore"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidRequestError"

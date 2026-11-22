@@ -4,7 +4,7 @@ import ts from "typescript";
 export const REGISTRY_PATH = "docs/testing/README.md";
 export const LEVELS = ["unit", "module", "system"] as const;
 export const RUNNERS = ["bun-test", "playwright"] as const;
-export const METADATA = ["browser", "isolated", "scene", "snapshot", "live"] as const;
+export const METADATA = ["browser", "isolated", "scene", "snapshot", "live", "passkey"] as const;
 
 export type TestLevel = (typeof LEVELS)[number];
 export type TestRunner = (typeof RUNNERS)[number];
@@ -190,6 +190,11 @@ export function metadataIssues(scope: TestScope, sources: Map<string, string>): 
       "live",
       [...sources].some(([file, text]) => hasTaggedTitle(file, text, "@live-auth")),
       "@live-auth tag",
+    ],
+    [
+      "passkey",
+      [...sources].some(([file, text]) => hasTaggedTitle(file, text, "@live-passkey")),
+      "@live-passkey tag",
     ],
     [
       "snapshot",

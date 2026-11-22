@@ -38,27 +38,40 @@ func (s *Sessions) verify(ctx context.Context, service *Service, flow, code, ope
 	if s == nil || s.pool == nil || s.ttl <= 0 || service == nil {
 		return "", Identity{}, ErrUnavailable
 	}
-	var secret [32]byte
-	if _, err := rand.Read(secret[:]); err != nil {
-		return "", Identity{}, ErrUnavailable
+	token, digest, err := newSessionToken()
+	if err != nil {
+		return "", Identity{}, err
 	}
-	token := base64.RawURLEncoding.EncodeToString(secret[:])
-	digest := sha256.Sum256([]byte(token))
 	var identity Identity
-	err := service.WithVerifiedChallenge(ctx, flow, code, func(ctx context.Context, tx pgx.Tx, verified Identity) error {
+	err = service.WithVerifiedChallenge(ctx, flow, code, func(ctx context.Context, tx pgx.Tx, verified Identity) error {
 		identity = verified
 		if operationID != "" {
 			if err := claimOperation(ctx, tx, operationID, "verify", digest[:]); err != nil {
 				return err
 			}
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO sessions (session_digest, user_id, expires_at) VALUES ($1, $2, clock_timestamp() + make_interval(secs => $3::double precision))`, digest[:], verified.UserID, s.ttl.Seconds())
-		return err
+		return insertSession(ctx, tx, digest, verified.UserID, s.ttl, true)
 	})
 	if err != nil {
 		return "", Identity{}, err
 	}
 	return token, identity, nil
+}
+
+func newSessionToken() (string, [sha256.Size]byte, error) {
+	var secret [32]byte
+	if _, err := rand.Read(secret[:]); err != nil {
+		return "", [sha256.Size]byte{}, ErrUnavailable
+	}
+	token := base64.RawURLEncoding.EncodeToString(secret[:])
+	return token, sha256.Sum256([]byte(token)), nil
+}
+
+func insertSession(ctx context.Context, tx pgx.Tx, digest [sha256.Size]byte, userID string, ttl time.Duration, verifiedOTP bool) error {
+	_, err := tx.Exec(ctx, `INSERT INTO sessions (session_digest, user_id, expires_at, otp_verified_at)
+		VALUES ($1, $2, clock_timestamp() + make_interval(secs => $3::double precision),
+			CASE WHEN $4::boolean THEN statement_timestamp() END)`, digest[:], userID, ttl.Seconds(), verifiedOTP)
+	return err
 }
 
 func sessionDigest(token string) ([]byte, bool) {

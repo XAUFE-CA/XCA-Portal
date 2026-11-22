@@ -67,7 +67,11 @@ func TestAuthenticationHTTPLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(NewAuthHandler(pool, service, cfg))
+	handler, err := NewAuthHandler(pool, service, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(handler)
 	defer server.Close()
 	client := server.Client()
 	do := func(method, path, body string, cookie *http.Cookie) *http.Response {

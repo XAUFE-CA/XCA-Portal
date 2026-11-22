@@ -6,11 +6,13 @@ import {
   type Fetcher,
   failure,
   type HttpResponse,
+  type PasskeyAuthResult,
+  passkeyFailure,
   send,
   sessionFrom,
 } from "./http";
 
-export type { AuthIdentity, AuthResult } from "./http";
+export type { AuthIdentity, AuthResult, PasskeyAuthResult } from "./http";
 export type AuthSnapshot = {
   status: "unknown" | "checking" | "guest" | "authenticated" | "error";
   identity: AuthIdentity | null;
@@ -30,6 +32,11 @@ export interface AuthClient {
     input: components["schemas"]["EmailVerifyRequest"],
     signal?: AbortSignal,
   ): Promise<AuthResult<AuthIdentity>>;
+  verifyPasskey(
+    input: components["schemas"]["PasskeyAuthenticationRequest"],
+    signal?: AbortSignal,
+  ): Promise<PasskeyAuthResult<AuthIdentity>>;
+  coordinateSensitive<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<AuthResult<T>>;
   logout(signal?: AbortSignal): Promise<AuthResult<null>>;
 }
 
@@ -306,6 +313,16 @@ class BrowserAuthClient implements AuthClient {
     return locks.request("xca-auth-identity-write-v1", task);
   }
 
+  private async serializeLocked<T extends { ok: boolean }>(
+    task: () => Promise<T>,
+    unavailable: T,
+  ): Promise<T> {
+    if (typeof window === "undefined") return task();
+    const locks = window.navigator?.locks;
+    if (!locks) return unavailable;
+    return locks.request("xca-auth-identity-write-v1", task);
+  }
+
   async verifyCode(
     input: components["schemas"]["EmailVerifyRequest"],
     signal?: AbortSignal,
@@ -337,6 +354,57 @@ class BrowserAuthClient implements AuthClient {
         throw error;
       }
     });
+  }
+
+  async verifyPasskey(
+    input: components["schemas"]["PasskeyAuthenticationRequest"],
+    signal?: AbortSignal,
+  ): Promise<PasskeyAuthResult<AuthIdentity>> {
+    return this.serializeLocked(
+      async () => {
+        const result = await this.settlePreviousWrite(signal);
+        if (!result.ok) return result;
+        const operation = this.beginWrite(signal);
+        if (!operation) return { ok: false, code: "service_unavailable" };
+        try {
+          const response = await send(
+            this.fetcher,
+            "/api/v1/auth/passkeys/authentication/verify",
+            input,
+            signal,
+            this.timeoutMs,
+            { "X-XCA-Auth-Operation": operation },
+          );
+          const identity =
+            response?.response.status === 200 ? sessionFrom(response.body) : undefined;
+          if (identity) {
+            this.finishWrite(false, operation, identity);
+            return { ok: true, value: identity };
+          }
+          const failure = passkeyFailure(response);
+          this.finishWrite(response === null || failure.code === "service_unavailable", operation);
+          return failure;
+        } catch (error) {
+          this.finishWrite(true, operation);
+          throw error;
+        }
+      },
+      { ok: false, code: "service_unavailable" },
+    );
+  }
+
+  async coordinateSensitive<T>(
+    task: () => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<AuthResult<T>> {
+    return this.serializeLocked(
+      async () => {
+        const result = await this.settlePreviousWrite(signal);
+        if (!result.ok) return result;
+        return { ok: true, value: await task() };
+      },
+      { ok: false, code: "service_unavailable" },
+    );
   }
 
   async logout(signal?: AbortSignal): Promise<AuthResult<null>> {

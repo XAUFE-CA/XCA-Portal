@@ -54,10 +54,130 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Fence an interrupted identity write
-     * @description A durable database barrier prevents a previous verification or logout from committing after this response. If the verification already committed, its session is revoked atomically with the barrier. The client must await 204 before beginning a new identity write.
+     * Fence an interrupted identity or Passkey management write
+     * @description A durable database barrier prevents the interrupted write from committing after acknowledgment. If email or Passkey sign-in already committed, this revokes the session it issued without requiring a session cookie. Only an existing Passkey registration or revocation operation requires its original session cookie and enabled Passkey management; otherwise the request returns the same 404 as an unavailable credential. A committed registration is revoked by this call; a committed revocation stays revoked. Await 204 before starting a new write.
      */
     post: operations["abandonAuthOperation"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/passkeys/authentication/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start a discoverable Passkey sign-in
+     * @description Test-only; when Passkey sign-in is disabled, the route returns 404 before request validation. Requires a single exact same-origin Origin and unambiguous application/json. The challenge expires after two minutes and is used once upon successful verification. No session, account identifier, credential list, or extensions are required or disclosed. Issuance is limited per source address, globally, and by the number of active challenges. Invalid source resolution fails closed.
+     */
+    post: operations["getPasskeyAuthenticationOptions"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/passkeys/authentication/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Verify a discoverable Passkey assertion and establish a session
+     * @description Test-only. Requires the same strict same-origin JSON as options and a new operation UUID. User verification and a discoverable userHandle are required. Invalid, expired, used, and ineligible assertions share the same response. A successful verification sets a session cookie but does not grant recent email OTP privileges. Verification is limited per source address, globally, and per flow. Do not retry the submission; use operation abandonment to reconcile interruptions.
+     */
+    post: operations["verifyPasskeyAuthentication"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/passkeys/registration/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start a Passkey registration using a recent email OTP session
+     * @description Test-only; disabled routes return 404 before request validation. Requires a single exact same-origin Origin and unambiguous application/json. Duplicate or unknown JSON fields and trailing data are rejected. No CORS is enabled. The challenge is session-bound, expires after two minutes, and is used once. No authenticator attachment or extensions are requested.
+     */
+    post: operations["getPasskeyRegistrationOptions"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/passkeys/registration/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Verify the browser registration result and save a Passkey
+     * @description Test-only. Requires the originating session with a recent email OTP, a new operation UUID, and the same strict same-origin JSON as options. Do not retry the submission; use operation abandonment to reconcile interruptions. This does not log in, update the session cookie, or return key material.
+     */
+    post: operations["verifyPasskeyRegistration"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/passkeys": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List the authenticated account's active Passkeys
+     * @description Test-only. Recent email OTP is not required. Same-origin browsers may omit Origin; if supplied, it must exactly match the configured origin and occur only once. No CORS is enabled.
+     */
+    get: operations["listPasskeys"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/passkeys/revoke": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Revoke an active Passkey using a recent email OTP session
+     * @description Test-only. Requires a new operation UUID and the same strict same-origin JSON as options. Unknown, revoked, and other accounts' credential records are indistinguishable. Revocation does not log out the current session.
+     */
+    post: operations["revokePasskey"];
     delete?: never;
     options?: never;
     head?: never;
@@ -145,6 +265,160 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Unpadded base64url. */
+    PasskeyBase64url: string;
+    PasskeyAuthenticationOptions: {
+      flow_id: components["schemas"]["PasskeyBase64url"];
+      publicKey: {
+        challenge: components["schemas"]["PasskeyBase64url"];
+        rpId: string;
+        /** @description Browser timeout in milliseconds. */
+        timeout?: number;
+        /** @enum {string} */
+        userVerification: "required";
+      };
+    };
+    PasskeyAuthenticationRequest: {
+      flow_id: components["schemas"]["PasskeyBase64url"];
+      credential: {
+        id: components["schemas"]["PasskeyBase64url"];
+        rawId: components["schemas"]["PasskeyBase64url"];
+        /** @enum {string} */
+        type: "public-key";
+        /** @enum {string|null} */
+        authenticatorAttachment?: "platform" | "cross-platform" | null;
+        /** @description May only be empty because this ceremony requests no extensions. */
+        clientExtensionResults?: Record<string, never>;
+        response: {
+          authenticatorData: components["schemas"]["PasskeyBase64url"];
+          clientDataJSON: components["schemas"]["PasskeyBase64url"];
+          signature: components["schemas"]["PasskeyBase64url"];
+          /** @description The discoverable account handle. Null or absent is invalid for sign-in. */
+          userHandle?: components["schemas"]["PasskeyBase64url"] | null;
+        };
+      };
+    };
+    PasskeyAuthenticationVerifyError: {
+      error: {
+        /** @enum {string} */
+        code: "invalid_request" | "invalid_or_expired_authentication";
+      };
+    };
+    PasskeyOptions: {
+      flow_id: components["schemas"]["PasskeyBase64url"];
+      publicKey: {
+        rp: {
+          id: string;
+          name: string;
+        };
+        user: {
+          id: components["schemas"]["PasskeyBase64url"];
+          name: string;
+          displayName: string;
+        };
+        challenge: components["schemas"]["PasskeyBase64url"];
+        pubKeyCredParams: {
+          /** @enum {string} */
+          type: "public-key";
+          /** @description COSE algorithm identifier. */
+          alg: number;
+        }[];
+        /** @description Browser timeout in milliseconds. */
+        timeout?: number;
+        excludeCredentials?: {
+          /** @enum {string} */
+          type: "public-key";
+          id: components["schemas"]["PasskeyBase64url"];
+          transports?: string[];
+        }[];
+        authenticatorSelection?: {
+          requireResidentKey?: boolean;
+          /** @enum {string} */
+          residentKey?: "discouraged" | "preferred" | "required";
+          /** @enum {string} */
+          userVerification?: "discouraged" | "preferred" | "required";
+        };
+        /** @enum {string} */
+        attestation?: "none";
+      };
+    };
+    PasskeyRegistrationRequest: {
+      flow_id: components["schemas"]["PasskeyBase64url"];
+      credential: {
+        id: components["schemas"]["PasskeyBase64url"];
+        rawId: components["schemas"]["PasskeyBase64url"];
+        /** @enum {string} */
+        type: "public-key";
+        /** @enum {string|null} */
+        authenticatorAttachment?: "platform" | "cross-platform" | null;
+        /** @description May only be empty because this ceremony requests no extensions. */
+        clientExtensionResults?: Record<string, never>;
+        response: {
+          clientDataJSON: components["schemas"]["PasskeyBase64url"];
+          attestationObject: components["schemas"]["PasskeyBase64url"];
+          authenticatorData?: components["schemas"]["PasskeyBase64url"] | null;
+          publicKey?: components["schemas"]["PasskeyBase64url"] | null;
+          publicKeyAlgorithm?: number;
+          transports?: string[];
+        };
+      };
+    };
+    PasskeySummary: {
+      /**
+       * Format: uuid
+       * @description Opaque management record ID.
+       */
+      id: string;
+      label: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      last_used_at: string | null;
+      backup_eligible: boolean;
+      backup_state: boolean;
+    };
+    PasskeyAuthenticationError: {
+      error: {
+        /** @enum {string} */
+        code: "authentication_required";
+      };
+    };
+    PasskeyWriteForbiddenError: {
+      error: {
+        /** @enum {string} */
+        code: "invalid_request" | "recent_otp_required";
+      };
+    };
+    PasskeyVerifyError: {
+      error: {
+        /** @enum {string} */
+        code: "invalid_request" | "invalid_or_expired_registration";
+      };
+    };
+    PasskeyVerifyConflict: {
+      error: {
+        /** @enum {string} */
+        code: "credential_exists" | "operation_abandoned";
+      };
+    };
+    PasskeyAbandonedError: {
+      error: {
+        /** @enum {string} */
+        code: "operation_abandoned";
+      };
+    };
+    PasskeyRevokeNotFound: {
+      error: {
+        /** @enum {string} */
+        code: "invalid_request" | "credential_not_found";
+      };
+    };
+    CredentialNotFoundError: {
+      error: {
+        /** @enum {string} */
+        code: "credential_not_found";
+      };
+    };
     /**
      * @example {
      *       "email": "member@example.invalid"
@@ -301,7 +575,7 @@ export interface components {
         "application/json": components["schemas"]["InvalidRequestError"];
       };
     };
-    /** @description The requester or email address has reached a rate limit. */
+    /** @description A rate limit prevents another request now. */
     RateLimited: {
       headers: {
         "Cache-Control": components["headers"]["NoStore"];
@@ -322,9 +596,70 @@ export interface components {
         "application/json": components["schemas"]["UnavailableError"];
       };
     };
+    /** @description No authenticated session. */
+    PasskeyAuthenticationRequired: {
+      headers: {
+        "Cache-Control": components["headers"]["NoStore"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["PasskeyAuthenticationError"];
+      };
+    };
+    /** @description Origin is invalid or the session lacks a recent email OTP. */
+    PasskeyWriteForbidden: {
+      headers: {
+        "Cache-Control": components["headers"]["NoStore"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["PasskeyWriteForbiddenError"];
+      };
+    };
+    /** @description The requested Passkey capability is disabled. */
+    PasskeysDisabled: {
+      headers: {
+        "Cache-Control": components["headers"]["NoStore"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["InvalidRequestError"];
+      };
+    };
+    /** @description The request cannot access the credential or Passkey operation. */
+    CredentialNotFound: {
+      headers: {
+        "Cache-Control": components["headers"]["NoStore"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["CredentialNotFoundError"];
+      };
+    };
+    /** @description Request used a method unsupported by the route. */
+    PasskeyMethodNotAllowed: {
+      headers: {
+        "Cache-Control": components["headers"]["NoStore"];
+        Allow: "GET" | "POST";
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["InvalidRequestError"];
+      };
+    };
+    /** @description Request must specify a single application/json Content-Type. */
+    PasskeyUnsupportedMedia: {
+      headers: {
+        "Cache-Control": components["headers"]["NoStore"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["InvalidRequestError"];
+      };
+    };
   };
   parameters: {
-    /** @description Fresh random UUID per verification or logout; used only to order interrupted writes. */
+    /** @description Fresh random UUID per verification, logout, or Passkey revocation; orders interrupted writes. */
     OperationID: string;
     /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
     Origin: string;
@@ -384,7 +719,7 @@ export interface operations {
       header: {
         /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
         Origin: components["parameters"]["Origin"];
-        /** @description Fresh random UUID per verification or logout; used only to order interrupted writes. */
+        /** @description Fresh random UUID per verification, logout, or Passkey revocation; orders interrupted writes. */
         "X-XCA-Auth-Operation": components["parameters"]["OperationID"];
       };
       path?: never;
@@ -444,14 +779,296 @@ export interface operations {
       204: {
         headers: {
           "Cache-Control": components["headers"]["NoStore"];
+          /** @description Present only when confirming the effect of a committed Passkey registration or revocation. */
+          "X-XCA-Passkey-Operation-Outcome"?: "registration_revoked" | "revocation_committed";
           [name: string]: unknown;
         };
         content?: never;
       };
       400: components["responses"]["InvalidRequest"];
       403: components["responses"]["InvalidOrigin"];
+      404: components["responses"]["CredentialNotFound"];
       413: components["responses"]["TooLarge"];
       415: components["responses"]["InvalidRequest"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
+  getPasskeyAuthenticationOptions: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
+        Origin: components["parameters"]["Origin"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Opaque sign-in flow and account-independent WebAuthn request options. */
+      200: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyAuthenticationOptions"];
+        };
+      };
+      400: components["responses"]["InvalidRequest"];
+      403: components["responses"]["InvalidOrigin"];
+      404: components["responses"]["PasskeysDisabled"];
+      405: components["responses"]["PasskeyMethodNotAllowed"];
+      413: components["responses"]["TooLarge"];
+      415: components["responses"]["PasskeyUnsupportedMedia"];
+      429: components["responses"]["RateLimited"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
+  verifyPasskeyAuthentication: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
+        Origin: components["parameters"]["Origin"];
+        /** @description Fresh random UUID per verification, logout, or Passkey revocation; orders interrupted writes. */
+        "X-XCA-Auth-Operation": components["parameters"]["OperationID"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasskeyAuthenticationRequest"];
+      };
+    };
+    responses: {
+      /** @description Verified identity and newly issued session cookie. */
+      200: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          "Set-Cookie": components["headers"]["SessionCookie"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthenticatedSession"];
+        };
+      };
+      /** @description Malformed request or invalid, expired, used, or ineligible authentication. */
+      400: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyAuthenticationVerifyError"];
+        };
+      };
+      403: components["responses"]["InvalidOrigin"];
+      404: components["responses"]["PasskeysDisabled"];
+      405: components["responses"]["PasskeyMethodNotAllowed"];
+      /** @description The operation was previously abandoned. */
+      409: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyAbandonedError"];
+        };
+      };
+      413: components["responses"]["TooLarge"];
+      415: components["responses"]["PasskeyUnsupportedMedia"];
+      429: components["responses"]["RateLimited"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
+  getPasskeyRegistrationOptions: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
+        Origin: components["parameters"]["Origin"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Opaque registration flow and WebAuthn creation options for the browser. */
+      200: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyOptions"];
+        };
+      };
+      400: components["responses"]["InvalidRequest"];
+      401: components["responses"]["PasskeyAuthenticationRequired"];
+      403: components["responses"]["PasskeyWriteForbidden"];
+      404: components["responses"]["PasskeysDisabled"];
+      405: components["responses"]["PasskeyMethodNotAllowed"];
+      413: components["responses"]["TooLarge"];
+      415: components["responses"]["PasskeyUnsupportedMedia"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
+  verifyPasskeyRegistration: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
+        Origin: components["parameters"]["Origin"];
+        /** @description Fresh random UUID per verification, logout, or Passkey revocation; orders interrupted writes. */
+        "X-XCA-Auth-Operation": components["parameters"]["OperationID"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasskeyRegistrationRequest"];
+      };
+    };
+    responses: {
+      /** @description The saved Passkey's public management summary. */
+      201: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeySummary"];
+        };
+      };
+      /** @description Malformed request or invalid, expired, or already used registration. */
+      400: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyVerifyError"];
+        };
+      };
+      401: components["responses"]["PasskeyAuthenticationRequired"];
+      403: components["responses"]["PasskeyWriteForbidden"];
+      404: components["responses"]["PasskeysDisabled"];
+      405: components["responses"]["PasskeyMethodNotAllowed"];
+      /** @description Credential ID already exists or the interrupted operation was abandoned. */
+      409: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyVerifyConflict"];
+        };
+      };
+      413: components["responses"]["TooLarge"];
+      415: components["responses"]["PasskeyUnsupportedMedia"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
+  listPasskeys: {
+    parameters: {
+      query?: never;
+      header?: {
+        Origin?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Active Passkey summaries, or an empty array. */
+      200: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            credentials: components["schemas"]["PasskeySummary"][];
+          };
+        };
+      };
+      401: components["responses"]["PasskeyAuthenticationRequired"];
+      403: components["responses"]["InvalidOrigin"];
+      404: components["responses"]["PasskeysDisabled"];
+      405: components["responses"]["PasskeyMethodNotAllowed"];
+      413: components["responses"]["TooLarge"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
+  revokePasskey: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
+        Origin: components["parameters"]["Origin"];
+        /** @description Fresh random UUID per verification, logout, or Passkey revocation; orders interrupted writes. */
+        "X-XCA-Auth-Operation": components["parameters"]["OperationID"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * Format: uuid
+           * @description Management record UUID, not a browser credential ID.
+           */
+          credential_id: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Revoked; no response body. */
+      204: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components["responses"]["InvalidRequest"];
+      401: components["responses"]["PasskeyAuthenticationRequired"];
+      403: components["responses"]["PasskeyWriteForbidden"];
+      /** @description Passkey management is disabled or the credential record is unavailable. */
+      404: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyRevokeNotFound"];
+        };
+      };
+      405: components["responses"]["PasskeyMethodNotAllowed"];
+      /** @description The interrupted operation was abandoned. */
+      409: {
+        headers: {
+          "Cache-Control": components["headers"]["NoStore"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyAbandonedError"];
+        };
+      };
+      413: components["responses"]["TooLarge"];
+      415: components["responses"]["PasskeyUnsupportedMedia"];
       503: components["responses"]["Unavailable"];
     };
   };
@@ -484,7 +1101,7 @@ export interface operations {
       header: {
         /** @description Browser POST requests must supply an Origin exactly matching PUBLIC_ORIGIN; missing or mismatched origins are rejected. Together with JSON-only requests this protects the write endpoints against cross-site requests. The browser supplies this header; application JavaScript must not set it. */
         Origin: components["parameters"]["Origin"];
-        /** @description Fresh random UUID per verification or logout; used only to order interrupted writes. */
+        /** @description Fresh random UUID per verification, logout, or Passkey revocation; orders interrupted writes. */
         "X-XCA-Auth-Operation": components["parameters"]["OperationID"];
       };
       path?: never;

@@ -64,8 +64,14 @@ func TestSessionTransactionAndDevices(t *testing.T) {
 	}
 	digest := sha256.Sum256([]byte(first))
 	var stored []byte
-	if err := env.pool.QueryRow(ctx, `SELECT session_digest FROM sessions`).Scan(&stored); err != nil || string(stored) != string(digest[:]) || string(stored) == first {
+	var freshOTP bool
+	if err := env.pool.QueryRow(ctx, `SELECT session_digest,
+		COALESCE(otp_verified_at BETWEEN created_at AND clock_timestamp(), false) FROM sessions`).
+		Scan(&stored, &freshOTP); err != nil || string(stored) != string(digest[:]) || string(stored) == first {
 		t.Fatal("session credential was not stored as SHA-256")
+	}
+	if !freshOTP {
+		t.Fatal("invitation activation did not stamp the new session with its OTP verification time")
 	}
 	if _, err := env.pool.Exec(ctx, `UPDATE auth_rate_limits SET expires_at = clock_timestamp() - interval '1 second' WHERE scope = 'email_cooldown'`); err != nil {
 		t.Fatal(err)
@@ -77,6 +83,16 @@ func TestSessionTransactionAndDevices(t *testing.T) {
 	if err != nil || second == first {
 		t.Fatal("second device did not receive a distinct session")
 	}
+	secondDigest := sha256.Sum256([]byte(second))
+	var otpVerifiedAt time.Time
+	if err := env.pool.QueryRow(ctx, `SELECT otp_verified_at FROM sessions WHERE session_digest = $1`, secondDigest[:]).
+		Scan(&otpVerifiedAt); err != nil {
+		t.Fatalf("email sign-in did not stamp its new session: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE sessions SET last_used_at = otp_verified_at - interval '1 second'
+		WHERE session_digest = $1`, secondDigest[:]); err != nil {
+		t.Fatal(err)
+	}
 	if err := sessions.Revoke(ctx, first); err != nil {
 		t.Fatal(err)
 	}
@@ -85,6 +101,11 @@ func TestSessionTransactionAndDevices(t *testing.T) {
 	}
 	if id, err := sessions.Get(ctx, second); err != nil || id == nil || id.LoginName != "session-member" {
 		t.Fatal("revoking one device affected another")
+	}
+	var afterRead, lastUsed time.Time
+	if err := env.pool.QueryRow(ctx, `SELECT otp_verified_at, last_used_at FROM sessions WHERE session_digest = $1`, secondDigest[:]).
+		Scan(&afterRead, &lastUsed); err != nil || !afterRead.Equal(otpVerifiedAt) || lastUsed.Before(otpVerifiedAt) {
+		t.Fatalf("session lookup must refresh usage without extending OTP freshness: %v", err)
 	}
 	if _, err := env.pool.Exec(ctx, `UPDATE users SET status='disabled' WHERE email=$1`, email); err != nil {
 		t.Fatal(err)

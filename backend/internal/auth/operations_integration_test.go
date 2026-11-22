@@ -21,7 +21,7 @@ func TestDurableOperationBarrier(t *testing.T) {
 
 	sessions := NewSessions(env.pool, time.Hour)
 	blocked := "11111111-1111-4111-8111-111111111111"
-	if err := sessions.Abandon(ctx, blocked); err != nil {
+	if _, err := sessions.Abandon(ctx, blocked, "", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := sessions.VerifyWithOperation(ctx, env.svc, flow.FlowID, code, blocked); !errors.Is(err, ErrOperationAbandoned) {
@@ -40,18 +40,18 @@ func TestDurableOperationBarrier(t *testing.T) {
 	if id, err := sessions.Get(ctx, token); err != nil || id == nil {
 		t.Fatal("committed verification created no usable session")
 	}
-	if err := sessions.Abandon(ctx, valid); err != nil {
+	if _, err := sessions.Abandon(ctx, valid, "", false); err != nil {
 		t.Fatal(err)
 	}
 	if id, err := sessions.Get(ctx, token); err != nil || id != nil {
 		t.Fatal("barrier did not revoke an already committed verification")
 	}
-	if err := sessions.Abandon(ctx, valid); err != nil {
+	if _, err := sessions.Abandon(ctx, valid, "", false); err != nil {
 		t.Fatal("abandon must be idempotent")
 	}
 
 	blockedLogout := "33333333-3333-4333-8333-333333333333"
-	if err := sessions.Abandon(ctx, blockedLogout); err != nil {
+	if _, err := sessions.Abandon(ctx, blockedLogout, "", false); err != nil {
 		t.Fatal(err)
 	}
 	if err := sessions.RevokeWithOperation(ctx, token, blockedLogout); !errors.Is(err, ErrOperationAbandoned) {
@@ -61,7 +61,7 @@ func TestDurableOperationBarrier(t *testing.T) {
 	if err := sessions.RevokeWithOperation(ctx, token, logout); err != nil {
 		t.Fatal(err)
 	}
-	if err := sessions.Abandon(ctx, logout); err != nil {
+	if _, err := sessions.Abandon(ctx, logout, "", false); err != nil {
 		t.Fatal("abandon after completed logout must succeed")
 	}
 }
@@ -92,7 +92,10 @@ func TestBarrierWaitsForInFlightSessionCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
-	go func() { done <- sessions.Abandon(ctx, operationID) }()
+	go func() {
+		_, err := sessions.Abandon(ctx, operationID, "", false)
+		done <- err
+	}()
 	// The barrier must not return before the original transaction releases its PK lock.
 	// 原事务释放主键锁前，屏障不得返回。
 	select {

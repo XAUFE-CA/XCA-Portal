@@ -9,7 +9,9 @@ const backend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 async function readEnv(path) {
   const file = Bun.file(path);
   if (!(await file.exists())) {
-    throw new Error("缺少 backend/.env，请先复制 backend/.env.example 为 backend/.env 并填写配置。");
+    throw new Error(
+      "缺少 backend/.env，请先复制 backend/.env.example 为 backend/.env 并填写配置。",
+    );
   }
   const values = {};
   for (const raw of (await file.text()).split(/\r?\n/)) {

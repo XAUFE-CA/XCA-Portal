@@ -112,6 +112,29 @@ test("keeps live browser tests out of ordinary system scopes", () => {
   ]);
 });
 
+test("keeps Passkey browser tests out of ordinary and non-Passkey scopes", () => {
+  const passkey = new Map([
+    [
+      "tests/e2e/passkey/passkey.spec.ts",
+      'test("@live-passkey registration and login", async () => {});',
+    ],
+  ]);
+  const passkeyScope = scope({
+    scope: "tests/e2e/passkey/*.spec.ts",
+    level: "system",
+    runner: "playwright",
+    metadata: ["browser", "passkey"],
+    files: ["tests/e2e/passkey/passkey.spec.ts"],
+  });
+  expect(metadataIssues(passkeyScope, passkey)).toEqual([]);
+  expect(metadataIssues({ ...passkeyScope, metadata: ["browser"] }, passkey)).toEqual([
+    "tests/e2e/passkey/*.spec.ts: @live-passkey tag needs metadata passkey",
+  ]);
+  expect(
+    metadataIssues({ ...passkeyScope, metadata: ["browser", "passkey", "live"] }, passkey),
+  ).toEqual(["tests/e2e/passkey/*.spec.ts: metadata live needs @live-auth tag"]);
+});
+
 test("reports unregistered and doubly registered test files", () => {
   expect(
     coverageIssues(

@@ -235,3 +235,24 @@ test("@live-auth Nuxt strips spoofed proxy headers before database IP rate limit
   }
   expect(blocked).toBe(true);
 });
+
+test("@live-auth Passkey management and sign-in routes stay closed by default", async ({
+  request,
+}) => {
+  test.skip(process.env.XCA_AUTH_LIVE !== "1", "Requires the isolated authentication runner");
+  for (const call of [
+    { method: "post", path: "/api/v1/auth/passkeys/registration/options" },
+    { method: "post", path: "/api/v1/auth/passkeys/registration/verify" },
+    { method: "get", path: "/api/v1/auth/passkeys" },
+    { method: "post", path: "/api/v1/auth/passkeys/revoke" },
+    { method: "post", path: "/api/v1/auth/passkeys/authentication/options" },
+    { method: "post", path: "/api/v1/auth/passkeys/authentication/verify" },
+  ] as const) {
+    const response =
+      call.method === "post"
+        ? await request.post(call.path, { headers: { Origin: origin }, data: {} })
+        : await request.get(call.path);
+    expect(response.status()).toBe(404);
+    expect((await response.json()).error.code).toBe("invalid_request");
+  }
+});

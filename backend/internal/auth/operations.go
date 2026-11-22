@@ -34,46 +34,51 @@ func claimOperation(ctx context.Context, tx pgx.Tx, id, kind string, digest []by
 	return nil
 }
 
-// Abandon is a server-side write barrier. If the original verification has
-// already committed, its session is revoked before this call returns.
-// If it has not started, the tombstone row prevents it from committing later.
-// Abandon 建立服务端写入屏障，原验证已提交时在返回前撤销其会话，未开始时墓碑记录阻止其之后提交。
-func (s *Sessions) Abandon(ctx context.Context, id string) error {
+// Abandon fences late writes and reports the compensation outcome for Passkey management.
+// Abandon 阻止晚到的写入，并报告 Passkey 管理操作的补偿结果。
+func (s *Sessions) Abandon(ctx context.Context, id, token string, allowPasskeys bool) (string, error) {
 	if !ValidOperationID(id) {
-		return ErrInvalidRequest
+		return "", ErrInvalidRequest
 	}
 	if s == nil || s.pool == nil {
-		return ErrUnavailable
+		return "", ErrUnavailable
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return ErrUnavailable
+		return "", ErrUnavailable
 	}
 	defer tx.Rollback(context.Background())
 	if _, err := tx.Exec(ctx, `INSERT INTO auth_operations (id, kind, state)
 		VALUES ($1::uuid, 'abandon', 'abandoned') ON CONFLICT (id) DO NOTHING`, id); err != nil {
-		return ErrUnavailable
+		return "", ErrUnavailable
 	}
 	var kind string
 	var digest []byte
 	if err := tx.QueryRow(ctx, `SELECT kind, session_digest FROM auth_operations
 		WHERE id = $1::uuid FOR UPDATE`, id).Scan(&kind, &digest); err != nil {
-		return ErrUnavailable
+		return "", ErrUnavailable
 	}
 	if kind == "verify" && digest != nil {
 		if _, err := tx.Exec(ctx, `UPDATE sessions SET revoked_at = clock_timestamp()
 			WHERE session_digest = $1 AND revoked_at IS NULL`, digest); err != nil {
-			return ErrUnavailable
+			return "", ErrUnavailable
+		}
+	}
+	var outcome string
+	if kind == "passkey_manage" {
+		outcome, err = abandonPasskeyEffect(ctx, tx, id, token, allowPasskeys)
+		if err != nil {
+			return "", err
 		}
 	}
 	if _, err := tx.Exec(ctx, `UPDATE auth_operations SET state = 'abandoned'
 		WHERE id = $1::uuid`, id); err != nil {
-		return ErrUnavailable
+		return "", ErrUnavailable
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return ErrUnavailable
+		return "", ErrUnavailable
 	}
-	return nil
+	return outcome, nil
 }
 
 // RevokeWithOperation makes a logout observable by the same barrier even if

@@ -510,3 +510,67 @@ it("reuses the application client in one browser tab", () => {
     else Reflect.deleteProperty(globalThis, "window");
   }
 });
+
+it("updates identity only after a verified Passkey response and retains a lost response", async () => {
+  const input = {
+    flow_id: "A".repeat(43),
+    credential: {
+      id: "Y3JlZGVudGlhbA",
+      rawId: "Y3JlZGVudGlhbA",
+      type: "public-key" as const,
+      clientExtensionResults: {},
+      response: {
+        clientDataJSON: "Y2xpZW50",
+        authenticatorData: "YXV0aA",
+        signature: "c2lnbmF0dXJl",
+        userHandle: "dXNlci1oYW5kbGU",
+      },
+    },
+  };
+  const calls: { headers: Headers; body: string }[] = [];
+  const client = createAuthClient({
+    fetch: async (_url, init) => {
+      calls.push({ headers: new Headers(init?.headers), body: String(init?.body) });
+      return json({ identity });
+    },
+  });
+  expect(await client.verifyPasskey(input)).toEqual({ ok: true, value: identity });
+  expect(client.getSnapshot()).toEqual({
+    status: "authenticated",
+    identity,
+    needsReconciliation: false,
+  });
+  expect(calls[0]?.headers.get("x-xca-auth-operation")).toMatch(/^[0-9a-f-]{36}$/);
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual(input);
+
+  const values = new Map<string, string>();
+  const lost = createAuthClient({
+    storage: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value);
+      },
+      removeItem: (key) => {
+        values.delete(key);
+      },
+    },
+    fetch: async () => {
+      throw new TypeError("network");
+    },
+  });
+  expect(await lost.verifyPasskey(input)).toEqual({
+    ok: false,
+    code: "service_unavailable",
+  });
+  expect(lost.getSnapshot().needsReconciliation).toBe(true);
+  expect(values.get("xca-auth-operation-v1")).toMatch(/^[0-9a-f-]{36}$/);
+
+  const denied = createAuthClient({
+    fetch: async () => json({ error: { code: "invalid_or_expired_authentication" } }, 400),
+  });
+  expect(await denied.verifyPasskey(input)).toEqual({
+    ok: false,
+    code: "invalid_or_expired_authentication",
+  });
+  expect(denied.getSnapshot().needsReconciliation).toBe(false);
+});

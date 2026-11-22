@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -47,10 +48,15 @@ func run(logger *slog.Logger) error {
 	}
 	defer service.Close()
 
+	handler, err := httpapi.NewAuthHandler(pool, service, cfg)
+	if err != nil {
+		return err
+	}
+
 	readHeaderTimeout := min(cfg.ReadTimeout, 5*time.Second)
 	server := &http.Server{
 		Addr:              cfg.ListenAddr,
-		Handler:           httpapi.NewAuthHandler(pool, service, cfg),
+		Handler:           handler,
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       cfg.ReadTimeout,
 		WriteTimeout:      cfg.WriteTimeout,
@@ -62,25 +68,25 @@ func run(logger *slog.Logger) error {
 	defer stop()
 	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
-		return errors.New("HTTP listener failed")
+		return fmt.Errorf("cannot listen on %s: %w", cfg.ListenAddr, err)
 	}
 	served := make(chan error, 1)
 	go func() { served <- server.Serve(listener) }()
-	logger.Info("API listening")
+	logger.Info("API listening", "addr", listener.Addr().String())
 	select {
 	case err := <-served:
 		if !errors.Is(err, http.ErrServerClosed) {
-			return errors.New("HTTP listener failed")
+			return fmt.Errorf("HTTP listener failed on %s: %w", cfg.ListenAddr, err)
 		}
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			_ = server.Close()
-			return errors.New("HTTP shutdown timed out")
+			return fmt.Errorf("HTTP shutdown timed out after %s: %w", cfg.ShutdownTimeout, err)
 		}
 		if err := <-served; err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return errors.New("HTTP listener failed")
+			return fmt.Errorf("HTTP listener failed on %s: %w", cfg.ListenAddr, err)
 		}
 	}
 	logger.Info("API stopped")

@@ -41,6 +41,7 @@ export default defineNuxtConfig({
   // 页脚链接的是产出本次构建的提交，而不是运行时的 HEAD；无提交信息时省略该值，页脚隐藏该行。
   runtimeConfig: {
     backendApi: "http://127.0.0.1:8080",
+    passkeyQa: "false",
     public: { buildInfo: readBuildInfo() ?? undefined },
   },
   modules: ["@nuxt/content"],

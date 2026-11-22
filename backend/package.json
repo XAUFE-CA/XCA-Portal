@@ -8,7 +8,8 @@
     "dev": "bun tools/dev.mjs",
     "down": "bun tools/dev.mjs down",
     "test:integration": "bun tools/integration.mjs",
-    "test:browser": "bun tools/browser.mjs"
+    "test:browser": "bun tools/browser.mjs",
+    "test:browser:passkey": "bun tools/browser-passkey.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

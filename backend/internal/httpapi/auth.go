@@ -17,20 +17,31 @@ import (
 type authHandler struct {
 	service  *auth.Service
 	sessions *auth.Sessions
+	passkeys *auth.Passkeys
 	cfg      config.Config
 	probes   http.Handler
 	code     http.Handler
 }
 
-func NewAuthHandler(pool *pgxpool.Pool, service *auth.Service, cfg config.Config) http.Handler {
+func NewAuthHandler(pool *pgxpool.Pool, service *auth.Service, cfg config.Config) (http.Handler, error) {
+	passkeys, err := auth.NewPasskeys(pool, cfg)
+	if err != nil {
+		return nil, err
+	}
 	code := &emailCodeHandler{service: service, origin: cfg.PublicOrigin, maxBody: cfg.MaxBodyBytes, trusted: cfg.TrustedProxies}
-	return &authHandler{service: service, sessions: auth.NewSessions(pool, cfg.SessionTTL), cfg: cfg,
-		probes: NewHandler(pool.Ping, cfg.DependencyTimeout, cfg.MaxBodyBytes), code: code}
+	return &authHandler{service: service, sessions: auth.NewSessions(pool, cfg.SessionTTL), passkeys: passkeys, cfg: cfg,
+		probes: NewHandler(pool.Ping, cfg.DependencyTimeout, cfg.MaxBodyBytes), code: code}, nil
 }
 
 func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	switch r.URL.Path {
+	case passkeyListPath, passkeyOptionsPath, passkeyVerifyPath, passkeyRevokePath,
+		passkeyAuthenticationOptionsPath, passkeyAuthenticationVerifyPath:
+		h.servePasskeys(w, r)
+		return
+	}
 	if r.URL.Path == "/api/v1/auth/email/code" {
 		h.code.ServeHTTP(w, r)
 		return
@@ -213,13 +224,13 @@ func (h *authHandler) abandon(w http.ResponseWriter, r *http.Request) {
 	if !decodeObject(w, r, &body) {
 		return
 	}
-	if err := h.sessions.Abandon(r.Context(), body.OperationID); err != nil {
-		if errors.Is(err, auth.ErrInvalidRequest) {
-			writeError(w, http.StatusBadRequest, "invalid_request")
-		} else {
-			writeError(w, http.StatusServiceUnavailable, "service_unavailable")
-		}
+	outcome, err := h.sessions.Abandon(r.Context(), body.OperationID, h.token(r), h.passkeys.ManagementEnabled())
+	if err != nil {
+		writePasskeyError(w, err)
 		return
+	}
+	if outcome != "" {
+		w.Header().Set("X-XCA-Passkey-Operation-Outcome", outcome)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

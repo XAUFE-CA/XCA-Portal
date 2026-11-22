@@ -28,6 +28,7 @@ type Config struct {
 	OTPPreviousKeys   map[int][]byte
 	RateLimitHMACKey  []byte
 	PublicOrigin      string
+	Passkeys          PasskeyConfig
 	TrustedProxies    []netip.Prefix
 	SessionTTL        time.Duration
 	ReadTimeout       time.Duration
@@ -72,6 +73,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 	c.PublicOrigin = value(lookup, "PUBLIC_ORIGIN", "http://127.0.0.1:4100")
 	if err := validateOrigin(c.PublicOrigin, c.Environment == "production"); err != nil {
+		return c, err
+	}
+	if err := loadPasskeys(&c, lookup); err != nil {
 		return c, err
 	}
 	if c.TrustedProxies, err = proxies(value(lookup, "TRUSTED_PROXY_CIDRS", "")); err != nil {

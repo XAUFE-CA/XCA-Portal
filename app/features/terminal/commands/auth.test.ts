@@ -33,6 +33,11 @@ function client(): AuthClient {
       value: { flow_id: "flow", expires_at: "2030-01-01T00:00:00Z" },
     }),
     verifyCode: async () => ({ ok: true, value: identity }),
+    verifyPasskey: async () => ({ ok: false, code: "service_unavailable" }),
+    coordinateSensitive: async <T>(task: () => Promise<T>) => ({
+      ok: true,
+      value: await task(),
+    }),
     logout: async () => ({ ok: true, value: null }),
   };
 }

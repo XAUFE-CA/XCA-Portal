@@ -63,6 +63,9 @@ Compose 只用于本地开发，不用于生产部署。
 | `OTP_HMAC_KEY_VERSION` | 当前密钥版本，正整数 |
 | `OTP_PREVIOUS_HMAC_KEYS` | 轮换期间填写，格式为逗号分隔的 `版本:Base64密钥`；不轮换时留空 |
 | `SESSION_TTL` | 会话有效期，例如 `24h`，绝对过期 |
+| `PASSKEY_MANAGEMENT_ENABLED` | `false`，启用配置仅允许 `APP_ENV=test` |
+| `PASSKEY_AUTHENTICATION_ENABLED` | `false`，启用配置仅允许 `APP_ENV=test` |
+| `NUXT_PASSKEY_QA` | 不设置或 `false`；仅隔离测试预览可设为 `true` |
 | `PUBLIC_ORIGIN` | 浏览器访问的 HTTPS 来源 |
 | `TRUSTED_PROXY_CIDRS` | Nuxt 的直接地址，例如 `10.0.0.15/32` |
 | `API_READ_TIMEOUT`、`API_WRITE_TIMEOUT`、`API_IDLE_TIMEOUT` | 按部署超时设置，上限 5m |
@@ -90,6 +93,8 @@ OTP_HMAC_KEY_VERSION=1
 OTP_PREVIOUS_HMAC_KEYS=
 RATE_LIMIT_HMAC_KEY=CHANGE_ME
 SESSION_TTL=24h
+PASSKEY_MANAGEMENT_ENABLED=false
+PASSKEY_AUTHENTICATION_ENABLED=false
 PUBLIC_ORIGIN=https://portal.example.com
 TRUSTED_PROXY_CIDRS=10.0.0.15/32
 API_READ_TIMEOUT=15s
@@ -135,6 +140,12 @@ API 进程不会自动执行迁移。发布步骤先运行迁移，再让新进�
 ```
 
 迁移前完成可恢复备份，并在测试库验证该版本。并发迁移依赖数据库锁。`migrate down --confirm` 只回退一个版本并删除数据表，生产不使用破坏性回退；回滚依赖应用版本切换和已验证的备份恢复。
+
+`000001_auth` 不再修改。`000002_passkeys` 添加 Passkey 数据、管理操作效果和 OTP 认证时间列，不给已有会话补写认证时间。应用版本回滚保留新版结构。隔离测试库向下迁移前须停止新版 API；回退会删除 Passkey 凭据、挑战、操作效果和 OTP 认证时间，但保留原账户、会话及操作屏障。Passkey 管理操作保留为取消记录，避免已登记的操作标识重新生效。
+
+如果隔离库执行过合并前的版本 `2` 或 `3`，使用新建的隔离库从最终迁移重建。不要用 `migrate force` 改写版本号来替代迁移。隔离测试库启用前先完成迁移，使用单独的数据库和浏览器来源。配置与补偿规则见 [Passkey 管理](backend.md#passkey-管理)。
+
+Passkey 登录复用版本 `2` 的认证挑战、凭据和操作记录，不新增迁移。隔离环境可单独启用登录开关；连接同一测试数据库的实例使用相同的 RP 配置和 `RATE_LIMIT_HMAC_KEY`。规则见 [Passkey 登录](backend.md#passkey-登录)。
 
 ## 启动与监管
 

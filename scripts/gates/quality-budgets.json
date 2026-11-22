@@ -7,8 +7,8 @@
   },
   "exceptions": {
     "backend/api/openapi.generated.ts": {
-      "ceiling": 560,
-      "reason": "2026-11-17: Generated OpenAPI TypeScript declarations now include the durable auth write-abandon endpoint and operation header. Kept as a single generated source with exact reviewed line count; remove this exception if generation returns under the hard limit."
+      "ceiling": 1177,
+      "reason": "2026-11-22: The generated authentication contract adds test-only Passkey management and discoverable login endpoints, their public schemas, and cancellation outcomes. Keep one generated source with the exact line count; remove this exception if generation returns under the hard limit."
     },
     "tests/e2e/visual/terminal-visual-acceptance.spec.ts:verifyTerminalThemes#1": {
       "ceiling": 111,
