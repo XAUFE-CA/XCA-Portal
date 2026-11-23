@@ -8,7 +8,7 @@ Status: adopted
 
 - `config.ts`：标识、默认身份、路由、会话上限及初始尺寸。
 - `core/`：Parser、Registry、Session、VirtualWorkspace、AppearanceRegistry，不依赖 Vue 或 DOM。
-- `commands/`：站点、Linux 模拟、外观及交互命令，通过 CommandContext 获取能力。
+- `commands/`：由注册入口组合文件、会话、站点与模拟系统命令。命令通过 CommandContext 获取能力。
 - `presentation/`：终端展开、系统识别与字宽测量，与命令状态分开。首页入场的展示编排位于 `app/features/intro/`，终端不反向依赖该模块。
 - `components/`：Host、Transcript、CommandInput、Interaction。容器、输出滚动区、文本行和命令行分别复用 Neoverse-UI 的 `UiTerminalSurface`、`UiTerminalTranscript`、`UiTerminalLine`、`UiTerminalPrompt`。CommandInput 仅将会话身份映射为 host/path 分段，原生编辑、材质、光标和状态由共享组件负责。
 
@@ -36,9 +36,9 @@ Status: adopted
 
 常用 Linux 风格命令注册于 `terminalCommands`。`man` 独立注册为查询命令用法的命令，不是 `help` 的别名；`help` 只列出命令，不接受参数。顶层命令不注册 Linux 中不存在的别名，如 `cls`。
 
-命令按操作对象分文件：`commands/files.ts` 承载目录浏览、切换与读取（pwd、ls、cd、cat），`commands/text.ts` 承载行与字符变换（basename、dirname、head、tail、wc、sort），`commands/search.ts` 承载检索与遍历（grep、tree、find），`commands/system.ts` 承载模拟环境、身份与时间（echo、date、uname、hostname、env、printenv、id、seq、sleep），`commands/history.ts` 承载会话历史的列出与清除，`commands/appearance.ts` 与 `commands/interactive.ts` 承载背景、阅读器与登录入口。新增命令按操作对象归入对应文件，不按行数另建模块。`commands/index.ts` 决定注册顺序，组内顺序即 `help` 的输出顺序。
+`commands/files/` 包含目录浏览与读取、分页阅读、文本变换及检索。`commands/session/` 包含帮助、清屏与身份命令。`commands/system.ts` 提供模拟环境、身份与时间命令。新增命令按操作对象归类，`commands/index.ts` 维护注册顺序。
 
-站点相关操作注册于 `commands/site.ts` 的子命令集合，经单一 `xca` 入口执行。其子命令包括 open、theme、banner、intro、history、background、explore。站点专属操作不保留顶层别名，`history` 只作为 `xca` 子命令存在，不注册顶层拼写。
+`commands/site/` 包含 `xca` 的子命令路由、会话历史和背景配置。其子命令包括 open、theme、banner、intro、history、background、explore。站点专属操作不保留顶层别名，`history` 不注册顶层拼写。
 
 `xca open` 接受站点配置中的路由名，页面清单见 [站点框架](site-shell/README.md#页面与内容来源)，`xca explore` 提供帮助与当前主题查询。`xca` 或 `xca help` 列出子命令。`xca help intro`、`man xca intro` 与 `xca intro --help` 查询用法。`subcommands` 元数据供帮助和参数补全复用，不引入另一套 Parser 或 Session。
 
@@ -100,7 +100,7 @@ session.setAppearance({ background: "custom-image" });
 
 `ctx.choose(title, items)` 返回菜单选择；`ctx.ask({ label, kind })` 返回单次输入，kind 为 `text`、`secret` 或 `otp`。回答直接交给等待中的命令，不进入历史、普通输入草稿或 Transcript。Esc、Ctrl+C 和取消按钮释放等待状态。
 
-`TerminalServices.auth` 注入终端交互适配器。应用级客户端位于 `app/features/auth/`，不依赖终端或门户组件，普通页面可直接使用。客户端按服务端会话维护 `unknown`、`checking`、`guest`、`authenticated` 与 `error` 状态；网络故障不是游客。首页挂载后订阅身份并恢复会话，卸载时释放订阅和请求，不重建客户端。
+`TerminalServices.auth` 注入终端交互适配器。应用级客户端位于 `app/features/auth/session/client.ts`，不依赖终端或门户组件，普通页面可直接使用。客户端按服务端会话维护 `unknown`、`checking`、`guest`、`authenticated` 与 `error` 状态。网络故障不是游客。首页挂载后订阅身份并恢复会话，卸载时释放订阅和请求，不重建客户端。
 
 ```ts
 interface AuthGateway {

@@ -10,23 +10,24 @@ Status: adopted
 | --- | --- |
 | [CaIntroMark.vue](../../app/features/intro/components/CaIntroMark.vue) | CA 标识 SVG 与场景绘制的 Vue 适配 |
 | [intro-geometry.ts](../../app/features/intro/core/intro-geometry.ts) | 场景尺度、视口焦距、道路生长、入口安装位置与距离锚点、入口与室内共用的显现进度 |
-| [intro-auditorium.ts](../../app/features/intro/core/intro-auditorium.ts)、[intro-auditorium-mesh.ts](../../app/features/intro/rendering/intro-auditorium-mesh.ts) | 报告厅物体名称、空间范围、材质分组与圆角家具网格 |
-| [intro-auditorium-surfaces.ts](../../app/features/intro/rendering/intro-auditorium-surfaces.ts) | 报告厅织物、地毯、穿孔板、拉丝金属与石材的表面纹理和材质参数 |
+| [intro-auditorium.ts](../../app/features/intro/core/intro-auditorium.ts)、[intro-auditorium-mesh.ts](../../app/features/intro/rendering/auditorium/intro-auditorium-mesh.ts) | 报告厅物体名称、空间范围、材质分组与圆角家具网格 |
+| [intro-auditorium-surfaces.ts](../../app/features/intro/rendering/auditorium/intro-auditorium-surfaces.ts) | 报告厅织物、地毯、穿孔板、拉丝金属与石材的表面纹理和材质参数 |
 | [intro-camera.ts](../../app/features/intro/core/intro-camera.ts) | 摄像机轨迹采样、姿态插值、屏幕投影矩阵与相机关键帧 |
 | [intro-journey.ts](../../app/features/intro/core/intro-journey.ts) | 终端居中测量、终端停靠帧与入场阶段编排 |
 | [intro-graphics.ts](../../app/features/intro/core/intro-graphics.ts) | 硬件渲染能力探测与上下文释放 |
 | [intro-flat.ts](../../app/features/intro/presentation/intro-flat.ts) | 无 GPU 时的标识描边、主色线与让位分镜 |
-| [intro-mark-mesh.ts](../../app/features/intro/rendering/intro-mark-mesh.ts) | CA 原始轮廓挤出、道路与报告厅静态网格 |
-| [intro-mark-renderer.ts](../../app/features/intro/rendering/intro-mark-renderer.ts)、[intro-scene.ts](../../app/features/intro/rendering/intro-scene.ts) | Three.js 初始化与预热、绘制生命周期、按材质合批及 CSS 相机适配 |
-| [intro-city-mesh.ts](../../app/features/intro/rendering/intro-city-mesh.ts) | 城市街区、收分高层、承托裙楼与同侧连廊 |
-| [intro-city-layout.ts](../../app/features/intro/rendering/intro-city-layout.ts)、[intro-city-environment.ts](../../app/features/intro/rendering/intro-city-environment.ts)、[intro-city-primitives.ts](../../app/features/intro/rendering/intro-city-primitives.ts) | 地块与街道坐标、地面及设施、闭合棱柱与平面网格 |
-| [intro-city-facade.ts](../../app/features/intro/rendering/intro-city-facade.ts) | 立面数据图集、镀膜玻璃与视差室内 |
-| [intro-city-led.ts](../../app/features/intro/rendering/intro-city-led.ts)、[intro-city-led-surface.ts](../../app/features/intro/rendering/intro-city-led-surface.ts) | 楼体屏幕网格、像素图案与日夜发光 |
-| [intro-city-life.ts](../../app/features/intro/rendering/intro-city-life.ts) | 屋顶咖啡座、行人与街道车流的材质和位移 |
-| [intro-scene-palette.ts](../../app/features/intro/rendering/intro-scene-palette.ts)、[intro-scene-materials.ts](../../app/features/intro/rendering/intro-scene-materials.ts) | 场景配色、PBR 表面与传送门可见性 |
-| [intro-scene-lighting.ts](../../app/features/intro/rendering/intro-scene-lighting.ts)、[intro-scene-environment.ts](../../app/features/intro/rendering/intro-scene-environment.ts) | 分层光照、城市反射捕获与 PMREM、室外和室内阴影 |
-| [intro-sky.ts](../../app/features/intro/rendering/intro-sky.ts) | 日夜天空全景预载与世界方向采样 |
-| [intro-city-layer.ts](../../app/features/intro/rendering/intro-city-layer.ts) | 城市深度缓冲、HDR 离屏绘制与整体合成 |
+| [intro-mark-mesh.ts](../../app/features/intro/rendering/scene/intro-mark-mesh.ts) | CA 原始轮廓挤出、道路与报告厅静态网格 |
+| [intro-mark-renderer.ts](../../app/features/intro/rendering/intro-mark-renderer.ts) | 动态导入入口，负责 Three.js 初始化、预热与绘制生命周期 |
+| [intro-scene.ts](../../app/features/intro/rendering/scene/intro-scene.ts) | 按材质合批及 CSS 相机适配 |
+| [intro-city-mesh.ts](../../app/features/intro/rendering/city/intro-city-mesh.ts) | 城市街区、收分高层、承托裙楼与同侧连廊 |
+| [intro-city-layout.ts](../../app/features/intro/rendering/city/intro-city-layout.ts)、[intro-city-environment.ts](../../app/features/intro/rendering/city/intro-city-environment.ts)、[intro-city-primitives.ts](../../app/features/intro/rendering/city/intro-city-primitives.ts) | 地块与街道坐标、地面及设施、闭合棱柱与平面网格 |
+| [intro-city-facade.ts](../../app/features/intro/rendering/city/intro-city-facade.ts) | 立面数据图集、镀膜玻璃与视差室内 |
+| [intro-city-led.ts](../../app/features/intro/rendering/city/intro-city-led.ts)、[intro-city-led-surface.ts](../../app/features/intro/rendering/city/intro-city-led-surface.ts) | 楼体屏幕网格、像素图案与日夜发光 |
+| [intro-city-life.ts](../../app/features/intro/rendering/city/intro-city-life.ts) | 屋顶咖啡座、行人与街道车流的材质和位移 |
+| [intro-scene-palette.ts](../../app/features/intro/rendering/environment/intro-scene-palette.ts)、[intro-scene-materials.ts](../../app/features/intro/rendering/scene/intro-scene-materials.ts) | 场景配色、PBR 表面与传送门可见性 |
+| [intro-scene-lighting.ts](../../app/features/intro/rendering/environment/intro-scene-lighting.ts)、[intro-scene-environment.ts](../../app/features/intro/rendering/environment/intro-scene-environment.ts) | 分层光照、城市反射捕获与 PMREM、室外和室内阴影 |
+| [intro-sky.ts](../../app/features/intro/rendering/environment/intro-sky.ts) | 日夜天空全景预载与世界方向采样 |
+| [intro-city-layer.ts](../../app/features/intro/rendering/city/intro-city-layer.ts) | 城市深度缓冲、HDR 离屏绘制与整体合成 |
 | [intro-journey.css](../../app/assets/css/intro-journey.css)、[intro-flat.css](../../app/assets/css/intro-flat.css) | 场景布局与路牌样式，以及二维入场的标识与主色线 |
 
 场景尺度、节奏倍率和投影阈值由上表源码维护，不在文档另设数值表。
@@ -147,14 +148,14 @@ CA 与前段道路阶段不绘制报告厅内部及其宽地面，不让远处�
 
 ## 验证
 
-`tests/e2e/intro/intro-outline.spec.ts` 人为延迟冷启动图形上下文，采样 SVG 描边进度并限制相邻采样跳变。[场景回归](../../app/features/intro/rendering/intro-scene.test.ts) 检查 Three.js 与 CSS 的投影一致性、Y 轴转换后的绕序、法线及道路坐标。测试不代替视觉验收或性能测量。
+`tests/e2e/intro/intro-outline.spec.ts` 人为延迟冷启动图形上下文，采样 SVG 描边进度并限制相邻采样跳变。[场景回归](../../app/features/intro/rendering/scene/intro-scene.test.ts) 检查 Three.js 与 CSS 的投影一致性、Y 轴转换后的绕序、法线及道路坐标。测试不代替视觉验收或性能测量。
 
-几何与网格单元测试位于入场模块的 `core/` 与 `rendering/`。
+几何与网格单元测试位于入场模块的 `core/`、`rendering/environment/` 与 `rendering/scene/`。
 
-- [配色回归](../../app/features/intro/rendering/intro-scene-palette.test.ts) 检查独立日夜天空、材料明度差异、中性主光、夜间照明衰减与建筑哑光材质。
+- [配色回归](../../app/features/intro/rendering/environment/intro-scene-palette.test.ts) 检查独立日夜天空、材料明度差异、中性主光、夜间照明衰减与建筑哑光材质。
 - [报告厅回归](../../app/features/intro/core/intro-auditorium.test.ts) 检查入口、屏幕净空、阶梯高差、联排支撑及舞台和台阶与地面的衔接。
-- [场景回归](../../app/features/intro/rendering/intro-scene.test.ts) 检查主灯阴影视锥覆盖中央通道并排除屋顶。
-- [网格回归](../../app/features/intro/rendering/intro-mark-mesh.test.ts) 检查桥面、入口及阶梯中央通道的连续承托。
+- [场景回归](../../app/features/intro/rendering/scene/intro-scene.test.ts) 检查主灯阴影视锥覆盖中央通道并排除屋顶。
+- [网格回归](../../app/features/intro/rendering/scene/intro-mark-mesh.test.ts) 检查桥面、入口及阶梯中央通道的连续承托。
 - [轨迹回归](../../app/features/intro/core/intro-journey.test.ts) 检查道路前视、门洞净空、机位上升的单调性与速度、终点高度及屏幕中心投影，以及上升与缩屏的重叠。
 
 `tests/e2e/intro/flat-entry.spec.ts` 让 `getContext("webgl2")` 返回空或抛出异常，验证二维入场不请求天空全景、不挂载画布，并从同一终端进入可执行命令的就绪态。跳过分镜同时检查不出现启动日志残影。

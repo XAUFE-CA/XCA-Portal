@@ -215,7 +215,7 @@ test("import resolution checks isolated aliases, directory indexes, queries and 
 
 test("terminal core and commands reject framework, host and reverse dependencies", () => {
   const core = "app/features/terminal/core/session.ts";
-  const command = "app/features/terminal/commands/site.ts";
+  const command = "app/features/terminal/commands/site/index.ts";
   for (const target of [
     "vue",
     "@neoverse-ui/vue",
@@ -236,7 +236,7 @@ test("terminal core and commands reject framework, host and reverse dependencies
 });
 
 test("application authentication does not depend on terminal or portal UI", () => {
-  const auth = "app/features/auth/client.ts";
+  const auth = "app/features/auth/session/client.ts";
   for (const target of [
     "vue",
     "@vue/runtime-core",
@@ -247,7 +247,7 @@ test("application authentication does not depend on terminal or portal UI", () =
     "app/pages/index.vue",
   ])
     expect(boundaryViolation(auth, target)).toBe(true);
-  expect(boundaryViolation(auth, "app/features/auth/types.ts")).toBe(false);
+  expect(boundaryViolation(auth, "app/features/auth/session/http.ts")).toBe(false);
   expect(boundaryViolation("app/features/terminal/client-auth.ts", auth)).toBe(false);
 });
 

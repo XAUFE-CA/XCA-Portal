@@ -1,10 +1,10 @@
 import type { ContextMenuEntry } from "@neoverse-ui/vue";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref, shallowRef } from "vue";
 import type { MenuPoint } from "../core/menu-model";
-import { regionMenuEntries } from "./entries";
-import { imageWithin, runImageRow } from "./image-menu";
-import { requestNativeMenu } from "./native-menu";
-import { attachRegionListeners, keepsNativeMenuByDefault } from "./region-listeners";
+import { regionMenuEntries } from "./actions/entries";
+import { imageWithin, runImageRow } from "./actions/image-menu";
+import { requestNativeMenu } from "./interaction/native-menu";
+import { attachRegionListeners, keepsNativeMenuByDefault } from "./interaction/region-listeners";
 
 /** A row action reports a short status line, or nothing when it has no visible result. */
 export type ContextMenuResult = string | undefined | Promise<string | undefined>;

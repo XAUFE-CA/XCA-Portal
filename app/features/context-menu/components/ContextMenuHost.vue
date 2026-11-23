@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { UiContextMenu, UiSurface } from "@neoverse-ui/vue";
 import { onBeforeUnmount, onMounted } from "vue";
-import { guardMenuSurface } from "../presentation/menu-surface";
+import { guardMenuSurface } from "../presentation/interaction/menu-surface";
 import type { ContextMenuState } from "../presentation/useContextMenu";
 
 // The region owns the state; this shell only renders it, so two mounts cannot

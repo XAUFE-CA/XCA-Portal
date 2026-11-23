@@ -12,6 +12,9 @@ docs/
     browser-regression.md       浏览器回归观测、运行要求与结果记录
   terminology/                  术语体系：术语、用词与翻译规则（入口 terminology/README.md）
   architecture/                 架构说明与现行接口，只描述当前真实情况
+    diagrams/                   架构与代码流程图（入口 diagrams/README.md）
+      README.md                 Mermaid 图示索引与维护约定
+      valid-host.md             Go 后端 validHost 主机名格式校验流程
     backend.md                  Go 后端配置、健康检查、接口定义与本地依赖
     backend-deployment.md       生产部署步骤、环境注入、发布与回滚
     engineering-quality.md      环境与依赖维护、门禁分级、代码与文档规模阈值、CI 决策
@@ -41,6 +44,7 @@ docs/
 | 项目定位、主要技术、常用命令与贡献入口 | `README.md` |
 | 环境准备、共享依赖、门禁分级、规模阈值、CI 决策 | `docs/architecture/engineering-quality.md` |
 | Go 后端配置、健康检查与本地依赖 | `docs/architecture/backend.md` |
+| 架构与代码流程图索引、Mermaid 图示 | `docs/architecture/diagrams/` |
 | 生产部署步骤、环境注入、发布与回滚 | `docs/architecture/backend-deployment.md` |
 | 测试层级、注册表与执行计划 | `docs/testing/README.md` |
 | 浏览器回归观测、运行要求与结果记录 | `docs/testing/browser-regression.md` |

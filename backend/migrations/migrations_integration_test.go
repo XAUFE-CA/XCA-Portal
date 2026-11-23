@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/XAUFE-CA/XCA-Portal/backend/internal/auth"
+	"github.com/XAUFE-CA/XCA-Portal/backend/internal/auth/session"
 	"github.com/XAUFE-CA/XCA-Portal/backend/internal/testdb"
 	"github.com/XAUFE-CA/XCA-Portal/backend/migrations"
 	"github.com/jackc/pgx/v5"
@@ -257,7 +258,7 @@ func TestPasskeyMigrationPreservesLegacySessionsAndFences(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	sessions := auth.NewSessions(pool, time.Hour)
+	sessions := session.NewSessions(pool, time.Hour)
 	if id, err := sessions.Get(ctx, token); err != nil || id == nil || id.LoginName != "legacy" {
 		t.Fatalf("legacy session did not survive upgrade and rollback: %v %v", id, err)
 	}

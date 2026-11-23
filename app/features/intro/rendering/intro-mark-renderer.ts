@@ -15,23 +15,23 @@ import {
   sceneryOpacity,
   skylineOpacity,
 } from "../core/intro-geometry";
-import { type CityLayer, createCityLayer } from "./intro-city-layer";
-import { createMarkMesh } from "./intro-mark-mesh";
+import { type CityLayer, createCityLayer } from "./city/intro-city-layer";
+import { createIntroLighting, type IntroLighting } from "./environment/intro-scene-lighting";
+import { createIntroPalette, type IntroPalette } from "./environment/intro-scene-palette";
+import { createIntroSky, type IntroSky } from "./environment/intro-sky";
+import { createMarkMesh } from "./scene/intro-mark-mesh";
 import {
   createIntroCamera,
   createIntroScene,
   INTRO_LAYERS,
   type IntroCamera,
   type IntroScene,
-} from "./intro-scene";
-import { createIntroLighting, type IntroLighting } from "./intro-scene-lighting";
+} from "./scene/intro-scene";
 import {
   createIntroMaterials,
   type IntroFrame,
   type IntroMaterials,
-} from "./intro-scene-materials";
-import { createIntroPalette, type IntroPalette } from "./intro-scene-palette";
-import { createIntroSky, type IntroSky } from "./intro-sky";
+} from "./scene/intro-scene-materials";
 
 interface Pipeline {
   renderer: WebGLRenderer;

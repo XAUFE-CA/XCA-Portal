@@ -2,7 +2,7 @@
 import type { VNodeRef } from "vue";
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import heroSentences from "~/data/hero-sentences.json";
-import { type AuthSnapshot, getAuthClient } from "~/features/auth/client";
+import { type AuthSnapshot, getAuthClient } from "~/features/auth/session/client";
 import {
   applyPreferenceRow,
   ContextMenuHost,

@@ -23,6 +23,7 @@ app/                    门户应用（Nuxt 4 srcDir）
   config/               站点标识、路由与导航配置
   data/                 结构化数据与终端虚拟文件
   features/             自包含交互特性，一个特性一个目录
+    auth/               应用级会话与 Passkey 流程
     context-menu/       上下文菜单
     intro/              首页入场
     tagline-flame/      页脚标语火焰

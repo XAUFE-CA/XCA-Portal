@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/XAUFE-CA/XCA-Portal/backend/internal/auth"
+	"github.com/XAUFE-CA/XCA-Portal/backend/internal/auth/emailcode"
 	"github.com/XAUFE-CA/XCA-Portal/backend/internal/config"
 	"github.com/XAUFE-CA/XCA-Portal/backend/internal/httpapi"
 	"github.com/XAUFE-CA/XCA-Portal/backend/internal/mail"
@@ -42,7 +42,7 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	service, err := auth.New(context.Background(), pool, cfg, sender, logger, 64)
+	service, err := emailcode.New(context.Background(), pool, cfg, sender, logger, 64)
 	if err != nil {
 		return err
 	}

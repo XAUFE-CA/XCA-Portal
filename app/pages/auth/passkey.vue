@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { UiButton, UiCard, UiField, UiInput } from "@neoverse-ui/vue";
 import { onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
-import { type AuthSnapshot, getAuthClient } from "~/features/auth/client";
 import {
   getPasskeyWorkflow,
   type PasskeyManagementErrorCode,
@@ -9,7 +8,8 @@ import {
   type PasskeyPhaseListener,
   type PasskeySummary,
   type PasskeyWorkflow,
-} from "~/features/auth/passkeys";
+} from "~/features/auth/passkey/workflow";
+import { type AuthSnapshot, getAuthClient } from "~/features/auth/session/client";
 import type { MessageKey } from "~/i18n";
 
 const availability = await useFetch("/api/passkey-qa");

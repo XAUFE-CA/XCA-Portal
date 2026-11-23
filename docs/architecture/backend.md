@@ -13,10 +13,17 @@ backend/
   cmd/migrate/         受控数据库迁移入口
   cmd/xcactl/          受控邀请管理命令
   internal/config/     环境变量解析和启动校验
-  internal/auth/       验证码、限流、邀请激活、会话与 Passkey 管理事务
+  internal/auth/       认证用例共享的身份类型与错误
+    emailcode/         邮件验证码、邀请激活与投递
+    passkey/           Passkey 注册、登录与凭据管理
+    ratelimit/         邮件验证码与 Passkey 共用的限流计数
+    session/           会话持久化、操作取消与事务补偿
   internal/invitation/ 邀请校验、持久化和管理规则
   internal/mail/       可替换的邮件传输与 SMTP
-  internal/httpapi/    门户认证、可信代理、健康检查与响应
+  internal/httpapi/    按完整路径分发 HTTP 请求、健康检查及 OpenAPI 接口测试
+    authhttp/          邮件 OTP、会话与操作取消的 HTTP 处理
+    passkeyhttp/       Passkey 管理与登录的 HTTP 处理
+    internal/transport/  共用响应、会话 Cookie 与可信代理来源地址解析
   migrations/          版本化 SQL、迁移入口和 PostgreSQL 集成测试
   tools/               开发启动、独立检查与接口类型生成入口
   compose.yaml         本地 PostgreSQL 与 Mailpit
@@ -172,7 +179,7 @@ go run ./cmd/xcactl revoke --id INVITATION_ID
 
 来源由可信代理规则计算，来源额度使用 HMAC 摘要，不按账户或凭据 ID 分配额度。被来源拦截的请求不消耗全局额度。验证额度在断言事务之前单独提交，失败或回滚不退还尝试次数。超限返回 `429 rate_limited` 与 `Retry-After`。固定窗交界可连续使用相邻两窗额度，但不能越过未完成挑战的全局上限。新建选项时清理过期认证挑战，认证请求分批使用数据库锁清理过期的认证限流记录。
 
-Phase D 已接入隔离测试环境的浏览器入口，生产仍禁止访问该入口和两个登录开关。浏览器适配位于 `app/features/auth/passkey.ts`，流程协调位于 `app/features/auth/passkeys.ts`，测试页面为 `/auth/passkey`。页面要求服务端私有配置 `NUXT_PASSKEY_QA=true`，否则服务端中间件和可用性接口均返回 `404`；该开关不进入公开运行时配置，也不能由浏览器修改。生产环境不得设置该变量。
+隔离测试环境提供 `/auth/passkey` 浏览器入口。`app/features/auth/passkey/` 包含浏览器适配 `browser.ts` 和流程协调 `workflow.ts`，`app/features/auth/session/` 管理应用级身份状态与认证请求。测试页面要求服务端私有配置 `NUXT_PASSKEY_QA=true`，否则服务端中间件和可用性接口均返回 `404`。该开关不进入公开运行时配置，生产环境不得启用。
 
 浏览器优先调用 `PublicKeyCredential.parseCreationOptionsFromJSON()`、`parseRequestOptionsFromJSON()` 与 `toJSON()`；缺少这些接口时使用受测的 Base64URL 与 ArrayBuffer 转换。标准响应中未请求的扩展输出会拒绝，而非静默丢弃。注册和断言仍由 Go 服务端验证，浏览器结果不构成认证成功。认证器材料、Assertion 与注册私钥不写入 LocalStorage；LocalStorage 只保存取消操作标识。
 

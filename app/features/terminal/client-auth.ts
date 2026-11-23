@@ -1,4 +1,4 @@
-import { type AuthClient, getAuthClient } from "../auth/client";
+import { type AuthClient, getAuthClient } from "../auth/session/client";
 import { TERMINAL } from "./config";
 import type { AuthGateway } from "./core/types";
 
