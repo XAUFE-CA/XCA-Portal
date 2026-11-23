@@ -8,6 +8,7 @@ import {
 } from "three";
 import { tokenLength } from "~/utils/cssTokens";
 import {
+  ARRIVAL_ENTRY,
   arrivalOpacity,
   entryGrowth,
   journeyPerspective,
@@ -15,6 +16,7 @@ import {
   sceneryOpacity,
   skylineOpacity,
 } from "../core/intro-geometry";
+import { type AuditoriumPass, createAuditoriumPass } from "./auditorium/intro-auditorium-pass";
 import { type CityLayer, createCityLayer } from "./city/intro-city-layer";
 import { createIntroLighting, type IntroLighting } from "./environment/intro-scene-lighting";
 import { createIntroPalette, type IntroPalette } from "./environment/intro-scene-palette";
@@ -33,6 +35,11 @@ import {
   type IntroMaterials,
 } from "./scene/intro-scene-materials";
 
+const SLOW_FRAME_MS = 1000 / 30;
+const SLOW_FRAME_STREAK = 4;
+const RESOLUTION_STEP = 0.65;
+const MAX_RESOLUTION_DROPS = 2;
+
 interface Pipeline {
   renderer: WebGLRenderer;
   frame: IntroFrame;
@@ -42,6 +49,7 @@ interface Pipeline {
   city: CityLayer;
   sky: IntroSky;
   view: IntroCamera;
+  auditorium: AuditoriumPass;
   palette: IntroPalette;
   fog: Fog;
   dispose(): void;
@@ -134,6 +142,7 @@ function createPipeline(
       city,
       sky,
       view,
+      auditorium: createAuditoriumPass(renderer, view.camera),
       palette,
       fog,
       dispose() {
@@ -153,6 +162,7 @@ function draw(
   travel: HTMLElement,
   signs: HTMLElement[],
   aura: HTMLElement,
+  warm = false,
 ) {
   const { renderer, frame, scene, view, city, sky } = state;
   // WAAPI remains the only camera clock, including pauses, replay and interruption.
@@ -177,37 +187,48 @@ function draw(
   if (changed) {
     state.lighting.move(movement);
   }
-  state.lighting.useExterior();
-  view.camera.layers.set(INTRO_LAYERS.city);
-  state.fog.near = 9000;
-  state.fog.far = 65000;
-  city.resize(renderer.domElement.width, renderer.domElement.height);
-  renderer.setRenderTarget(city.target);
-  renderer.clear();
-  // Exterior and room shadows warm independently, then reuse their static depth images.
-  // 室外与室内阴影分别预热，随后复用各自的静态深度图。
+  // Keep the warm-up and shadow updates even when all exterior color is occluded.
+  // 即使室外画面完全被遮挡，仍保留预热与阴影更新。
   const shadows = renderer.shadowMap.needsUpdate;
-  renderer.render(scene.scene, view.camera);
+  const outside = warm || shadows || !state.auditorium.coversViewport(movement, frame.growth.value);
+  const cityOpacity = outside ? skylineOpacity(frame.eye.value.z) : 0;
+  if (outside) state.lighting.useExterior();
+  if (warm || shadows || cityOpacity > 0) {
+    view.camera.layers.set(INTRO_LAYERS.city);
+    state.fog.near = 9000;
+    state.fog.far = 65000;
+    city.resize(renderer.domElement.width, renderer.domElement.height);
+    renderer.setRenderTarget(city.target);
+    renderer.clear();
+    renderer.render(scene.scene, view.camera);
+    renderer.setRenderTarget(null);
+  }
   renderer.shadowMap.needsUpdate = false;
-  renderer.setRenderTarget(null);
   renderer.clear();
-  // Daylight enters later; night retains its existing reveal cadence.
-  // 日景延后显现，夜景保留原有的显现节奏。
-  const auraOpacity = Number.parseFloat(getComputedStyle(aura).opacity || "0");
-  const reveal =
-    state.palette.daylight >= 0.5
-      ? MathUtils.smoothstep(auraOpacity, 0.18, 0.92)
-      : Math.min(1, auraOpacity / 0.58);
-  sky.draw(view.camera, reveal);
-  city.composite(skylineOpacity(frame.eye.value.z), state.palette.daylight);
-  view.camera.layers.set(INTRO_LAYERS.exterior);
-  state.fog.near = 6000;
-  state.fog.far = 30000;
-  renderer.render(scene.scene, view.camera);
+  if (outside) {
+    // Daylight enters later; night retains its existing reveal cadence.
+    // 日景延后显现，夜景保留原有的显现节奏。
+    const auraOpacity = Number.parseFloat(getComputedStyle(aura).opacity || "0");
+    const reveal =
+      state.palette.daylight >= 0.5
+        ? MathUtils.smoothstep(auraOpacity, 0.18, 0.92)
+        : Math.min(1, auraOpacity / 0.58);
+    sky.draw(view.camera, reveal);
+    if (warm || cityOpacity > 0) city.composite(cityOpacity, state.palette.daylight);
+    view.camera.layers.set(INTRO_LAYERS.exterior);
+    state.fog.near = 6000;
+    state.fog.far = 30000;
+    renderer.render(scene.scene, view.camera);
+  }
   view.camera.layers.set(INTRO_LAYERS.auditorium);
   state.lighting.useAuditorium();
   renderer.shadowMap.needsUpdate = shadows;
-  renderer.render(scene.scene, view.camera);
+  state.auditorium.draw(
+    scene.scene,
+    frame.entry.value,
+    ARRIVAL_ENTRY.front + movement,
+    warm || shadows,
+  );
   for (const sign of signs) {
     const opacity = String(sceneryOpacity(frame.growth.value, Number(sign.dataset.depth)));
     if (sign.style.opacity !== opacity) sign.style.opacity = opacity;
@@ -240,12 +261,23 @@ async function warmPipeline(state: Pipeline, elements: RenderElements, signal: A
   state.renderer.setRenderTarget(null);
   await state.renderer.compileAsync(state.scene.scene, state.view.camera);
   signal.throwIfAborted();
-  draw(state, elements.camera, elements.front, elements.travel, elements.signs, elements.aura);
+  draw(
+    state,
+    elements.camera,
+    elements.front,
+    elements.travel,
+    elements.signs,
+    elements.aura,
+    true,
+  );
 }
 
 class MarkRenderer {
   private frame = 0;
   private disposed = false;
+  private previousFrameTime: number | undefined;
+  private slowFrames = 0;
+  private resolutionDrops = 0;
   private observer = new MutationObserver(() => this.sync());
   private colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -282,9 +314,35 @@ class MarkRenderer {
     }
   }
 
-  private paint = () => {
-    const { camera, front, travel, signs, aura } = this.elements;
+  private adaptResolution(now: number, camera: HTMLElement) {
+    const previous = this.previousFrameTime;
+    this.previousFrameTime = now;
+    if (previous === undefined || this.resolutionDrops >= MAX_RESOLUTION_DROPS) return;
+    if (now - previous <= SLOW_FRAME_MS) {
+      this.slowFrames = 0;
+      return;
+    }
+    if (++this.slowFrames < SLOW_FRAME_STREAK) return;
+    this.slowFrames = 0;
+    if (!camera.getAnimations().some((animation) => animation.playState === "running")) return;
+
+    // Change the drawing buffer only; the CSS viewport and all passes stay in place.
+    // 只缩小绘制缓冲；CSS 视口和所有可见绘制通道保持不变。
+    const renderer = this.state.renderer;
+    renderer.setPixelRatio(renderer.getPixelRatio() * RESOLUTION_STEP);
+    this.resolutionDrops++;
+    this.previousFrameTime = undefined;
+  }
+
+  private paint = (now?: number) => {
+    const { root, canvas, camera, front, travel, signs, aura } = this.elements;
+    // The remaining terminal work must not redraw an already faded canvas.
+    // 终端继续加载时，不再重绘已完全淡出的画布。
+    if (root.dataset.journey === "retreat" && Number(getComputedStyle(canvas).opacity) === 0)
+      return;
     try {
+      if (now !== undefined && root.dataset.journey !== "retreat")
+        this.adaptResolution(now, camera);
       draw(this.state, camera, front, travel, signs, aura);
       this.frame = requestAnimationFrame(this.paint);
     } catch {
@@ -295,6 +353,8 @@ class MarkRenderer {
 
   private sync = () => {
     cancelAnimationFrame(this.frame);
+    this.previousFrameTime = undefined;
+    this.slowFrames = 0;
     const { root, canvas, signs } = this.elements;
     if (root.dataset.journey === "draw")
       for (const sign of signs) sign.style.removeProperty("opacity");

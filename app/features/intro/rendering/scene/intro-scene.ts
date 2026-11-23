@@ -9,6 +9,7 @@ import {
   Scene,
   SRGBColorSpace,
 } from "three";
+import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../../core/intro-auditorium";
 import { JOURNEY, roadBend } from "../../core/intro-geometry";
 import { CITY_GRID, cityParcel } from "../city/intro-city-layout";
 import {
@@ -68,7 +69,72 @@ function orientFaces(geometry: BufferGeometry) {
   }
 }
 
-function geometryFor(source: Float32Array, material: number, count: number): BufferGeometry {
+/** Index exact duplicates without welding positions across hard normals or changing triangles. */
+function indexAuditoriumGeometry(
+  geometry: BufferGeometry,
+  positions: Float32Array,
+  normals: Float32Array,
+) {
+  const count = positions.length / 3;
+  const positionBits = new Uint32Array(positions.buffer);
+  const normalBits = new Uint32Array(normals.buffer);
+  const slots = new Uint32Array(2 ** Math.ceil(Math.log2(count * 2)));
+  const mask = slots.length - 1;
+  const indices = count < 65536 ? new Uint16Array(count) : new Uint32Array(count);
+  const attributes = Object.entries(geometry.attributes);
+  let unique = 0;
+  for (let vertex = 0; vertex < count; vertex++) {
+    const start = vertex * 3;
+    let hash = 0x811c9dc5;
+    for (let axis = 0; axis < 3; axis++) {
+      hash = Math.imul(hash ^ (positionBits[start + axis] ?? 0), 0x01000193);
+      hash = Math.imul(hash ^ (normalBits[start + axis] ?? 0), 0x01000193);
+    }
+    let slot = hash & mask;
+    for (;;) {
+      const indexed = (slots[slot] ?? 0) - 1;
+      const other = indexed * 3;
+      if (indexed < 0) {
+        indices[vertex] = unique;
+        slots[slot] = unique + 1;
+        // Room surface UVs and road attributes are derived from position alone.
+        // 室内表面的 UV 和道路属性均由顶点位置推导。
+        if (unique !== vertex) {
+          for (const [, attribute] of attributes) {
+            const size = attribute.itemSize;
+            attribute.array.copyWithin(unique * size, vertex * size, (vertex + 1) * size);
+          }
+        }
+        unique++;
+        break;
+      }
+      if (
+        positionBits[start] === positionBits[other] &&
+        positionBits[start + 1] === positionBits[other + 1] &&
+        positionBits[start + 2] === positionBits[other + 2] &&
+        normalBits[start] === normalBits[other] &&
+        normalBits[start + 1] === normalBits[other + 1] &&
+        normalBits[start + 2] === normalBits[other + 2]
+      ) {
+        indices[vertex] = indexed;
+        break;
+      }
+      slot = (slot + 1) & mask;
+    }
+  }
+  for (const [name, attribute] of attributes)
+    geometry.setAttribute(
+      name,
+      new BufferAttribute(
+        attribute.array.slice(0, unique * attribute.itemSize),
+        attribute.itemSize,
+      ),
+    );
+  geometry.setIndex(new BufferAttribute(indices, 1));
+}
+
+function geometryFor(source: Float32Array, material: number, triangles: number[]): BufferGeometry {
+  const count = triangles.length * 3;
   const positions = new Float32Array(count * 3);
   const normals = new Float32Array(count * 3);
   const uv = new Float32Array(count * 2);
@@ -77,10 +143,9 @@ function geometryFor(source: Float32Array, material: number, count: number): Buf
   const colors = material === 0 ? new Float32Array(count * 3) : null;
   const shade = material === 0 ? new Color() : null;
   const city = material > 4.5 && material < 8.5 && material !== 7;
-  let vertex = 0;
   let ledShape = 0;
-  for (let offset = 0; offset < source.length; offset += 7) {
-    if (selector(source, offset) !== material) continue;
+  for (let vertex = 0; vertex < count; vertex++) {
+    const offset = (triangles[Math.floor(vertex / 3)] ?? 0) + (vertex % 3) * 7;
     const x = source[offset] ?? 0;
     const y = source[offset + 1] ?? 0;
     const z = source[offset + 2] ?? 0;
@@ -127,7 +192,6 @@ function geometryFor(source: Float32Array, material: number, count: number): Buf
     }
     across[vertex] = (x - roadBend(z).x - JOURNEY.roadX) / JOURNEY.roadWidth + 0.5;
     along[vertex] = z;
-    vertex++;
   }
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
@@ -139,13 +203,49 @@ function geometryFor(source: Float32Array, material: number, count: number): Buf
   // Reflection reverses winding; authored normals also correct the old mesh's mixed caps.
   // 坐标反射会反转绕序，原有法线同时修正旧网格中绕序不一致的端面。
   orientFaces(geometry);
+  if (material >= 9) indexAuditoriumGeometry(geometry, positions, normals);
   geometry.computeBoundingSphere();
   return geometry;
 }
 
+function surfaceBatches(source: Float32Array) {
+  const materials = new Map<number, Map<number, number[]>>();
+  for (let offset = 0; offset < source.length; offset += 21) {
+    const material = selector(source, offset);
+    let batches = materials.get(material);
+    if (!batches) {
+      batches = new Map();
+      materials.set(material, batches);
+    }
+    let tile = 0;
+    if (
+      material === AUDITORIUM_MATERIAL.seat ||
+      material === AUDITORIUM_MATERIAL.alloy ||
+      material === AUDITORIUM_MATERIAL.graphite
+    ) {
+      // Two seating rows per tile, without merging the banks across the aisle.
+      // 每个分块覆盖两排座位，通道两侧可分别剔除。
+      const x =
+        ((source[offset] ?? 0) + (source[offset + 7] ?? 0) + (source[offset + 14] ?? 0)) / 3;
+      const z =
+        ((source[offset + 2] ?? 0) + (source[offset + 9] ?? 0) + (source[offset + 16] ?? 0)) / 3;
+      const col = x < JOURNEY.roadX ? 0 : 1;
+      const row = Math.floor((z - AUDITORIUM.entrance) / 880);
+      tile = row * 2 + col;
+    }
+    let triangles = batches.get(tile);
+    if (!triangles) {
+      triangles = [];
+      batches.set(tile, triangles);
+    }
+    triangles.push(offset);
+  }
+  return materials;
+}
+
 /**
- * Batch by surface; only the mark, world offset and bounded street traffic move.
- * 按表面合批，仅标识、场景偏移与有界街道交通发生位移。
+ * Batch by surface, splitting dense seating surfaces into spatial tiles for frustum culling.
+ * 按表面合批；高密度座席按空间分块，供视锥剔除。
  */
 export function createIntroScene(
   source: Float32Array,
@@ -156,32 +256,29 @@ export function createIntroScene(
   const mark = new Group();
   scene.add(world, mark);
   const geometries: BufferGeometry[] = [];
-  const counts = new Map<number, number>();
-  for (let offset = 0; offset < source.length; offset += 7) {
-    const id = selector(source, offset);
-    counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-  for (const [id, count] of counts) {
-    const geometry = geometryFor(source, id, count);
-    geometries.push(geometry);
-    const mesh = new Mesh(geometry, materials.get(id));
-    mesh.name = `intro.surface.${id}`;
-    // Whole-bridge batch centers cannot determine the overlap order of transparent glass.
-    // 整座桥的合批中心不能决定透明玻璃的叠放顺序。
-    mesh.renderOrder = id === 1 ? 1 : id === 4 ? 2 : 0;
-    const city = id > 4.5 && id < 8.5 && id !== 7;
-    mesh.layers.set(
-      city ? INTRO_LAYERS.city : id >= 9 ? INTRO_LAYERS.auditorium : INTRO_LAYERS.exterior,
-    );
-    mesh.castShadow =
-      (city && id !== 6 && id !== CITY_TRAFFIC_MATERIAL) ||
-      id === 1 ||
-      id === 2 ||
-      (id >= 9 && id < 14 && id !== 11) ||
-      id === 19 ||
-      id === 22;
-    mesh.receiveShadow = city || id === 1 || id === 2 || id >= 9;
-    (id === 0 ? mark : world).add(mesh);
+  for (const [id, batches] of surfaceBatches(source)) {
+    for (const triangles of batches.values()) {
+      const geometry = geometryFor(source, id, triangles);
+      geometries.push(geometry);
+      const mesh = new Mesh(geometry, materials.get(id));
+      mesh.name = `intro.surface.${id}`;
+      // Whole-bridge batch centers cannot determine the overlap order of transparent glass.
+      // 整座桥的合批中心不能决定透明玻璃的叠放顺序。
+      mesh.renderOrder = id === 1 ? 1 : id === 4 ? 2 : 0;
+      const city = id > 4.5 && id < 8.5 && id !== 7;
+      mesh.layers.set(
+        city ? INTRO_LAYERS.city : id >= 9 ? INTRO_LAYERS.auditorium : INTRO_LAYERS.exterior,
+      );
+      mesh.castShadow =
+        (city && id !== 6 && id !== CITY_TRAFFIC_MATERIAL) ||
+        id === 1 ||
+        id === 2 ||
+        (id >= 9 && id < 14 && id !== 11) ||
+        id === 19 ||
+        id === 22;
+      mesh.receiveShadow = city || id === 1 || id === 2 || id >= 9;
+      (id === 0 ? mark : world).add(mesh);
+    }
   }
   return {
     scene,

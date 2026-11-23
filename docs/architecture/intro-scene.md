@@ -15,7 +15,7 @@ Status: adopted
 | [intro-camera.ts](../../app/features/intro/core/intro-camera.ts) | 摄像机轨迹采样、姿态插值、屏幕投影矩阵与相机关键帧 |
 | [intro-journey.ts](../../app/features/intro/core/intro-journey.ts) | 终端居中测量、终端停靠帧与入场阶段编排 |
 | [intro-graphics.ts](../../app/features/intro/core/intro-graphics.ts) | 硬件渲染能力探测与上下文释放 |
-| [intro-flat.ts](../../app/features/intro/presentation/intro-flat.ts) | 无 GPU 时的标识描边、主色线与让位分镜 |
+| [intro-flat.ts](../../app/features/intro/presentation/intro-flat.ts) | 无 GPU 时的标识描边、填充与停留 |
 | [intro-mark-mesh.ts](../../app/features/intro/rendering/scene/intro-mark-mesh.ts) | CA 原始轮廓挤出、道路与报告厅静态网格 |
 | [intro-mark-renderer.ts](../../app/features/intro/rendering/intro-mark-renderer.ts) | 动态导入入口，负责 Three.js 初始化、预热与绘制生命周期 |
 | [intro-scene.ts](../../app/features/intro/rendering/scene/intro-scene.ts) | 按材质合批及 CSS 相机适配 |
@@ -25,10 +25,11 @@ Status: adopted
 | [intro-city-led.ts](../../app/features/intro/rendering/city/intro-city-led.ts)、[intro-city-led-surface.ts](../../app/features/intro/rendering/city/intro-city-led-surface.ts) | 楼体屏幕网格、像素图案与日夜发光 |
 | [intro-city-life.ts](../../app/features/intro/rendering/city/intro-city-life.ts) | 屋顶咖啡座、行人与街道车流的材质和位移 |
 | [intro-scene-palette.ts](../../app/features/intro/rendering/environment/intro-scene-palette.ts)、[intro-scene-materials.ts](../../app/features/intro/rendering/scene/intro-scene-materials.ts) | 场景配色、PBR 表面与传送门可见性 |
+| [intro-auditorium-pass.ts](../../app/features/intro/rendering/auditorium/intro-auditorium-pass.ts) | 门洞投影与报告厅局部视口 |
 | [intro-scene-lighting.ts](../../app/features/intro/rendering/environment/intro-scene-lighting.ts)、[intro-scene-environment.ts](../../app/features/intro/rendering/environment/intro-scene-environment.ts) | 分层光照、城市反射捕获与 PMREM、室外和室内阴影 |
 | [intro-sky.ts](../../app/features/intro/rendering/environment/intro-sky.ts) | 日夜天空全景预载与世界方向采样 |
 | [intro-city-layer.ts](../../app/features/intro/rendering/city/intro-city-layer.ts) | 城市深度缓冲、HDR 离屏绘制与整体合成 |
-| [intro-journey.css](../../app/assets/css/intro-journey.css)、[intro-flat.css](../../app/assets/css/intro-flat.css) | 场景布局与路牌样式，以及二维入场的标识与主色线 |
+| [intro-journey.css](../../app/assets/css/intro-journey.css)、[intro-flat.css](../../app/assets/css/intro-flat.css) | 场景布局与路牌样式，以及二维标识布局 |
 
 场景尺度、节奏倍率和投影阈值由上表源码维护，不在文档另设数值表。
 
@@ -48,7 +49,7 @@ Status: adopted
 
 完整空间入场在 SVG 描边前等待 `prepareRenderer(gl, signal)`。该准备动态导入渲染模块，复用探测得到的 WebGL2 上下文创建静态网格与材质，并行下载两张天空全景，再生成 PMREM 与离屏目标，通过 `compileAsync` 预编译两种输出并完成隐藏首绘。
 
-图形能力由 `probeIntroGraphics` 在动态导入前判定，要求 `failIfMajorPerformanceCaveat` 下仍能取得 WebGL2 上下文。探测失败或渲染模块初始化失败时释放上下文，改由 `playFlatMark` 描绘同一 CA 标识与一条主色线，终端不投影，直接淡入并接启动输出；该路径不下载 Three.js 或天空全景。
+图形能力由 `probeIntroGraphics` 在动态导入前判定，要求 `failIfMajorPerformanceCaveat` 下仍能取得 WebGL2 上下文。探测失败或渲染模块初始化失败时释放上下文，改由 `playFlatMark` 描边并填充同一 CA 标识。终端不投影，直接淡入并接启动输出；该路径不下载 Three.js 或天空全景。
 
 全景全部就绪后才上传纹理，单张失败会取消另一张并释放解码资源。返回后等待两次动画帧回调，再启动 SVG 描边。同一取消信号中止下载、后续启动和绘制，异步返回前检查取消及挂载状态。
 
@@ -92,6 +93,8 @@ LED 屏幕分布在近路办公楼、四处地标及正前方远景楼群，分�
 
 半透桥面随后覆盖城市及光晕，报告厅继续使用不透明表面遮挡，两者不消费城市后处理。尺寸变化同步调整全部目标，卸载释放模糊材质和离屏资源，分配失败时沿用 SVG 降级。
 
+播放空间镜头时，连续四个帧间隔超过 30 fps 的预算会下调 WebGL 绘制缓冲分辨率，城市离屏缓冲同步缩小。每次将宽高缩至上一档的 65%，每次播放最多下调两次，不在播放中反复升降。CSS 视口、镜头、反射、阴影与其他可见通道不变。城市合成透明度为零时不再常规绘制城市离屏层；场景画布完全淡出后停止重绘。
+
 道路终点后方的高层城市与近处街区形成深度差。高架桥面采用低粗糙度镀膜玻璃，清漆层反射天空和邻楼，透明混合保留桥下城市。掠射角提高覆盖率，分板接缝与路缘导光区分行进方向。支撑、玻璃桥面与栏板采用固定的绘制顺序，不按整座桥的合批中心重新排序。桥面继续写入深度，避免闭合截面的背面重复叠色，不启用依赖同场景背景捕获的屏幕空间折射。玻璃面不叠加高频颗粒法线，接缝与导光线按像素覆盖范围过滤，远处导光逐渐衰减。纹理固定在道路横向坐标与原始纵向距离，不随场景平移滑动。桥梁位置、厚度、生长及入口裁切保持不变，城市下层街道仍使用矿物饰面，报告厅地面仍不透明。
 
 道路采用高架标高，城市地面低于桥面。低层建筑与裙楼的屋顶位于桥面下方，中高层塔楼继续高于桥面。桥下横梁与桥墩延伸至城市地面，沿用道路曲线与显现进度。楼宇保留低处屋顶及下方立面的可见高度差，按观察距离雾化。摄像机与终端投影继续使用桥面坐标。
@@ -104,9 +107,13 @@ LED 屏幕分布在近路办公楼、四处地标及正前方远景楼群，分�
 
 CA 与前段道路阶段不绘制报告厅内部及其宽地面，不让远处室内提前出现在标识后方。移除道路末端的两层独立光框，只保留报告厅入口。连接段接在道路终点处，四块路牌均位于连接段之前。原有的到达距离仍作为显现与退场的时序锚点，不再驱动光框几何。
 
-入口采用传送门裁切。进入前，只有视线穿过门洞的室内片元参与绘制，门洞以外仍显示城市，不绘制报告厅外壳。入口前方的室内几何同时被剔除，避免目的场景的前墙挡住开口。镜头穿过入口平面后解除裁切，恢复完整室内。
+入口采用传送门裁切。门洞未打开时跳过报告厅绘制通道，开放后用门洞的屏幕投影缩小室内视口和视锥，片元着色器仍按门洞边缘精确裁切。门洞触及近裁面时使用完整视口，避免裁掉近处画面；镜头越过入口平面后解除门洞裁切。首绘与阴影更新沿用完整通道。
+
+穿门后，仅当前向视锥的整个近裁面落入已铺满地面的入口通道或封闭厅体时，跳过被遮挡的城市、天空与室外桥面通道。近裁面仍可能透出室外时沿用完整绘制；门外的反射和折射不降级。
 
 门洞开口在末段道路随同一摄像机距离进度连续展开，并在镜头到达入口前达到完整宽高。开口两端的速度与加速度归零，内侧保留蓝青导光边缘。报告厅物体与静态网格保持最终位置和尺寸，不缩放家具或移动墙面，不使用场景透明度切换、黑屏遮罩或交叉淡化。裁切继续使用现有 WebGL 实例和深度缓冲，不增加第二套场景渲染器。
+
+报告厅网格使用精确顶点索引复用位置和法线均相同的顶点，不改变三角形、材质或硬边。高密度座席按前后分块，并分开通道两侧，让视锥剔除不可见座席。
 
 道路弯曲在道路终点之前归零，随后保持直线，使桥面外边缘与入口预留开口相接。入口沿用门洞宽高，连接地面沿原有道路生长前沿铺开，并与室内一起通过传送门裁切。道路视点延续到入口，仅在高终端净空不足时平滑补偿高度。完全越过入口顶板后，机位在向前推进的同时连续升高，视线保持水平，不靠仰角看向高处屏幕。靠近舞台前排座椅时终端即开始缩小，镜头继续前推和上升，不等镜头停止后才缩屏。摄像机沿同一条连续轨迹穿过开放入口。
 
@@ -158,7 +165,7 @@ CA 与前段道路阶段不绘制报告厅内部及其宽地面，不让远处�
 - [网格回归](../../app/features/intro/rendering/scene/intro-mark-mesh.test.ts) 检查桥面、入口及阶梯中央通道的连续承托。
 - [轨迹回归](../../app/features/intro/core/intro-journey.test.ts) 检查道路前视、门洞净空、机位上升的单调性与速度、终点高度及屏幕中心投影，以及上升与缩屏的重叠。
 
-`tests/e2e/intro/flat-entry.spec.ts` 让 `getContext("webgl2")` 返回空或抛出异常，验证二维入场不请求天空全景、不挂载画布，并从同一终端进入可执行命令的就绪态。跳过分镜同时检查不出现启动日志残影。
+`tests/e2e/intro/flat-entry.spec.ts` 让 `getContext("webgl2")` 返回空或抛出异常，验证二维入场不请求天空全景、不挂载画布、不绘制主色线，进度随日志结束到达 100%，并从同一终端进入可执行命令的就绪态。跳过分镜同时检查不出现启动日志残影。
 
 `tests/e2e/intro/city-fade-continuity.spec.ts` 固定摄像机，以小步长改变低区间透明度，隔离独立的不透明天空后读取城市合成像素并检查连续性。`tests/e2e/intro/intro-fade.spec.ts` 检查玻璃桥面的可见性与城市透视、报告厅地面的不透明遮挡、首屏背景连续性及跳过时的资源释放。
 

@@ -1,22 +1,14 @@
-/* A device without a usable GPU gets one CA mark and one accent line; no scene is mounted.
-   没有可用 GPU 的设备只看到一枚 CA 标识与一条主色线，不挂载场景。 */
+/* A device without a usable GPU draws only the flat CA mark.
+   没有可用 GPU 的设备只绘制二维 CA 标识。 */
 .xca-intro-flat {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
 }
-.xca-intro-flat__stage {
-  position: relative;
-  display: grid;
-  place-items: center;
+.xca-intro-flat__mark {
   width: min(52vmin, 352px);
   aspect-ratio: 1;
-}
-.xca-intro-flat__mark {
-  grid-area: 1 / 1;
-  width: 100%;
-  height: 100%;
   color: var(--neoverse-color-text-primary);
 }
 .xca-intro-flat__mark svg {
@@ -34,22 +26,4 @@
   stroke-linejoin: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-}
-/* The accent line echoes the road guide light at the mark's base.
-   主色线在标识底部呼应道路导光。 */
-.xca-intro-flat__line {
-  grid-area: 1 / 1;
-  align-self: end;
-  justify-self: center;
-  width: 68%;
-  height: 2px;
-  margin-bottom: calc(var(--neoverse-space-6) * -1);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--neoverse-color-accent-primary),
-    transparent
-  );
-  opacity: 0;
-  transform-origin: center;
 }

@@ -122,10 +122,7 @@ onBeforeUnmount(() => {
     <!-- The flat entry keeps the same root so a failed renderer can swap scenes in place.
          二维入场沿用同一根节点，渲染器失败时可在原处切换场景。 -->
     <div v-if="flat" class="xca-intro-flat" aria-hidden="true">
-      <div class="xca-intro-flat__stage">
-        <div class="xca-intro-flat__mark" v-html="flatSvg" />
-        <div class="xca-intro-flat__line" />
-      </div>
+      <div class="xca-intro-flat__mark" v-html="flatSvg" />
     </div>
     <template v-else>
       <div class="xca-ca-intro__aura" aria-hidden="true" />

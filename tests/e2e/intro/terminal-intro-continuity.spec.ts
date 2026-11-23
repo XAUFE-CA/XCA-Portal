@@ -69,10 +69,15 @@ for (const width of [1440, 390]) {
       const previous = lengths[index - 1];
       if (current === undefined || previous === undefined)
         throw new Error("Boot progress samples must be consecutive");
-      expect(current - previous).toBeGreaterThanOrEqual(0);
-      expect(current - previous).toBeLessThanOrEqual(2);
+      // Missed frames may skip characters but never undo progress.
+      // 掉帧可以跳过字符，但进度不能倒退。
+      expect(current).toBeGreaterThanOrEqual(previous);
     }
     expect(ticks.at(-1)?.progress).toBe(100);
+    expect(ticks.find((entry) => entry.progress === 100)).toMatchObject({
+      bootLines: 6,
+      stage: null,
+    });
     expect(bar.offset).toBeLessThanOrEqual(0.5);
     expect(bar.log).not.toContain("guest@xca");
     expect(bar.cells.length).toBe(6);

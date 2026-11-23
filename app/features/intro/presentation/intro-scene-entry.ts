@@ -3,7 +3,7 @@ import { entryTerminalFrames } from "../core/intro-entry";
 import { probeIntroGraphics, releaseIntroGraphics } from "../core/intro-graphics";
 import { centerTerminal } from "../core/intro-journey";
 import { INTRO_PACING } from "../core/timing";
-import { BOOT_SEQUENCE } from "./boot-script";
+import { BOOT_CONTENT, BOOT_CUES, BOOT_READY } from "./boot-script";
 import { playFlatMark } from "./intro-flat";
 import { playIntroMark } from "./intro-mark";
 import {
@@ -14,6 +14,13 @@ import {
   waitForPaint,
   waitForVisible,
 } from "./intro-runtime";
+
+const BOOT_PROGRESS_TICKS = 32;
+
+function setBootProgress(context: IntroContext, fraction: number) {
+  const tick = Math.floor(fraction * BOOT_PROGRESS_TICKS);
+  context.bootProgress.value = Math.round((tick / BOOT_PROGRESS_TICKS) * 100);
+}
 
 export function sleep(context: IntroContext, ms: number, signal: AbortSignal): Promise<void> {
   const element = frame(context.anchor);
@@ -94,45 +101,61 @@ export async function playBoot(
 ): Promise<void> {
   context.phase.value = "boot";
   await nextTick();
-  // Emitted lines drive scene cues; the progress bar only measures elapsed reading time.
-  // 实际输出的文本行驱动场景提示。进度条仅衡量已用的阅读时间。
-  await Promise.all([
-    (async () => {
-      for (const step of BOOT_SEQUENCE) {
-        await sleep(context, unit * step.delayUnits, signal);
-        signal.throwIfAborted();
-        const line = step.line(context.getCommandCount());
-        if (spatial && line.message.key === "boot.content") await arrival;
-        if (line.message.key === "boot.ready") await context.state.retreatPromise;
-        signal.throwIfAborted();
-        context.bootLines.value = [...context.bootLines.value, line];
+  const terminal = frame(context.anchor);
+  let prelude = 0;
+  const cues = BOOT_CUES.map((step) => {
+    prelude += unit * step.delayUnits;
+    return { step, at: prelude };
+  });
+  prelude += unit * BOOT_CONTENT.delayUnits;
+  const docking = unit * INTRO_PACING.arrival;
+  const total = prelude + docking;
+  let nextCue = 0;
+  function printPrelude(elapsed: number) {
+    for (let cue = cues[nextCue]; cue && elapsed >= cue.at; cue = cues[++nextCue]) {
+      const line = cue.step.line(context.getCommandCount());
+      context.bootLines.value.push(line);
+      if (spatial && line.message.key === "boot.start") {
         const root = context.markRef.value?.$el as HTMLElement | undefined;
-        if (spatial && root && line.message.key === "boot.start") {
-          const remaining = BOOT_SEQUENCE.slice(1).reduce(
-            (total, cue) => total + cue.delayUnits,
-            0,
-          );
-          void trackMotion(context, context.journey.cruise(root, unit * remaining, signal), signal);
-        }
-        if (line.message.key !== "boot.content") continue;
-        const element = frame(context.anchor);
-        if (spatial && element) beginRetreat(context, element, unit, signal);
-        else context.revealing.value = true;
+        if (root)
+          void trackMotion(context, context.journey.cruise(root, total - cue.at, signal), signal);
       }
-    })(),
-    (async () => {
-      const ticks = 32;
-      const duration = unit * BOOT_SEQUENCE.reduce((total, step) => total + step.delayUnits, 0);
-      for (let tick = 1; tick <= ticks; tick++) {
-        await sleep(context, duration / ticks, signal);
-        signal.throwIfAborted();
-        context.bootProgress.value = Math.round((tick / ticks) * 100);
-      }
-    })(),
-  ]);
-  await sleep(context, unit * INTRO_PACING.bootComplete, signal);
+    }
+    setBootProgress(context, elapsed / total);
+  }
+  if (terminal && typeof terminal.animate === "function") {
+    await context.animateIntro(terminal, [], { duration: prelude }, signal, printPrelude);
+  } else {
+    for (const { step, at } of cues) {
+      await sleep(context, unit * step.delayUnits, signal);
+      signal.throwIfAborted();
+      printPrelude(at);
+    }
+    await sleep(context, unit * BOOT_CONTENT.delayUnits, signal);
+    signal.throwIfAborted();
+  }
+  printPrelude(prelude);
+  await arrival;
+  signal.throwIfAborted();
+  context.bootLines.value.push(BOOT_CONTENT.line(context.getCommandCount()));
+  if (spatial && terminal) beginRetreat(context, terminal, unit, signal);
+  else context.revealing.value = true;
+
+  // Use elapsed animation time, rather than waiting one frame for every character.
+  // 按动画已用时间推进，不再为进度条的每个字符单独等一帧。
+  const progress =
+    terminal && typeof terminal.animate === "function"
+      ? context.animateIntro(terminal, [], { duration: docking }, signal, (elapsed) => {
+          setBootProgress(context, (prelude + elapsed) / total);
+        })
+      : sleep(context, docking, signal);
+  await Promise.all([progress, context.state.retreatPromise]);
   signal.throwIfAborted();
   if (spatial) context.introScene.value = null;
+  context.bootLines.value.push(BOOT_READY);
+  context.bootProgress.value = 100;
+  await sleep(context, unit * INTRO_PACING.bootComplete, signal);
+  signal.throwIfAborted();
 }
 
 export async function playBrand(context: IntroContext, unit: number, signal: AbortSignal) {
@@ -161,42 +184,68 @@ export async function playBrand(context: IntroContext, unit: number, signal: Abo
 }
 
 /**
- * Run the boot output and welcome print once the scene has handed over.
- * 场景交接后运行启动输出与欢迎打印。
+ * Run flat boot cues and progress from one pausable clock so dropped frames do not queue ticks.
+ * 二维入场的启动日志和进度条共用一个可暂停时钟，掉帧时不累积进度刻度。
  */
-async function runHandoff(context: IntroContext, unit: number, signal: AbortSignal, flat = false) {
+async function runFlatHandoff(
+  context: IntroContext,
+  terminal: HTMLElement,
+  unit: number,
+  signal: AbortSignal,
+) {
   await waitForVisible(signal);
   signal.throwIfAborted();
   context.phase.value = "handoff";
   await nextTick();
   signal.throwIfAborted();
-  const element = frame(context.anchor);
-  // The flat entry has no projected glass, so the terminal fades in where it will stay.
-  // 二维入场没有投影玻璃，终端直接在最终位置淡入。
-  if (flat && element)
-    void trackMotion(
-      context,
-      context.animateIntro(
-        element,
-        [{ opacity: 0 }, { opacity: 1 }],
-        { duration: unit * INTRO_PACING.flatExit, easing: "ease-out", fill: "both" },
-        signal,
-      ),
+  void trackMotion(
+    context,
+    context.animateIntro(
+      terminal,
+      [{ opacity: 0 }, { opacity: 1 }],
+      { duration: unit * INTRO_PACING.flatExit, easing: "ease-out", fill: "both" },
       signal,
-    );
-  await playBoot(context, unit, signal, false);
+    ),
+    signal,
+  );
+  context.phase.value = "boot";
+  await nextTick();
+  let duration = 0;
+  const cues = [...BOOT_CUES, BOOT_CONTENT].map(({ delayUnits, line }) => {
+    duration += unit * delayUnits;
+    return { at: duration, line };
+  });
+  duration += unit * INTRO_PACING.flatBootReady;
+  let nextCue = 0;
+  function render(elapsed: number) {
+    for (let cue = cues[nextCue]; cue && elapsed >= cue.at; cue = cues[++nextCue]) {
+      const line = cue.line(context.getCommandCount());
+      context.bootLines.value.push(line);
+      if (line.message.key === "boot.content") context.revealing.value = true;
+    }
+    setBootProgress(context, elapsed / duration);
+  }
+  await context.animateIntro(terminal, [], { duration }, signal, render);
+  render(duration);
+  context.bootLines.value.push(BOOT_READY);
+  await sleep(context, unit * INTRO_PACING.bootComplete, signal);
+  signal.throwIfAborted();
   await playBrand(context, unit, signal);
 }
 
 /**
- * A device without a usable GPU gets the CA mark and one accent line, never a simulated journey.
- * 没有可用 GPU 的设备只看到 CA 标识与一条主色线，不模拟穿城镜头。
+ * A device without a usable GPU gets the flat CA mark and a crossfade at the terminal's final position.
+ * 没有可用 GPU 的设备只播放二维 CA 标识，随后在终端的最终位置交叉淡化。
  */
-async function playFlatEntry(context: IntroContext, unit: number, signal: AbortSignal) {
+async function playFlatEntry(
+  context: IntroContext,
+  terminal: HTMLElement,
+  unit: number,
+  signal: AbortSignal,
+) {
   const root = (context.markRef.value?.$el as HTMLElement | undefined) ?? null;
   if (!root) return;
   await waitForPaint(signal);
-  let handoff: Promise<void> | undefined;
   await playFlatMark({
     root,
     unit,
@@ -205,14 +254,20 @@ async function playFlatEntry(context: IntroContext, unit: number, signal: AbortS
     onStage: (stage) => {
       context.markStage.value = stage;
     },
-    onHandoff: () => {
-      handoff = runHandoff(context, unit, signal, true);
-    },
   });
-  // The mark has faded; release its DOM before the welcome print continues.
-  // 标识已淡出，在欢迎文案继续打印前释放其 DOM。
-  if (context.introScene.value === "flat") context.introScene.value = null;
-  await handoff;
+  await Promise.all([
+    context
+      .animateIntro(
+        root,
+        [{ opacity: 1 }, { opacity: 0 }],
+        { duration: unit * INTRO_PACING.flatExit, easing: "ease-in", fill: "both" },
+        signal,
+      )
+      .then(() => {
+        if (context.introScene.value === "flat") context.introScene.value = null;
+      }),
+    runFlatHandoff(context, terminal, unit, signal),
+  ]);
 }
 
 export async function playMark(
@@ -263,5 +318,5 @@ export async function playMark(
   context.markStage.value = "drawing";
   await nextTick();
   if (signal.aborted) return;
-  await playFlatEntry(context, unit, signal);
+  await playFlatEntry(context, element, unit, signal);
 }

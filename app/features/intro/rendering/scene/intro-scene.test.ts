@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Matrix4, Mesh, MeshStandardMaterial, Vector3, Vector4 } from "three";
-import { AUDITORIUM } from "../../core/intro-auditorium";
+import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../../core/intro-auditorium";
 import { JOURNEY } from "../../core/intro-geometry";
 import { createRoomLight } from "../environment/intro-scene-lighting";
 import { createIntroCamera, createIntroScene } from "./intro-scene";
@@ -70,6 +70,49 @@ test("surface batching corrects reflected winding without losing normals or road
   }
   scene.dispose();
   material.dispose();
+});
+
+test("auditorium triangles retain their winding and hard-edge normals after indexing", () => {
+  const x = JOURNEY.roadX + 700;
+  const z = AUDITORIUM.entrance - 500;
+  const surface = AUDITORIUM_MATERIAL.seat;
+  const a = [x, 0, z, 0, 0, 1, surface];
+  const b = [x + 80, 0, z, 0, 0, 1, surface];
+  const c = [x, 80, z, 0, 0, 1, surface];
+  const d = [x + 80, 80, z, 0, 0, 1, surface];
+  const back = [x, 0, z, 0, 0, -1, surface];
+  const source = Float32Array.from([...a, ...b, ...c, ...b, ...d, ...c, ...back, ...c, ...b]);
+  const material = new MeshStandardMaterial();
+  const scene = createIntroScene(source, { get: () => material });
+  try {
+    const mesh = scene.world.children[0];
+    if (!(mesh instanceof Mesh)) throw new Error("Seat mesh required");
+    const geometry = mesh.geometry;
+    const positions = geometry.getAttribute("position");
+    const normals = geometry.getAttribute("normal");
+    const index = geometry.getIndex();
+    if (!index) throw new Error("Reusable seat vertices required");
+    expect(positions.count).toBe(5);
+    expect(index.count).toBe(9);
+    const corners = Array.from({ length: index.count }, (_, i) => {
+      const vertex = index.getX(i);
+      return [positions.getX(vertex), -positions.getY(vertex), normals.getZ(vertex)];
+    });
+    expect(corners).toEqual([
+      [x, 0, 1],
+      [x, 80, 1],
+      [x + 80, 0, 1],
+      [x + 80, 0, 1],
+      [x, 80, 1],
+      [x + 80, 80, 1],
+      [x, 0, -1],
+      [x + 80, 0, 1],
+      [x, 80, 1],
+    ]);
+  } finally {
+    scene.dispose();
+    material.dispose();
+  }
 });
 
 test("the auditorium shadow beam covers the aisle but excludes the enclosing roof", () => {

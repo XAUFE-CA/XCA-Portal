@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { recordTerminal, terminalRecords } from "../support/timing";
 
 type Graphics = "unavailable" | "blocked";
 
@@ -18,6 +19,7 @@ for (const graphics of ["unavailable", "blocked"] as const) {
     page,
   }) => {
     await setGraphics(page, graphics);
+    await recordTerminal(page);
     const panoramas: string[] = [];
     page.on("request", (request) => {
       if (new URL(request.url()).pathname.startsWith("/intro/")) panoramas.push(request.url());
@@ -30,12 +32,20 @@ for (const graphics of ["unavailable", "blocked"] as const) {
     await expect(mark).toBeVisible({ timeout: 5000 });
     // The flat entry never mounts a projected scene or a canvas.
     await expect(mark.locator("canvas")).toHaveCount(0);
+    await expect(mark.locator(".xca-intro-flat__line")).toHaveCount(0);
     await expect(page.locator(".xca-terminal-bootlog__line").first()).toBeVisible({
       timeout: 5000,
     });
     await expect(mark).toHaveCount(0);
     const input = page.locator("#xca-command-input");
     await expect(input).toBeEnabled({ timeout: 30_000 });
+    const { sequence } = await terminalRecords(page);
+    const ticks = sequence.filter((entry) => entry.progress !== null);
+    // The flat scene has no docking wait after the content cue.
+    // 二维入场在内容提示后无须等待归位。
+    const content = ticks.find((entry) => entry.bootLines >= 5);
+    expect(content?.progress).toBeGreaterThanOrEqual(75);
+    expect(ticks.find((entry) => entry.progress === 100)?.bootLines).toBe(6);
     await input.fill("echo flat-entry");
     await input.press("Enter");
     await expect(page.locator(".xca-terminal-line").last()).toHaveText("flat-entry");
