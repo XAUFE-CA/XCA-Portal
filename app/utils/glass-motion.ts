@@ -4,6 +4,7 @@ export function refreshGlassDuring(
   animation: Animation,
   renderer: Pick<GlassRenderer, "refresh"> | undefined,
   element?: HTMLElement | null,
+  shouldRefresh?: () => boolean,
 ): void {
   if (!renderer) return;
   let frame = 0;
@@ -15,7 +16,8 @@ export function refreshGlassDuring(
     if (stopped) return;
     if (
       Number(animation.currentTime ?? 0) >= delay &&
-      (animation.playState === "running" || animation.pending)
+      (animation.playState === "running" || animation.pending) &&
+      (!shouldRefresh || shouldRefresh())
     ) {
       let bounds = "";
       if (element) {

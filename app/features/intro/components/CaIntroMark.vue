@@ -17,14 +17,13 @@ const meshSlot = ref<HTMLElement | null>(null);
 const meshReady = ref(false);
 let releaseMesh: (() => void) | null = null;
 let mounted = false;
-const flatSvg = mark
+// Both flat and spatial entries share the uncropped 1254-unit coordinate space so rendered size and stroke weight match.
+// 二维与空间入场共用未裁剪的 1254 单位坐标系，使渲染尺寸与描边粗细一致。
+const markSvg = mark
   .replace(/<title[\s\S]*?<\/title>/, "")
   .replace(/\s(?:role|aria-labelledby)="[^"]*"/g, "")
   .replaceAll("<path", '<path pathLength="1"')
-  .replace(/fill="#[\da-f]+"/gi, 'fill="currentColor"');
-// Spatial geometry uses the original coordinate space, not the cropped square viewBox.
-// 空间几何使用原始坐标系，不使用裁剪后的方形视框。
-const spatialSvg = flatSvg
+  .replace(/fill="#[\da-f]+"/gi, 'fill="currentColor"')
   .replace(/viewBox="[^"]*"/, 'viewBox="0 0 1254 1254"')
   .replace(/width="\d+"/, 'width="1254"')
   .replace(/height="\d+"/, 'height="1254"');
@@ -122,7 +121,7 @@ onBeforeUnmount(() => {
     <!-- The flat entry keeps the same root so a failed renderer can swap scenes in place.
          二维入场沿用同一根节点，渲染器失败时可在原处切换场景。 -->
     <div v-if="flat" class="xca-intro-flat" aria-hidden="true">
-      <div class="xca-intro-flat__mark" v-html="flatSvg" />
+      <div class="xca-intro-flat__mark" v-html="markSvg" />
     </div>
     <template v-else>
       <div class="xca-ca-intro__aura" aria-hidden="true" />
@@ -142,10 +141,10 @@ onBeforeUnmount(() => {
                   transform: `translateZ(${-depth}px)`,
                   '--xca-depth-light': 84 - index * 2,
                 }"
-                v-html="spatialSvg"
+                v-html="markSvg"
               />
             </template>
-            <div ref="front" class="xca-ca-intro__front" v-html="spatialSvg" />
+            <div ref="front" class="xca-ca-intro__front" v-html="markSvg" />
           </div>
           <div class="xca-ca-intro__travel">
             <div

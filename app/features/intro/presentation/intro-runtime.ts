@@ -125,7 +125,13 @@ export function createIntroContext(getCommandCount: () => number) {
     viewportSize: { width: 0, height: 0 },
   };
   const playback = createIntroPlayback(
-    (animation) => trackGlassMotion(animation, $glassRenderer),
+    (animation) =>
+      trackGlassMotion(
+        animation,
+        $glassRenderer,
+        undefined,
+        () => frame(anchor)?.getAttribute("data-neoverse-glass-edge-pass") !== "css",
+      ),
     () => frame(anchor),
   );
   const expansion = useTerminalExpansion({

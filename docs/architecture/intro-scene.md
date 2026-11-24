@@ -17,7 +17,7 @@ Status: adopted
 | [intro-graphics.ts](../../app/features/intro/core/intro-graphics.ts) | 硬件渲染能力探测与上下文释放 |
 | [intro-flat.ts](../../app/features/intro/presentation/intro-flat.ts) | 无 GPU 时的标识描边、填充与停留 |
 | [intro-mark-mesh.ts](../../app/features/intro/rendering/scene/intro-mark-mesh.ts) | CA 原始轮廓挤出、道路与报告厅静态网格 |
-| [intro-mark-renderer.ts](../../app/features/intro/rendering/intro-mark-renderer.ts) | 动态导入入口，负责 Three.js 初始化、预热与绘制生命周期 |
+| [intro-mark-renderer.ts](../../app/features/intro/rendering/intro-mark-renderer.ts)、[intro-renderer-sync.ts](../../app/features/intro/rendering/intro-renderer-sync.ts) | 动态导入入口，负责 Three.js 初始化、预热、GPU 分级分辨率预算、主线程动画锁定与绘制生命周期 |
 | [intro-scene.ts](../../app/features/intro/rendering/scene/intro-scene.ts) | 按材质合批及 CSS 相机适配 |
 | [intro-city-mesh.ts](../../app/features/intro/rendering/city/intro-city-mesh.ts) | 城市街区、收分高层、承托裙楼与同侧连廊 |
 | [intro-city-layout.ts](../../app/features/intro/rendering/city/intro-city-layout.ts)、[intro-city-environment.ts](../../app/features/intro/rendering/city/intro-city-environment.ts)、[intro-city-primitives.ts](../../app/features/intro/rendering/city/intro-city-primitives.ts) | 地块与街道坐标、地面及设施、闭合棱柱与平面网格 |
@@ -35,7 +35,7 @@ Status: adopted
 
 ## 场景绘制
 
-`CaIntroMark` 使用 `public/brand/ca-mark.svg` 的三个路径，并把导入的 `viewBox` 与宽高还原为 1254 单位，使页面裁剪不改变场景坐标。CA 保留原版闭合轮廓与 72 单位挤出厚度，不增加倒角。
+`CaIntroMark` 使用 `public/brand/ca-mark.svg` 的三个路径，并将二维与空间入场的 `viewBox`、`width`/`height` 与视口尺度统一为 1254 单位及相同屏占比，保证两种路径呈现一致的标识大小与描边粗细。CA 保留原版闭合轮廓与 72 单位挤出厚度，不增加倒角。
 
 `MeshBasicMaterial` 不参与色调映射、雾化或环境照明，正面取主题前景色。深色主题为纯白，浅色主题为深色。顶点色保留原版按法线方向计算的中性侧壁明暗。
 
@@ -47,7 +47,7 @@ Status: adopted
 
 报告厅不生成环境贴图，保持独立灯光、不透明材质与深度写入。真实终端的极光玻璃仍由唯一共享运行时绘制。选择依据见 [Three.js 渲染决策](../adr/0001-three-intro-rendering.md)。
 
-完整空间入场在 SVG 描边前等待 `prepareRenderer(gl, signal)`。该准备动态导入渲染模块，复用探测得到的 WebGL2 上下文创建静态网格与材质，并行下载两张天空全景，再生成 PMREM 与离屏目标，通过 `compileAsync` 预编译两种输出并完成隐藏首绘。
+完整空间入场在 SVG 描边前等待 `prepareRenderer(gl, signal)`。该准备动态导入渲染模块，复用探测得到的 WebGL2 上下文创建静态网格与材质，依据显卡分级在核显与软件渲染器上约束初始绘制缓冲像素预算及透射通道缩放比例（同时完整保留所有原始着色器与材质），并行下载两张天空全景，再生成 PMREM 与离屏目标，按城市、室外和报告厅三个图层及各自实际渲染目标通过 `compileAsync` 预编译着色器，并完成隐藏首绘；播放期间锁定主线程 WAAPI 变换以防合成器超前。
 
 图形能力由 `probeIntroGraphics` 在动态导入前判定，要求 `failIfMajorPerformanceCaveat` 下仍能取得 WebGL2 上下文。探测失败或渲染模块初始化失败时释放上下文，改由 `playFlatMark` 描边并填充同一 CA 标识。终端不投影，直接淡入并接启动输出；该路径不下载 Three.js 或天空全景。
 

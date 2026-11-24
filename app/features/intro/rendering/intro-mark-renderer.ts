@@ -1,11 +1,4 @@
-import {
-  ACESFilmicToneMapping,
-  Fog,
-  MathUtils,
-  SRGBColorSpace,
-  Vector3,
-  WebGLRenderer,
-} from "three";
+import { Fog, MathUtils, Vector3, type WebGLRenderer } from "three";
 import { tokenLength } from "~/utils/cssTokens";
 import {
   ARRIVAL_ENTRY,
@@ -21,6 +14,7 @@ import { type CityLayer, createCityLayer } from "./city/intro-city-layer";
 import { createIntroLighting, type IntroLighting } from "./environment/intro-scene-lighting";
 import { createIntroPalette, type IntroPalette } from "./environment/intro-scene-palette";
 import { createIntroSky, type IntroSky } from "./environment/intro-sky";
+import { createCompositorSync, createRenderer } from "./intro-renderer-sync";
 import { createMarkMesh } from "./scene/intro-mark-mesh";
 import {
   createIntroCamera,
@@ -53,42 +47,6 @@ interface Pipeline {
   palette: IntroPalette;
   fog: Fog;
   dispose(): void;
-}
-
-function createRenderer(
-  root: HTMLElement,
-  canvas: HTMLCanvasElement,
-  context: WebGL2RenderingContext,
-) {
-  const renderer = new WebGLRenderer({ canvas, context, alpha: true });
-  renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1;
-  renderer.autoClear = false;
-  renderer.setClearColor(0, 0);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.autoUpdate = false;
-  // A software context can still pass the probe; keep its pixel ratio at 1 rather than 2.
-  // 软件上下文仍可能通过探测，因此把它的像素比保持在 1 而不是 2。
-  const gl = renderer.getContext();
-  const info = gl.getExtension("WEBGL_debug_renderer_info");
-  const software =
-    info &&
-    /swiftshader|llvmpipe|lavapipe|softpipe|software|basic render/i.test(
-      String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)),
-    );
-  const width = Math.max(1, root.clientWidth);
-  const height = Math.max(1, root.clientHeight);
-  const limit = renderer.capabilities.maxTextureSize;
-  const ratio = Math.min(
-    software ? 1 : Math.min(2, window.devicePixelRatio || 1),
-    Math.sqrt(8_000_000 / (width * height)),
-    limit / width,
-    limit / height,
-  );
-  renderer.setPixelRatio(ratio);
-  renderer.setSize(width, height, false);
-  return renderer;
 }
 
 function createPipeline(
@@ -155,12 +113,18 @@ function createPipeline(
   }
 }
 
+interface SignState {
+  element: HTMLElement;
+  depth: number;
+  opacity: string;
+}
+
 function draw(
   state: Pipeline,
   camera: HTMLElement,
   front: SVGPathElement,
   travel: HTMLElement,
-  signs: HTMLElement[],
+  signs: SignState[],
   aura: HTMLElement,
   warm = false,
 ) {
@@ -230,8 +194,11 @@ function draw(
     warm || shadows,
   );
   for (const sign of signs) {
-    const opacity = String(sceneryOpacity(frame.growth.value, Number(sign.dataset.depth)));
-    if (sign.style.opacity !== opacity) sign.style.opacity = opacity;
+    const opacity = String(sceneryOpacity(frame.growth.value, sign.depth));
+    if (sign.opacity !== opacity) {
+      sign.element.style.opacity = opacity;
+      sign.opacity = opacity;
+    }
   }
 }
 
@@ -241,7 +208,7 @@ interface RenderElements {
   camera: HTMLElement;
   front: SVGPathElement;
   travel: HTMLElement;
-  signs: HTMLElement[];
+  signs: SignState[];
   aura: HTMLElement;
 }
 
@@ -253,12 +220,18 @@ async function warmPipeline(state: Pipeline, elements: RenderElements, signal: A
   state.materials.setEnvironment(state.lighting.update(state.palette, state.frame.travel.value));
   state.lighting.useExterior();
   state.renderer.shadowMap.needsUpdate = true;
-  // Precompile both output variants before SVG stroke animation can start.
-  // 在 SVG 描边动画开始前预编译两种输出格式。
+  // Precompile each layer against its actual render target and light set before SVG strokes begin.
+  // 在 SVG 描边开始前，按各层实际的渲染目标与灯光集预编译着色器。
   state.renderer.setRenderTarget(state.city.target);
+  state.view.camera.layers.set(INTRO_LAYERS.city);
   await state.renderer.compileAsync(state.scene.scene, state.view.camera);
   signal.throwIfAborted();
   state.renderer.setRenderTarget(null);
+  state.view.camera.layers.set(INTRO_LAYERS.exterior);
+  await state.renderer.compileAsync(state.scene.scene, state.view.camera);
+  signal.throwIfAborted();
+  state.lighting.useAuditorium();
+  state.view.camera.layers.set(INTRO_LAYERS.auditorium);
   await state.renderer.compileAsync(state.scene.scene, state.view.camera);
   signal.throwIfAborted();
   draw(
@@ -275,10 +248,13 @@ async function warmPipeline(state: Pipeline, elements: RenderElements, signal: A
 class MarkRenderer {
   private frame = 0;
   private disposed = false;
+  private themeDirty = false;
   private previousFrameTime: number | undefined;
   private slowFrames = 0;
   private resolutionDrops = 0;
-  private observer = new MutationObserver(() => this.sync());
+  private compositorSync: ReturnType<typeof createCompositorSync>;
+  private journeyObserver = new MutationObserver(() => this.syncPlayback());
+  private themeObserver = new MutationObserver(() => this.syncTheme());
   private colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
 
   constructor(
@@ -287,14 +263,22 @@ class MarkRenderer {
     private unavailable: () => void,
     private signal: AbortSignal,
   ) {
-    this.observer.observe(elements.root, { attributes: true, attributeFilter: ["data-journey"] });
-    this.observer.observe(document.documentElement, {
+    const terminal =
+      elements.root
+        .closest(".xca-terminal-hero")
+        ?.querySelector<HTMLElement>(".xca-terminal-window") ?? null;
+    this.compositorSync = createCompositorSync([elements.camera, elements.travel, terminal]);
+    this.journeyObserver.observe(elements.root, {
+      attributes: true,
+      attributeFilter: ["data-journey"],
+    });
+    this.themeObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],
     });
-    this.colorScheme.addEventListener("change", this.sync);
+    this.colorScheme.addEventListener("change", this.syncTheme);
     elements.canvas.addEventListener("webglcontextlost", this.lost);
-    document.addEventListener("visibilitychange", this.sync);
+    document.addEventListener("visibilitychange", this.syncPlayback);
     signal.addEventListener("abort", this.dispose, { once: true });
   }
 
@@ -305,7 +289,7 @@ class MarkRenderer {
       this.signal.removeEventListener("abort", this.dispose);
       this.elements.root.dataset.markRenderer = "mesh";
       this.elements.root.dataset.renderEngine = "three";
-      this.sync();
+      this.syncPlayback();
       return this.dispose;
     } catch {
       this.dispose();
@@ -314,7 +298,7 @@ class MarkRenderer {
     }
   }
 
-  private adaptResolution(now: number, camera: HTMLElement) {
+  private adaptResolution(now: number, camera: HTMLElement, travel: HTMLElement) {
     const previous = this.previousFrameTime;
     this.previousFrameTime = now;
     if (previous === undefined || this.resolutionDrops >= MAX_RESOLUTION_DROPS) return;
@@ -324,7 +308,10 @@ class MarkRenderer {
     }
     if (++this.slowFrames < SLOW_FRAME_STREAK) return;
     this.slowFrames = 0;
-    if (!camera.getAnimations().some((animation) => animation.playState === "running")) return;
+    const moving =
+      camera.getAnimations().some((animation) => animation.playState === "running") ||
+      travel.getAnimations().some((animation) => animation.playState === "running");
+    if (!moving) return;
 
     // Change the drawing buffer only; the CSS viewport and all passes stay in place.
     // 只缩小绘制缓冲；CSS 视口和所有可见绘制通道保持不变。
@@ -338,11 +325,14 @@ class MarkRenderer {
     const { root, canvas, camera, front, travel, signs, aura } = this.elements;
     // The remaining terminal work must not redraw an already faded canvas.
     // 终端继续加载时，不再重绘已完全淡出的画布。
-    if (root.dataset.journey === "retreat" && Number(getComputedStyle(canvas).opacity) === 0)
+    if (root.dataset.journey === "retreat" && Number(getComputedStyle(canvas).opacity) === 0) {
+      this.compositorSync.release();
       return;
+    }
     try {
+      if (root.dataset.journey !== "retreat") this.compositorSync.sync();
       if (now !== undefined && root.dataset.journey !== "retreat")
-        this.adaptResolution(now, camera);
+        this.adaptResolution(now, camera, travel);
       draw(this.state, camera, front, travel, signs, aura);
       this.frame = requestAnimationFrame(this.paint);
     } catch {
@@ -351,21 +341,19 @@ class MarkRenderer {
     }
   };
 
-  private sync = () => {
-    cancelAnimationFrame(this.frame);
-    this.previousFrameTime = undefined;
-    this.slowFrames = 0;
-    const { root, canvas, signs } = this.elements;
-    if (root.dataset.journey === "draw")
-      for (const sign of signs) sign.style.removeProperty("opacity");
-    if (
-      this.disposed ||
-      root.dataset.markRenderer !== "mesh" ||
-      document.hidden ||
-      !["approach", "cruise", "retreat"].includes(root.dataset.journey ?? "")
-    )
-      return;
-    this.state.palette = createIntroPalette(canvas);
+  private isPlaying() {
+    const { root } = this.elements;
+    return (
+      !this.disposed &&
+      root.dataset.markRenderer === "mesh" &&
+      !document.hidden &&
+      ["approach", "cruise", "retreat"].includes(root.dataset.journey ?? "")
+    );
+  }
+
+  private applyTheme() {
+    this.themeDirty = false;
+    this.state.palette = createIntroPalette(this.elements.canvas);
     this.state.fog.color.copy(this.state.palette.haze);
     this.state.materials.update(this.state.palette);
     this.state.sky.update(this.state.palette);
@@ -373,6 +361,30 @@ class MarkRenderer {
       this.state.lighting.update(this.state.palette, this.state.frame.travel.value),
     );
     this.state.renderer.shadowMap.needsUpdate = true;
+  }
+
+  private syncTheme = () => {
+    this.themeDirty = true;
+    if (this.isPlaying()) this.applyTheme();
+  };
+
+  private syncPlayback = () => {
+    cancelAnimationFrame(this.frame);
+    this.previousFrameTime = undefined;
+    this.slowFrames = 0;
+    const { root, signs } = this.elements;
+    if (root.dataset.journey === "draw") {
+      for (const sign of signs) {
+        sign.element.style.removeProperty("opacity");
+        sign.opacity = "";
+      }
+    }
+    if (!this.isPlaying()) {
+      this.compositorSync.release();
+      return;
+    }
+    if (this.themeDirty) this.applyTheme();
+    this.compositorSync.sync();
     this.paint();
   };
 
@@ -386,9 +398,11 @@ class MarkRenderer {
     if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.frame);
-    this.observer.disconnect();
-    document.removeEventListener("visibilitychange", this.sync);
-    this.colorScheme.removeEventListener("change", this.sync);
+    this.compositorSync.release();
+    this.journeyObserver.disconnect();
+    this.themeObserver.disconnect();
+    document.removeEventListener("visibilitychange", this.syncPlayback);
+    this.colorScheme.removeEventListener("change", this.syncTheme);
     this.elements.canvas.removeEventListener("webglcontextlost", this.lost);
     this.signal.removeEventListener("abort", this.dispose);
     delete this.elements.root.dataset.markRenderer;
@@ -424,7 +438,11 @@ export async function mountMarkRenderer(
       front,
       travel,
       aura,
-      signs: [...root.querySelectorAll<HTMLElement>(".xca-ca-intro__rib")],
+      signs: [...root.querySelectorAll<HTMLElement>(".xca-ca-intro__rib")].map((element) => ({
+        element,
+        depth: Number(element.dataset.depth),
+        opacity: element.style.opacity,
+      })),
     };
     return await new MarkRenderer(state, elements, unavailable, signal).prepare();
   } catch {

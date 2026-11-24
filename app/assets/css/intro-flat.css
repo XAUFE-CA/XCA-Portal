@@ -3,11 +3,12 @@
 .xca-intro-flat {
   position: absolute;
   inset: 0;
+  container-type: size;
   display: grid;
   place-items: center;
 }
 .xca-intro-flat__mark {
-  width: min(52vmin, 352px);
+  width: min(352px, 64cqi, 52cqb);
   aspect-ratio: 1;
   color: var(--neoverse-color-text-primary);
 }
@@ -19,9 +20,9 @@
 .xca-intro-flat__mark path {
   fill-opacity: 0;
   stroke: currentColor;
-  /* The cropped 940-unit viewBox needs a heavier stroke to read at the same weight.
-     裁剪后的 940 单位视框需要更粗的描边才能保持同样的视觉重量。 */
-  stroke-width: 9;
+  /* Matches .xca-ca-intro__front path on the shared 1254-unit viewBox.
+     在共用的 1254 单位视框上与 .xca-ca-intro__front path 保持一致。 */
+  stroke-width: 6;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 1;

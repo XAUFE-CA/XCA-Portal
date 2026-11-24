@@ -43,14 +43,24 @@ export async function playFlatMark(context: FlatContext) {
   signal.throwIfAborted();
   onStage?.("journey");
   await Promise.all(
-    [...paths].map((path) =>
+    [...paths].flatMap((path) => [
       animate(
         path,
         [{ fillOpacity: 0 }, { fillOpacity: 1 }],
         { duration: unit * INTRO_PACING.flatFill, easing: "ease-out", fill: "both" },
         signal,
       ),
-    ),
+      animate(
+        path,
+        [{ strokeOpacity: 1 }, { strokeOpacity: 0 }],
+        {
+          duration: unit * INTRO_PACING.flatFill * 0.5,
+          delay: unit * INTRO_PACING.flatFill * 0.5,
+          fill: "both",
+        },
+        signal,
+      ),
+    ]),
   );
   signal.throwIfAborted();
   await animate(root, [], { duration: unit * INTRO_PACING.flatHold }, signal);

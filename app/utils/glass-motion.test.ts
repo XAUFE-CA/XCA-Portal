@@ -88,3 +88,18 @@ test("intro keeps refreshing non-geometric effects and cancellation releases the
   h.tick();
   expect(h.count()).toBe(3);
 });
+
+test("shouldRefresh suppresses shared edge repaints until local CSS edge mode ends", async () => {
+  const h = harness();
+  let allow = false;
+  refreshGlassDuring(h.animation, h.renderer, undefined, () => allow);
+  h.tick();
+  h.tick();
+  expect(h.count()).toBe(0);
+  allow = true;
+  h.tick();
+  expect(h.count()).toBe(1);
+  h.finish();
+  await Promise.resolve();
+  expect(h.count()).toBe(2);
+});

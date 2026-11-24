@@ -3,6 +3,7 @@ import { Matrix4, Mesh, MeshStandardMaterial, Vector3, Vector4 } from "three";
 import { AUDITORIUM, AUDITORIUM_MATERIAL } from "../../core/intro-auditorium";
 import { JOURNEY } from "../../core/intro-geometry";
 import { createRoomLight } from "../environment/intro-scene-lighting";
+import { classifyIntroRenderer, computeIntroPixelRatio } from "../intro-renderer-sync";
 import { createIntroCamera, createIntroScene } from "./intro-scene";
 
 function cssMatrix(matrix: Matrix4): DOMMatrixReadOnly {
@@ -137,4 +138,42 @@ test("the auditorium shadow beam covers the aisle but excludes the enclosing roo
   } finally {
     light.dispose();
   }
+});
+
+test("classifyIntroRenderer separates software, integrated, and discrete GPUs", () => {
+  expect(
+    classifyIntroRenderer(
+      "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader)",
+    ),
+  ).toBe("software");
+  expect(classifyIntroRenderer("llvmpipe (LLVM 15.0.7, 256 bits)")).toBe("software");
+  expect(classifyIntroRenderer("Microsoft Basic Render Driver")).toBe("software");
+
+  expect(
+    classifyIntroRenderer(
+      "ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    ),
+  ).toBe("integrated");
+  expect(classifyIntroRenderer("Intel(R) Iris(R) Xe Graphics")).toBe("integrated");
+  expect(classifyIntroRenderer("Intel(R) Arc(TM) Graphics")).toBe("integrated");
+  expect(classifyIntroRenderer("AMD Radeon(TM) Graphics")).toBe("integrated");
+  expect(classifyIntroRenderer("AMD Radeon(TM) 780M Graphics")).toBe("integrated");
+  expect(classifyIntroRenderer("Adreno (TM) 740")).toBe("integrated");
+  expect(classifyIntroRenderer("Mali-G78")).toBe("integrated");
+
+  expect(classifyIntroRenderer("NVIDIA GeForce RTX 5090")).toBe("discrete");
+  expect(classifyIntroRenderer("AMD Radeon RX 7900 XTX")).toBe("discrete");
+  expect(classifyIntroRenderer("Intel(R) Arc(TM) A770 Graphics")).toBe("discrete");
+  expect(classifyIntroRenderer("")).toBe("discrete");
+});
+
+test("computeIntroPixelRatio bounds buffer size by tier and texture limit", () => {
+  expect(computeIntroPixelRatio(1440, 900, 2, 16384, "discrete")).toBe(2);
+
+  const integratedRatio = computeIntroPixelRatio(1440, 900, 2, 16384, "integrated");
+  expect(integratedRatio).toBeLessThanOrEqual(1);
+  expect(1440 * 900 * integratedRatio * integratedRatio).toBeLessThanOrEqual(780_000 + 1e-6);
+
+  expect(computeIntroPixelRatio(4096, 1024, 2, 4096, "discrete")).toBe(1);
+  expect(computeIntroPixelRatio(8192, 1024, 2, 4096, "discrete")).toBe(0.5);
 });
